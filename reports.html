@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reports — Payroll Master Files</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<nav>
+    <span class="brand">Payroll System — Admin</span>
+    <a href="index.html" data-page="index.html">Dashboard</a>
+    <a href="departments.html" data-page="departments.html">Departments</a>
+    <a href="positions.html" data-page="positions.html">Positions</a>
+    <a href="employees.html" data-page="employees.html">Employees</a>
+    <a href="leave_types.html" data-page="leave_types.html">Leave Types</a>
+    <a href="users.html" data-page="users.html">Users</a>
+
+    <a href="payroll_periods.html" data-page="payroll_periods.html">Payroll Periods</a>
+    <a href="payroll_runs.html" data-page="payroll_runs.html">Payroll Runs</a>
+    <a href="attendance.html" data-page="attendance.html">Attendance</a>
+    <a href="loans.html" data-page="loans.html">Loans</a>
+    <a href="overtime.html" data-page="overtime.html">Overtime</a>
+    <a href="leave_requests.html" data-page="leave_requests.html">Leave Requests</a>
+    <a href="leave_balances.html" data-page="leave_balances.html">Leave Balances</a>
+    <a href="ledger.html" data-page="ledger.html">Ledger</a>
+    <a href="reports.html" data-page="reports.html">Reports</a>
+</nav>
+<div class="container">
+
+    <h1>Reports</h1>
+    <p class="subtitle">Print-ready payroll outputs for sign-off and government filing.</p>
+
+    <div id="msg" class="msg hidden"></div>
+
+    <!-- REPORT: PAYROLL SUMMARY -->
+    <div class="card">
+        <h3>Payroll Summary</h3>
+        <p style="margin:0 0 12px;font-size:13px;color:#666;">
+            Aggregate totals for a payroll run — gross, deductions, net, and employer contributions.
+        </p>
+        <form id="summary-form" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+            <div style="flex:1;min-width:260px;">
+                <label style="display:block;font-size:12.5px;color:#555;margin-bottom:4px;font-weight:600;">Payroll Run</label>
+                <select id="summary_run_id" required style="width:100%;padding:8px 10px;border:1px solid #ccd3dc;border-radius:5px;font-size:13.5px;">
+                    <option value="">-- Select a run --</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" type="submit">Generate</button>
+            <button class="btn btn-plain" type="button" id="print-summary" disabled>Print</button>
+        </form>
+    </div>
+    <div class="card hidden" id="summary-card">
+        <div id="summary-output"></div>
+    </div>
+
+    <!-- REPORT: PAYROLL REGISTER -->
+    <div class="card">
+        <h3>Payroll Register</h3>
+        <p style="margin:0 0 12px;font-size:13px;color:#666;">
+            Full breakdown of every payslip in a payroll run. Printable for sign-off.
+        </p>
+        <form id="register-form" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+            <div style="flex:1;min-width:260px;">
+                <label style="display:block;font-size:12.5px;color:#555;margin-bottom:4px;font-weight:600;">Payroll Run</label>
+                <select id="run_id" required style="width:100%;padding:8px 10px;border:1px solid #ccd3dc;border-radius:5px;font-size:13.5px;">
+                    <option value="">-- Select a run --</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" type="submit">Generate</button>
+            <button class="btn btn-plain" type="button" id="print-register" disabled>Print</button>
+        </form>
+    </div>
+    <div class="card hidden" id="register-card">
+        <div id="register-output"></div>
+    </div>
+
+    <!-- REPORT: GOVT REMITTANCE -->
+    <div class="card">
+        <h3>Government Remittance Summary</h3>
+        <p style="margin:0 0 12px;font-size:13px;color:#666;">
+            Totals to remit to SSS, PhilHealth, Pag-IBIG, and BIR for a given month.
+        </p>
+        <form id="remittance-form" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+            <div style="min-width:120px;">
+                <label style="display:block;font-size:12.5px;color:#555;margin-bottom:4px;font-weight:600;">Year</label>
+                <input type="number" id="year" min="2000" max="2100" required
+                       style="width:100%;padding:8px 10px;border:1px solid #ccd3dc;border-radius:5px;font-size:13.5px;">
+            </div>
+            <div style="min-width:180px;">
+                <label style="display:block;font-size:12.5px;color:#555;margin-bottom:4px;font-weight:600;">Month</label>
+                <select id="month" required style="width:100%;padding:8px 10px;border:1px solid #ccd3dc;border-radius:5px;font-size:13.5px;">
+                    <option value="1">January</option><option value="2">February</option>
+                    <option value="3">March</option><option value="4">April</option>
+                    <option value="5">May</option><option value="6">June</option>
+                    <option value="7">July</option><option value="8">August</option>
+                    <option value="9">September</option><option value="10">October</option>
+                    <option value="11">November</option><option value="12">December</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" type="submit">Generate</button>
+            <button class="btn btn-plain" type="button" id="print-remittance" disabled>Print</button>
+        </form>
+    </div>
+    <div class="card hidden" id="remittance-card">
+        <div id="remittance-output"></div>
+    </div>
+
+    <!-- REPORT: EMPLOYEE HISTORY -->
+    <div class="card">
+        <h3>Employee Payslip History</h3>
+        <p style="margin:0 0 12px;font-size:13px;color:#666;">
+            Every payslip an employee has ever received, in chronological order.
+        </p>
+        <form id="history-form" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+            <div style="flex:1;min-width:260px;">
+                <label style="display:block;font-size:12.5px;color:#555;margin-bottom:4px;font-weight:600;">Employee</label>
+                <select id="history_employee_id" required style="width:100%;padding:8px 10px;border:1px solid #ccd3dc;border-radius:5px;font-size:13.5px;">
+                    <option value="">-- Select an employee --</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" type="submit">Generate</button>
+            <button class="btn btn-plain" type="button" id="print-history" disabled>Print</button>
+        </form>
+    </div>
+    <div class="card hidden" id="history-card">
+        <div id="history-output"></div>
+    </div>
+
+    <!-- REPORT: DEPT COST -->
+    <div class="card">
+        <h3>Department Cost Summary</h3>
+        <p style="margin:0 0 12px;font-size:13px;color:#666;">
+            Payroll cost per department, including employer contributions.
+        </p>
+        <form id="deptcost-form" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+            <div style="min-width:160px;">
+                <label style="display:block;font-size:12.5px;color:#555;margin-bottom:4px;font-weight:600;">From</label>
+                <input type="date" id="dept_from" required
+                       style="width:100%;padding:8px 10px;border:1px solid #ccd3dc;border-radius:5px;font-size:13.5px;">
+            </div>
+            <div style="min-width:160px;">
+                <label style="display:block;font-size:12.5px;color:#555;margin-bottom:4px;font-weight:600;">To</label>
+                <input type="date" id="dept_to" required
+                       style="width:100%;padding:8px 10px;border:1px solid #ccd3dc;border-radius:5px;font-size:13.5px;">
+            </div>
+            <button class="btn btn-primary" type="submit">Generate</button>
+            <button class="btn btn-plain" type="button" id="print-deptcost" disabled>Print</button>
+        </form>
+    </div>
+    <div class="card hidden" id="deptcost-card">
+        <div id="deptcost-output"></div>
+    </div>
+
+</div>
+
+<script src="assets/js/axios.min.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/reports.js"></script>
+</body>
+</html>

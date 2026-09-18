@@ -1,0 +1,110 @@
+<?php
+require __DIR__ . "/_bootstrap.php";
+
+$method = $_SERVER["REQUEST_METHOD"];
+
+// ---- GET: list all periods with their latest run (if any) ----
+if ($method === "GET") {
+    $sql = "SELECT pp.period_id, pp.start_date, pp.end_date, pp.period_type, pp.status,
+                   (SELECT pr.run_id
+                    FROM payroll_runs pr
+                    WHERE pr.period_id = pp.period_id
+                    ORDER BY pr.run_id DESC LIMIT 1) AS run_id
+            FROM payroll_periods pp
+            ORDER BY pp.start_date DESC";
+    $rows = $pdo->query($sql)->fetchAll();
+    respond(true, "", $rows);
+}
+
+// ---- POST: create ----
+if ($method === "POST") {
+    $in    = json_input();
+    $start = trim($in["start_date"]  ?? "");
+    $end   = trim($in["end_date"]    ?? "");
+    $type  = trim($in["period_type"] ?? "Semi-monthly");
+
+    if ($start === "" || $end === "") {
+        respond(false, "Start Date and End Date are required.", null, 422);
+    }
+    if ($start > $end) {
+        respond(false, "End Date must be on or after Start Date.", null, 422);
+    }
+
+    // Prevent overlapping periods of the same type
+    $stmt = $pdo->prepare(
+        "SELECT COUNT(*) FROM payroll_periods
+         WHERE period_type = ? AND NOT (end_date < ? OR start_date > ?)"
+    );
+    $stmt->execute([$type, $start, $end]);
+    if ((int) $stmt->fetchColumn() > 0) {
+        respond(false, "This period overlaps with an existing $type period.", null, 409);
+    }
+
+    $stmt = $pdo->prepare(
+        "INSERT INTO payroll_periods (start_date, end_date, period_type, status)
+         VALUES (?, ?, ?, 'Open')"
+    );
+    $stmt->execute([$start, $end, $type]);
+
+    respond(true, "Payroll period created.", ["period_id" => (int) $pdo->lastInsertId()]);
+}
+
+// ---- PUT: update (only if not Processed) ----
+if ($method === "PUT") {
+    $in    = json_input();
+    $id    = (int)  ($in["period_id"]   ?? 0);
+    $start = trim($in["start_date"]  ?? "");
+    $end   = trim($in["end_date"]    ?? "");
+    $type  = trim($in["period_type"] ?? "Semi-monthly");
+
+    if ($id === 0 || $start === "" || $end === "") {
+        respond(false, "All fields are required.", null, 422);
+    }
+    if ($start > $end) {
+        respond(false, "End Date must be on or after Start Date.", null, 422);
+    }
+
+    $stmt = $pdo->prepare("SELECT status FROM payroll_periods WHERE period_id = ?");
+    $stmt->execute([$id]);
+    $current = $stmt->fetchColumn();
+    if ($current === false) {
+        respond(false, "Payroll period not found.", null, 404);
+    }
+    if ($current === "Processed") {
+        respond(false, "Cannot edit a period that has already been processed.", null, 409);
+    }
+
+    $stmt = $pdo->prepare(
+        "UPDATE payroll_periods
+         SET start_date = ?, end_date = ?, period_type = ?
+         WHERE period_id = ?"
+    );
+    $stmt->execute([$start, $end, $type, $id]);
+
+    respond(true, "Payroll period updated.");
+}
+
+// ---- PATCH: change status (Open <-> Closed) ----
+if ($method === "PATCH") {
+    $in     = json_input();
+    $id     = (int)  ($in["period_id"] ?? 0);
+    $status = trim($in["status"] ?? "");
+
+    if ($id === 0 || !in_array($status, ["Open", "Closed"], true)) {
+        respond(false, "Valid period_id and status (Open or Closed) are required.", null, 422);
+    }
+
+    $stmt = $pdo->prepare("SELECT status FROM payroll_periods WHERE period_id = ?");
+    $stmt->execute([$id]);
+    $current = $stmt->fetchColumn();
+    if ($current === "Processed") {
+        respond(false, "Cannot change status of a processed period.", null, 409);
+    }
+
+    $stmt = $pdo->prepare("UPDATE payroll_periods SET status = ? WHERE period_id = ?");
+    $stmt->execute([$status, $id]);
+
+    respond(true, $status === "Closed" ? "Period closed." : "Period reopened.");
+}
+
+respond(false, "Method not allowed.", null, 405);

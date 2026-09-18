@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Attendance/Leave Ledger — Payroll Master Files</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<nav>
+    <span class="brand">Payroll System — Admin</span>
+    <a href="index.html" data-page="index.html">Dashboard</a>
+    <a href="departments.html" data-page="departments.html">Departments</a>
+    <a href="positions.html" data-page="positions.html">Positions</a>
+    <a href="employees.html" data-page="employees.html">Employees</a>
+    <a href="leave_types.html" data-page="leave_types.html">Leave Types</a>
+    <a href="users.html" data-page="users.html">Users</a>
+    <a href="payroll_periods.html" data-page="payroll_periods.html">Payroll Periods</a>
+    <a href="payroll_runs.html" data-page="payroll_runs.html">Payroll Runs</a>
+    <a href="attendance.html" data-page="attendance.html">Attendance</a>
+    <a href="loans.html" data-page="loans.html">Loans</a>
+    <a href="overtime.html" data-page="overtime.html">Overtime</a>
+    <a href="leave_requests.html" data-page="leave_requests.html">Leave Requests</a>
+    <a href="leave_balances.html" data-page="leave_balances.html">Leave Balances</a>
+    <a href="ledger.html" data-page="ledger.html">Ledger</a>
+    <a href="reports.html" data-page="reports.html">Reports</a>
+</nav>
+<div class="container">
+
+    <h1>Attendance / Leave Ledger</h1>
+    <p class="subtitle">Chronological record of attendance and leave per employee.</p>
+
+    <div id="msg" class="msg hidden"></div>
+
+    <div class="card">
+        <form id="filter-form" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+            <div style="flex:1;min-width:260px;">
+                <label style="display:block;font-size:12.5px;color:#555;margin-bottom:4px;font-weight:600;">Employee</label>
+                <select id="employee_id" required style="width:100%;padding:8px 10px;border:1px solid #ccd3dc;border-radius:5px;font-size:13.5px;">
+                    <option value="">-- Select an employee --</option>
+                </select>
+            </div>
+            <div style="min-width:160px;">
+                <label style="display:block;font-size:12.5px;color:#555;margin-bottom:4px;font-weight:600;">From</label>
+                <input type="date" id="from_date" required
+                       style="width:100%;padding:8px 10px;border:1px solid #ccd3dc;border-radius:5px;font-size:13.5px;">
+            </div>
+            <div style="min-width:160px;">
+                <label style="display:block;font-size:12.5px;color:#555;margin-bottom:4px;font-weight:600;">To</label>
+                <input type="date" id="to_date" required
+                       style="width:100%;padding:8px 10px;border:1px solid #ccd3dc;border-radius:5px;font-size:13.5px;">
+            </div>
+            <button class="btn btn-primary" type="submit">Generate Ledger</button>
+            <button class="btn btn-plain" type="button" id="print-btn" disabled>Print</button>
+        </form>
+    </div>
+
+    <div class="card hidden" id="result-card">
+        <div id="ledger-output"></div>
+    </div>
+
+</div>
+
+<script src="assets/js/axios.min.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/ledger.js"></script>
+</body>
+</html>

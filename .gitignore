@@ -1,0 +1,22 @@
+# Logs and temp
+*.log
+*.tmp
+
+# OS cruft
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+
+# Backups
+*.bak
+*.zip
+backups/
+
+# Config with credentials (optional — uncomment if you want to skip)
+# config.php
+
+*.sql

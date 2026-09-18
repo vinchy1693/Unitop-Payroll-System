@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Payroll Periods — Payroll Master Files</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<nav>
+    <span class="brand">Payroll System — Admin</span>
+    <a href="index.html" data-page="index.html">Dashboard</a>
+    <a href="departments.html" data-page="departments.html">Departments</a>
+    <a href="positions.html" data-page="positions.html">Positions</a>
+    <a href="employees.html" data-page="employees.html">Employees</a>
+    <a href="leave_types.html" data-page="leave_types.html">Leave Types</a>
+    <a href="users.html" data-page="users.html">Users</a>
+    <a href="payroll_periods.html" data-page="payroll_periods.html">Payroll Periods</a>
+    <a href="payroll_runs.html" data-page="payroll_runs.html">Payroll Runs</a>
+    <a href="attendance.html" data-page="attendance.html">Attendance</a>
+    <a href="loans.html" data-page="loans.html">Loans</a>
+    <a href="overtime.html" data-page="overtime.html">Overtime</a>
+    <a href="leave_requests.html" data-page="leave_requests.html">Leave Requests</a>
+    <a href="leave_balances.html" data-page="leave_balances.html">Leave Balances</a>
+    <a href="ledger.html" data-page="ledger.html">Ledger</a>
+    <a href="reports.html" data-page="reports.html">Reports</a>
+</nav>
+<div class="container">
+
+    <h1>Payroll Periods</h1>
+    <p class="subtitle">Cutoff periods (date ranges) that payroll runs are attached to.</p>
+
+    <div id="msg" class="msg hidden"></div>
+
+    <div class="card">
+        <h3 id="form-title">Add Payroll Period</h3>
+        <form id="pp-form">
+            <input type="hidden" id="period_id" value="">
+            <div class="form-grid">
+                <div>
+                    <label>Period Type</label>
+                    <select id="period_type">
+                        <option value="Semi-monthly">Semi-monthly (1–15 / 16–end)</option>
+                        <option value="13th Month">13th Month</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Start Date</label>
+                    <input type="date" id="start_date" required>
+                </div>
+                <div>
+                    <label>End Date</label>
+                    <input type="date" id="end_date" required>
+                </div>
+            </div>
+            <button class="btn btn-primary" type="submit" id="submit-btn">Add Period</button>
+            <button class="btn btn-plain hidden" type="button" id="cancel-btn">Cancel</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="toolbar">
+            <strong id="record-count">0 record(s)</strong>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Type</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th class="col-center">Status</th>
+                    <th class="col-center">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="rows">
+                <tr class="loading-row"><td colspan="6">Loading…</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.7.7/axios.min.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/payroll_periods.js"></script>
+</body>
+</html>
