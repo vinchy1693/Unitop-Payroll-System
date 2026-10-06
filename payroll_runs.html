@@ -2,77 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Payroll Runs — Payroll Master Files</title>
+<meta http-equiv="refresh" content="0; url=payroll_periods.html">
+<title>Redirecting…</title>
 <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
-<nav>
-    <span class="brand">Payroll System — Admin</span>
-    <a href="index.html" data-page="index.html">Dashboard</a>
-    <a href="departments.html" data-page="departments.html">Departments</a>
-    <a href="positions.html" data-page="positions.html">Positions</a>
-    <a href="employees.html" data-page="employees.html">Employees</a>
-    <a href="leave_types.html" data-page="leave_types.html">Leave Types</a>
-    <a href="users.html" data-page="users.html">Users</a>
-    <a href="payroll_periods.html" data-page="payroll_periods.html">Payroll Periods</a>
-    <a href="payroll_runs.html" data-page="payroll_runs.html">Payroll Runs</a>
-    <a href="attendance.html" data-page="attendance.html">Attendance</a>
-    <a href="loans.html" data-page="loans.html">Loans</a>
-    <a href="overtime.html" data-page="overtime.html">Overtime</a>
-    <a href="leave_requests.html" data-page="leave_requests.html">Leave Requests</a>
-    <a href="leave_balances.html" data-page="leave_balances.html">Leave Balances</a>
-    <a href="ledger.html" data-page="ledger.html">Ledger</a>
-    <a href="reports.html" data-page="reports.html">Reports</a>
-</nav>
-<div class="container">
-
-    <h1>Payroll Runs</h1>
-    <p class="subtitle">Process a period to generate payslips for all active employees.</p>
-
-    <div id="msg" class="msg hidden"></div>
-
-    <div class="card">
-        <h3>Run Payroll</h3>
-        <form id="run-form">
-            <div class="form-grid">
-                <div>
-                    <label>Select Open Period</label>
-                    <select id="period_id" required>
-                        <option value="">-- Select an Open period --</option>
-                    </select>
-                </div>
-            </div>
-            <button class="btn btn-primary" type="submit" id="submit-btn">Run Payroll</button>
-        </form>
-    </div>
-
-    <div class="card">
-        <div class="toolbar">
-            <strong id="record-count">0 record(s)</strong>
-        </div>
-        <table>
-            <thead>
-                <tr>
-                    <th>Run #</th>
-                    <th>Period Type</th>
-                    <th>Start</th>
-                    <th>End</th>
-                    <th>Run Date</th>
-                    <th class="col-center">Payslips</th>
-                    <th class="col-center">Actions</th>
-                </tr>
-            </thead>
-            <tbody id="rows">
-                <tr class="loading-row"><td colspan="7">Loading…</td></tr>
-            </tbody>
-        </table>
-    </div>
-
+<div class="container" style="text-align:center;padding-top:60px;">
+    <h1>Payroll Runs → Payroll</h1>
+    <p class="subtitle">Periods and runs are now combined into one page.</p>
+    <p><a href="payroll_periods.html" class="btn btn-primary">Continue to Payroll →</a></p>
 </div>
-
-<script src="assets/js/axios.min.js"></script>
-<script src="assets/js/api.js"></script>
-<script src="assets/js/payroll_runs.js"></script>
 </body>
 </html>

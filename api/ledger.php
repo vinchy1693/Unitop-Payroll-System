@@ -43,10 +43,16 @@ $stmt = $pdo->prepare(
 $stmt->execute([$employeeId, $from, $to]);
 $attendance = $stmt->fetchAll();
 
-// ---- Leave requests overlapping range ----
+// Index by date for fast lookup
+$attendanceByDate = [];
+foreach ($attendance as $a) {
+    $attendanceByDate[$a["work_date"]] = $a;
+}
+
+// ---- Leave requests (approved) overlapping the range ----
 $stmt = $pdo->prepare(
     "SELECT lr.leave_id AS id, lr.start_date, lr.end_date, lr.status,
-            lt.leave_type_id, lt.name AS leave_type, lt.is_paid
+            lt.leave_type_id, lt.name AS leave_type
      FROM leave_requests lr
      JOIN leave_types lt ON lt.leave_type_id = lr.leave_type_id
      WHERE lr.employee_id = ?
@@ -56,6 +62,21 @@ $stmt = $pdo->prepare(
 );
 $stmt->execute([$employeeId, $to, $from]);
 $leaves = $stmt->fetchAll();
+
+// Index leave by date (each day covered gets an entry)
+$leaveByDate = [];
+foreach ($leaves as $lv) {
+    $cursor = new DateTime($lv["start_date"]);
+    $endEx  = (new DateTime($lv["end_date"]))->modify("+1 day");
+    while ($cursor < $endEx) {
+        $dateStr = $cursor->format("Y-m-d");
+        // Store the leave entry for this date (approved takes priority)
+        if (!isset($leaveByDate[$dateStr]) || $lv["status"] === "Approved") {
+            $leaveByDate[$dateStr] = $lv;
+        }
+        $cursor->modify("+1 day");
+    }
+}
 
 // ---- Current-year leave balances ----
 $year = (int) date("Y");
@@ -67,81 +88,136 @@ $stmt = $pdo->prepare(
        ON lb.leave_type_id = lt.leave_type_id
       AND lb.employee_id = ?
       AND lb.year = ?
-     WHERE lt.is_active = 1 AND lt.is_paid = 1
+     WHERE lt.is_active = 1
      ORDER BY lt.name"
 );
 $stmt->execute([$employeeId, $year]);
 $balances = $stmt->fetchAll();
 
-// ---- Build chronological ledger ----
+// ---- Walk every day in range ----
 $ledger = [];
-
-foreach ($attendance as $a) {
-    $ledger[] = [
-        "date"       => $a["work_date"],
-        "event"      => "Attendance",
-        "detail"     => ($a["time_in"] && $a["time_out"])
-            ? substr($a["time_in"], 0, 5) . " – " . substr($a["time_out"], 0, 5)
-            : "—",
-        "hours"      => $a["hours_worked"],
-        "late"       => (int) $a["minutes_late"],
-        "status"     => $a["status"],
-        "leave_type" => null,
-        "paid"       => null,
-    ];
-}
-
-foreach ($leaves as $lv) {
-    $overlapStart = max($lv["start_date"], $from);
-    $overlapEnd   = min($lv["end_date"],   $to);
-
-    $cursor = new DateTime($overlapStart);
-    $endEx  = (new DateTime($overlapEnd))->modify("+1 day");
-
-    while ($cursor < $endEx) {
-        $dow = (int) $cursor->format("N");
-        if ($dow <= 5) {
-            $ledger[] = [
-                "date"       => $cursor->format("Y-m-d"),
-                "event"      => "Leave",
-                "detail"     => $lv["leave_type"] . " (" . $lv["status"] . ")",
-                "hours"      => null,
-                "late"       => null,
-                "status"     => $lv["status"],
-                "leave_type" => $lv["leave_type"],
-                "paid"       => (int) $lv["is_paid"] === 1,
-            ];
-        }
-        $cursor->modify("+1 day");
-    }
-}
-
-usort($ledger, fn($a, $b) => strcmp($a["date"], $b["date"]));
-
-// ---- Running totals ----
 $totals = [
-    "days_present"        => 0,
-    "days_late"           => 0,
-    "total_late_minutes"  => 0,
-    "total_hours"         => 0,
-    "leave_days"          => 0,
-    "paid_leave_days"     => 0,
-    "unpaid_leave_days"   => 0,
+    "present"       => 0,
+    "late"          => 0,
+    "late_minutes"  => 0,
+    "absent"        => 0,
+    "leave"         => 0,
+    "total_hours"   => 0.0,
+    "working_days"  => 0,
 ];
-foreach ($ledger as $row) {
-    if ($row["event"] === "Attendance") {
-        $totals["days_present"]++;
-        $totals["total_hours"] += (float) $row["hours"];
-        if ((int) $row["late"] > 0) {
-            $totals["days_late"]++;
-            $totals["total_late_minutes"] += (int) $row["late"];
-        }
-    } elseif ($row["event"] === "Leave" && $row["status"] === "Approved") {
-        $totals["leave_days"]++;
-        if ($row["paid"]) $totals["paid_leave_days"]++;
-        else               $totals["unpaid_leave_days"]++;
+
+$cursor = new DateTime($from);
+$endEx  = (new DateTime($to))->modify("+1 day");
+
+while ($cursor < $endEx) {
+    $dateStr   = $cursor->format("Y-m-d");
+    $dayLabel  = $cursor->format("D");
+    $dow       = (int) $cursor->format("N");
+    $isWeekend = $dow >= 6;
+
+    if ($isWeekend) {
+        $ledger[] = [
+            "date"         => $dateStr,
+            "day_label"    => $dayLabel,
+            "event"        => "Weekend",
+            "detail"       => "",
+            "hours"        => null,
+            "late"         => null,
+            "leave_type"   => null,
+            "status"       => "Weekend",
+        ];
+        $cursor->modify("+1 day");
+        continue;
     }
+
+    $totals["working_days"]++;
+
+    // 1. Attendance record exists?
+    if (isset($attendanceByDate[$dateStr])) {
+        $a = $attendanceByDate[$dateStr];
+        $minutesLate = (int) $a["minutes_late"];
+        $hours       = $a["hours_worked"] !== null ? (float) $a["hours_worked"] : null;
+
+        $detail = "";
+        if ($a["time_in"] && $a["time_out"]) {
+            $detail = substr($a["time_in"], 0, 5) . " – " . substr($a["time_out"], 0, 5);
+        } elseif ($a["time_in"]) {
+            $detail = "In " . substr($a["time_in"], 0, 5) . " (no clock out)";
+        }
+
+        if ($minutesLate > 0) {
+            $totals["late"]++;
+            $totals["late_minutes"] += $minutesLate;
+            $event = "Late";
+        } else {
+            $totals["present"]++;
+            $event = "Present";
+        }
+        if ($hours !== null) {
+            $totals["total_hours"] += $hours;
+        }
+
+        $ledger[] = [
+            "date"       => $dateStr,
+            "day_label"  => $dayLabel,
+            "event"      => $event,
+            "detail"     => $detail,
+            "hours"      => $hours,
+            "late"       => $minutesLate,
+            "leave_type" => null,
+            "status"     => $a["status"],
+        ];
+    }
+    // 2. Approved leave covers this day?
+    elseif (isset($leaveByDate[$dateStr]) && $leaveByDate[$dateStr]["status"] === "Approved") {
+        $lv = $leaveByDate[$dateStr];
+        $totals["leave"]++;
+
+        $ledger[] = [
+            "date"       => $dateStr,
+            "day_label"  => $dayLabel,
+            "event"      => "Leave",
+            "detail"     => "On approved leave",
+            "hours"      => null,
+            "late"       => null,
+            "leave_type" => $lv["leave_type"],
+            "status"     => "Approved",
+        ];
+    }
+    // 3. Pending leave filed for this day
+    elseif (isset($leaveByDate[$dateStr])) {
+        $lv = $leaveByDate[$dateStr];
+
+        $ledger[] = [
+            "date"       => $dateStr,
+            "day_label"  => $dayLabel,
+            "event"      => "Leave",
+            "detail"     => "Leave request " . strtolower($lv["status"]),
+            "hours"      => null,
+            "late"       => null,
+            "leave_type" => $lv["leave_type"],
+            "status"     => $lv["status"],
+        ];
+    }
+    // 4. No attendance, no leave → Absent
+    else {
+        $totals["absent"]++;
+
+        $ledger[] = [
+            "date"       => $dateStr,
+            "day_label"  => $dayLabel,
+            "event"      => "Absent",
+            "detail"     => "No attendance record",
+            "hours"      => null,
+            "late"       => null,
+            "leave_type" => null,
+            "status"     => "Absent",
+        ];
+    }
+
+    $cursor->modify("+1 day");
 }
+
 $totals["total_hours"] = round($totals["total_hours"], 2);
 
 respond(true, "", [

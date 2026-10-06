@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Attendance — Payroll Master Files</title>
+<title>Attendance — UNITOP Payroll</title>
 <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
@@ -15,8 +15,7 @@
     <a href="employees.html" data-page="employees.html">Employees</a>
     <a href="leave_types.html" data-page="leave_types.html">Leave Types</a>
     <a href="users.html" data-page="users.html">Users</a>
-    <a href="payroll_periods.html" data-page="payroll_periods.html">Payroll Periods</a>
-    <a href="payroll_runs.html" data-page="payroll_runs.html">Payroll Runs</a>
+    <a href="payroll_periods.html" data-page="payroll_periods.html">Payroll</a>
     <a href="attendance.html" data-page="attendance.html">Attendance</a>
     <a href="loans.html" data-page="loans.html">Loans</a>
     <a href="overtime.html" data-page="overtime.html">Overtime</a>
@@ -28,12 +27,93 @@
 <div class="container">
 
     <h1>Attendance</h1>
-    <p class="subtitle">Record time-in and time-out. Late minutes and hours worked are computed automatically.</p>
+    <p class="subtitle">Log daily time-in/time-out, view summaries, and drill into individual employee records.</p>
 
     <div id="msg" class="msg hidden"></div>
 
+    <!-- SUMMARY -->
     <div class="card">
-        <h3 id="form-title">Log Attendance</h3>
+        <h3>Attendance Summary</h3>
+        <p style="margin:0 0 14px;font-size:13px;color:#666;">
+            Totals per employee over a date range. <strong>Click any row</strong> to see that employee's daily detail.
+        </p>
+        <form id="summary-form" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+            <div style="min-width:160px;">
+                <label style="display:block;font-size:12.5px;color:#555;margin-bottom:4px;font-weight:600;">From</label>
+                <input type="date" id="summary_from" required
+                       style="width:100%;padding:8px 10px;border:1px solid #ccd3dc;border-radius:5px;font-size:13.5px;">
+            </div>
+            <div style="min-width:160px;">
+                <label style="display:block;font-size:12.5px;color:#555;margin-bottom:4px;font-weight:600;">To</label>
+                <input type="date" id="summary_to" required
+                       style="width:100%;padding:8px 10px;border:1px solid #ccd3dc;border-radius:5px;font-size:13.5px;">
+            </div>
+            <button class="btn btn-primary" type="submit">Generate Summary</button>
+        </form>
+    </div>
+
+    <div class="card hidden" id="summary-card">
+        <div id="summary-output"></div>
+    </div>
+
+    <!-- TIME IN / TIME OUT FORMS (side-by-side) -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+
+        <!-- TIME IN -->
+        <div class="card">
+            <h3 style="color:#1e7d32;">⏰ Time In</h3>
+            <p style="margin:0 0 12px;font-size:12.5px;color:#666;">Clock in an employee. Creates a new attendance record for the day.</p>
+            <form id="timein-form">
+                <div class="form-grid">
+                    <div>
+                        <label>Employee</label>
+                        <select id="timein_employee" required>
+                            <option value="">-- Select --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Work Date</label>
+                        <input type="date" id="timein_date" required>
+                    </div>
+                    <div>
+                        <label>Time In</label>
+                        <input type="time" id="timein_time" value="08:00" required>
+                    </div>
+                </div>
+                <button class="btn btn-primary" type="submit" id="timein-btn" style="margin-top:12px;">Clock In</button>
+            </form>
+        </div>
+
+        <!-- TIME OUT -->
+        <div class="card">
+            <h3 style="color:#b3261e;">🏁 Time Out</h3>
+            <p style="margin:0 0 12px;font-size:12.5px;color:#666;">Clock out an employee. Updates their existing record with time out.</p>
+            <form id="timeout-form">
+                <div class="form-grid">
+                    <div>
+                        <label>Employee</label>
+                        <select id="timeout_employee" required>
+                            <option value="">-- Select --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Work Date</label>
+                        <input type="date" id="timeout_date" required>
+                    </div>
+                    <div>
+                        <label>Time Out</label>
+                        <input type="time" id="timeout_time" value="17:00" required>
+                    </div>
+                </div>
+                <button class="btn btn-primary" type="submit" id="timeout-btn" style="margin-top:12px;background:#b3261e;">Clock Out</button>
+            </form>
+        </div>
+
+    </div>
+
+    <!-- EDIT FORM (hidden by default, shown when editing a record) -->
+    <div class="card hidden" id="edit-card">
+        <h3 id="form-title">Edit Attendance</h3>
         <form id="att-form">
             <input type="hidden" id="attendance_id" value="">
             <div class="form-grid">
@@ -53,14 +133,15 @@
                 </div>
                 <div>
                     <label>Time Out</label>
-                    <input type="time" id="time_out" value="17:00" required>
+                    <input type="time" id="time_out" value="17:00">
                 </div>
             </div>
-            <button class="btn btn-primary" type="submit" id="submit-btn">Log Attendance</button>
-            <button class="btn btn-plain hidden" type="button" id="cancel-btn">Cancel</button>
+            <button class="btn btn-primary" type="submit" id="submit-btn">Save Changes</button>
+            <button class="btn btn-plain" type="button" id="cancel-btn">Cancel</button>
         </form>
     </div>
 
+    <!-- DAILY VIEW -->
     <div class="card">
         <div class="toolbar">
             <div style="display:flex;align-items:center;gap:10px;">
@@ -88,6 +169,18 @@
         </table>
     </div>
 
+</div>
+
+<!-- Employee detail modal -->
+<div id="detail-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+        <button class="modal-close" id="detail-close">&times;</button>
+        <div id="detail-body">Loading…</div>
+        <div class="modal-actions">
+            <button class="btn btn-plain" id="detail-print">Print</button>
+            <button class="btn btn-primary" id="detail-done">Close</button>
+        </div>
+    </div>
 </div>
 
 <script src="assets/js/axios.min.js"></script>

@@ -3,15 +3,16 @@ require __DIR__ . "/_bootstrap.php";
 
 $method = $_SERVER["REQUEST_METHOD"];
 
-// ---- GET: list all periods with their latest run (if any) ----
+// ---- GET: list periods with their latest run info ----
 if ($method === "GET") {
     $sql = "SELECT pp.period_id, pp.start_date, pp.end_date, pp.period_type, pp.status,
-                   (SELECT pr.run_id
-                    FROM payroll_runs pr
-                    WHERE pr.period_id = pp.period_id
-                    ORDER BY pr.run_id DESC LIMIT 1) AS run_id
+                   pr.run_id, pr.run_date,
+                   (SELECT COUNT(*) FROM payslips ps WHERE ps.run_id = pr.run_id) AS payslip_count
             FROM payroll_periods pp
-            ORDER BY pp.start_date DESC";
+            LEFT JOIN payroll_runs pr ON pr.run_id = (
+                SELECT MAX(run_id) FROM payroll_runs WHERE period_id = pp.period_id
+            )
+            ORDER BY pp.start_date DESC, pp.period_id DESC";
     $rows = $pdo->query($sql)->fetchAll();
     respond(true, "", $rows);
 }
@@ -30,7 +31,6 @@ if ($method === "POST") {
         respond(false, "End Date must be on or after Start Date.", null, 422);
     }
 
-    // Prevent overlapping periods of the same type
     $stmt = $pdo->prepare(
         "SELECT COUNT(*) FROM payroll_periods
          WHERE period_type = ? AND NOT (end_date < ? OR start_date > ?)"
@@ -67,9 +67,7 @@ if ($method === "PUT") {
     $stmt = $pdo->prepare("SELECT status FROM payroll_periods WHERE period_id = ?");
     $stmt->execute([$id]);
     $current = $stmt->fetchColumn();
-    if ($current === false) {
-        respond(false, "Payroll period not found.", null, 404);
-    }
+    if ($current === false) respond(false, "Payroll period not found.", null, 404);
     if ($current === "Processed") {
         respond(false, "Cannot edit a period that has already been processed.", null, 409);
     }

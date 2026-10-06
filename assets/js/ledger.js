@@ -7,10 +7,6 @@ const resultCard = document.getElementById("result-card");
 const output     = document.getElementById("ledger-output");
 const printBtn   = document.getElementById("print-btn");
 
-function formatMoney(n) {
-    return "₱" + Number(n || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
 async function loadEmployees() {
     const select = document.getElementById("employee_id");
     try {
@@ -53,35 +49,49 @@ function renderLedger(payload) {
                 <span class="ledger-balance-value">${Number(b.remaining_days).toFixed(2)} <small>/ ${Number(b.days_per_year).toFixed(2)} days</small></span>
             </div>
         `).join("")
-        : `<div style="color:#888;font-size:12.5px;">No paid leave types configured.</div>`;
+        : `<div style="color:#888;font-size:12.5px;">No leave types configured.</div>`;
 
     const rows = ledger.length
         ? ledger.map((r) => {
-            let statusBadge = "";
-            if (r.event === "Attendance") {
-                if ((r.late || 0) > 0) {
-                    statusBadge = `<span class="badge" style="background:#fef3c7;color:#92400e;">Late ${r.late}m</span>`;
-                } else {
-                    statusBadge = `<span class="badge active">Present</span>`;
-                }
-            } else {
-                const cls = r.status === "Approved" ? "active" : r.status === "Pending" ? "" : "inactive";
-                const style = r.status === "Pending" ? `style="background:#fef3c7;color:#92400e;"` : "";
-                statusBadge = `<span class="badge ${cls}" ${style}>${escapeHtml(r.status)}</span>`;
+            let statusCell = "";
+            let rowStyle = "";
+
+            switch (r.event) {
+                case "Weekend":
+                    rowStyle = 'style="opacity:0.45;"';
+                    statusCell = `<span style="color:#9ca3af;font-style:italic;font-size:12px;">Weekend</span>`;
+                    break;
+                case "Present":
+                    statusCell = `<span class="badge active">Present</span>`;
+                    break;
+                case "Late":
+                    statusCell = `<span class="badge" style="background:#fef3c7;color:#92400e;">Late ${r.late}m</span>`;
+                    break;
+                case "Leave":
+                    if (r.status === "Approved") {
+                        statusCell = `<span class="badge" style="background:#dbeafe;color:#1e40af;">Leave</span>`;
+                    } else {
+                        statusCell = `<span class="badge" style="background:#fef3c7;color:#92400e;">${escapeHtml(r.status)}</span>`;
+                    }
+                    break;
+                case "Absent":
+                    statusCell = `<span class="badge inactive">Absent</span>`;
+                    break;
+                default:
+                    statusCell = `<span class="badge inactive">${escapeHtml(r.status ?? "—")}</span>`;
             }
 
-            const typeCell = r.event === "Leave"
-                ? escapeHtml(r.leave_type)
-                : "—";
+            const typeCell = r.leave_type ? escapeHtml(r.leave_type) : "—";
+            const hoursCell = r.hours !== null && r.hours !== undefined ? Number(r.hours).toFixed(2) : "—";
 
             return `
-                <tr>
+                <tr ${rowStyle}>
                     <td>${escapeHtml(r.date)}</td>
-                    <td class="col-center"><span class="badge ${r.event === "Attendance" ? "active" : "inactive"}">${escapeHtml(r.event)}</span></td>
+                    <td class="col-center" style="font-size:12px;color:#888;">${escapeHtml(r.day_label)}</td>
                     <td>${escapeHtml(r.detail)}</td>
                     <td>${typeCell}</td>
-                    <td style="text-align:right;">${r.hours !== null ? Number(r.hours).toFixed(2) : "—"}</td>
-                    <td class="col-center">${statusBadge}</td>
+                    <td style="text-align:right;">${hoursCell}</td>
+                    <td class="col-center">${statusCell}</td>
                 </tr>
             `;
         }).join("")
@@ -108,11 +118,12 @@ function renderLedger(payload) {
             </div>
 
             <div class="ledger-stats">
-                <div class="ledger-stat"><span>Days Present</span><strong>${totals.days_present}</strong></div>
+                <div class="ledger-stat"><span>Present</span><strong style="color:#1e7d32;">${totals.present}</strong></div>
+                <div class="ledger-stat"><span>Late Days</span><strong style="color:#92400e;">${totals.late}</strong></div>
+                <div class="ledger-stat"><span>Absences</span><strong style="color:#b3261e;">${totals.absent}</strong></div>
+                <div class="ledger-stat"><span>Leave Days</span><strong style="color:#1e40af;">${totals.leave}</strong></div>
+                <div class="ledger-stat"><span>Late Minutes</span><strong>${totals.late_minutes}</strong></div>
                 <div class="ledger-stat"><span>Total Hours</span><strong>${Number(totals.total_hours).toFixed(2)}</strong></div>
-                <div class="ledger-stat"><span>Days Late</span><strong>${totals.days_late}</strong></div>
-                <div class="ledger-stat"><span>Total Late Min.</span><strong>${totals.total_late_minutes}</strong></div>
-                <div class="ledger-stat"><span>Leave Days Used</span><strong>${totals.leave_days}</strong></div>
             </div>
 
             <div class="table-scroll">
@@ -120,7 +131,7 @@ function renderLedger(payload) {
                     <thead>
                         <tr>
                             <th>Date</th>
-                            <th class="col-center">Event</th>
+                            <th class="col-center">Day</th>
                             <th>Details</th>
                             <th>Leave Type</th>
                             <th style="text-align:right;">Hours</th>
@@ -128,6 +139,18 @@ function renderLedger(payload) {
                         </tr>
                     </thead>
                     <tbody>${rows}</tbody>
+                    <tfoot>
+                        <tr class="totals-row">
+                            <td colspan="2" style="text-align:right;font-weight:700;">
+                                TOTALS (${totals.working_days} working day${totals.working_days === 1 ? "" : "s"})
+                            </td>
+                            <td colspan="2" style="font-size:12px;color:#666;">
+                                Present: ${totals.present} · Late: ${totals.late} · Absent: ${totals.absent} · Leave: ${totals.leave}
+                            </td>
+                            <td style="text-align:right;font-weight:700;">${Number(totals.total_hours).toFixed(2)}</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
 
