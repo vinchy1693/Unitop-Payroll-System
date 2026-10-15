@@ -2,106 +2,291 @@
 // assets/js/dashboard.js
 // =====================================================================
 
-async function loadDashboard() {
-    const grid = document.getElementById("dash-grid");
+function formatMoney(n) {
+    return "₱" + Number(n || 0).toLocaleString("en-PH", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    });
+}
 
+function formatMoneyShort(n) {
+    const v = Number(n || 0);
+    if (v >= 1000000) return "₱" + (v / 1000000).toFixed(2) + "M";
+    if (v >= 1000)    return "₱" + (v / 1000).toFixed(1) + "k";
+    return "₱" + v.toFixed(2);
+}
+
+async function loadDashboard() {
     try {
         const { data: body } = await api.get("dashboard.php");
         if (!body.success) throw new Error(body.message || "Dashboard request failed.");
-
-        const { counts, latest_run } = body.data;
-        renderWorkflow(counts, latest_run);
+        render(body.data);
     } catch (err) {
-        grid.innerHTML = `
-            <div class="workflow-card">
-                <div class="workflow-title" style="color:#b3261e;">Failed to load</div>
-                <p style="color:#888;font-size:13px;margin:6px 0 0;">${escapeHtml(apiErrorMessage(err))}</p>
+        document.getElementById("kpi-grid").innerHTML = `
+            <div class="kpi-tile" style="grid-column: 1 / -1; border-left-color: var(--red);">
+                <div class="kpi-label">Failed to load dashboard</div>
+                <div class="kpi-value" style="font-size:14px;color:var(--red);font-weight:500;">
+                    ${escapeHtml(apiErrorMessage(err))}
+                </div>
             </div>`;
     }
 }
 
-function renderWorkflow(c, latestRun) {
-    const grid = document.getElementById("dash-grid");
+// ---------------------------------------------------------------------
+// Workflow card renderer
+// ---------------------------------------------------------------------
+function workflowCard(cfg) {
+    const sublinksHtml = cfg.sublinks && cfg.sublinks.length
+        ? cfg.sublinks.map((l, i) =>
+            `${i > 0 ? '<span class="sep">·</span>' : ''}<a href="${l.href}">${escapeHtml(l.label)}</a>`
+          ).join("")
+        : "";
+
+    return `
+        <div class="workflow-card status-${cfg.status}">
+            <div class="workflow-head">
+                <div class="workflow-step-badge">${cfg.step}</div>
+                <div class="workflow-status-pill">${escapeHtml(cfg.statusLabel)}</div>
+            </div>
+            <div class="workflow-title">${escapeHtml(cfg.title)}</div>
+            <div class="workflow-note">${escapeHtml(cfg.note)}</div>
+            ${sublinksHtml ? `<div class="workflow-sublinks">${sublinksHtml}</div>` : ""}
+            <a class="workflow-cta" href="${cfg.ctaHref}">${escapeHtml(cfg.ctaLabel)} →</a>
+        </div>
+    `;
+}
+
+function render(data) {
+    const { counts, latest_run, active_loans, today_attendance, recent_runs, today } = data;
+
+    // =================================================================
+    // Row 1 — KPI tiles
+    // =================================================================
+    const latestPayrollLabel = latest_run
+        ? `Last Run #${latest_run.run_id} · ${formatMoney(latest_run.total_net)}`
+        : "No payroll runs yet";
+    const latestPayrollValue = latest_run
+        ? formatMoneyShort(latest_run.total_net)
+        : "—";
+
+    const tiles = [
+        {
+            label: "Active Employees",
+            value: counts.employees,
+            note: `${counts.with_salary} with basic salary`,
+            tone: "blue",
+        },
+        {
+            label: "Latest Payroll (Net)",
+            value: latestPayrollValue,
+            note: latestPayrollLabel,
+            tone: "green",
+            href: latest_run ? `payslips.html?run_id=${latest_run.run_id}` : null,
+        },
+        {
+            label: "Pending Leaves",
+            value: counts.pending_leaves,
+            note: counts.pending_leaves > 0 ? "Requires review" : "No pending items",
+            tone: counts.pending_leaves > 0 ? "yellow" : "neutral",
+            href: counts.pending_leaves > 0 ? "leave.html" : null,
+        },
+        {
+            label: "Open Periods",
+            value: counts.open_periods,
+            note: counts.open_periods > 0 ? "Ready to process" : "Nothing to run",
+            tone: counts.open_periods > 0 ? "blue" : "neutral",
+            href: counts.open_periods > 0 ? "payroll_periods.html" : null,
+        },
+        {
+            label: "Active Loans",
+            value: active_loans.count,
+            note: `${formatMoneyShort(active_loans.total_remaining)} remaining`,
+            tone: "yellow",
+            href: active_loans.count > 0 ? "loans.html" : null,
+        },
+    ];
+
+    document.getElementById("kpi-grid").innerHTML = tiles.map((t) => {
+        const tag = t.href ? "a" : "div";
+        const hrefAttr = t.href ? `href="${t.href}"` : "";
+        return `
+            <${tag} ${hrefAttr} class="kpi-tile kpi-${t.tone}">
+                <div class="kpi-label">${escapeHtml(t.label)}</div>
+                <div class="kpi-value">${escapeHtml(String(t.value))}</div>
+                <div class="kpi-note">${escapeHtml(t.note)}</div>
+            </${tag}>
+        `;
+    }).join("");
+
+    // =================================================================
+    // Row 2 — Workflow cards
+    // =================================================================
 
     // Step 1: Setup
-    const setupComplete = c.departments > 0 && c.positions > 0 && c.employees > 0 && c.with_salary > 0;
-    const setupStatus   = setupComplete ? "ok" : "warn";
-    const setupNote     = setupComplete
-        ? `${c.employees} employee${c.employees === 1 ? "" : "s"} · ${c.with_salary} with basic salary`
-        : "Some setup is incomplete";
+    const setupComplete = counts.departments > 0 && counts.positions > 0 && counts.employees > 0 && counts.with_salary > 0;
+    const setupCard = workflowCard({
+        step: "1",
+        status: setupComplete ? "ok" : "warn",
+        statusLabel: setupComplete ? "Complete" : "In Progress",
+        title: "Setup Master Data",
+        note: setupComplete
+            ? `${counts.employees} employee${counts.employees === 1 ? "" : "s"} · ${counts.with_salary} with basic salary`
+            : "Finish adding departments, positions, and employees with salaries.",
+        sublinks: [
+            { label: "Departments", href: "departments.html" },
+            { label: "Positions",   href: "positions.html" },
+            { label: "Employees",   href: "employees.html" },
+            { label: "Users",       href: "users.html" },
+        ],
+        ctaLabel: "Open Setup",
+        ctaHref: "employees.html",
+    });
 
     // Step 2: Daily Logs
-    const dailyStatus = c.pending_leaves > 0 ? "warn" : "ok";
-    const dailyNote = c.pending_leaves > 0
-        ? `${c.pending_leaves} pending leave request${c.pending_leaves === 1 ? "" : "s"} to review`
-        : "No pending items";
+    const hasPendingLeaves = counts.pending_leaves > 0;
+    const dailyCard = workflowCard({
+        step: "2",
+        status: hasPendingLeaves ? "warn" : "ok",
+        statusLabel: hasPendingLeaves ? "Review" : "All Clear",
+        title: "Daily Logs",
+        note: hasPendingLeaves
+            ? `${counts.pending_leaves} pending leave request${counts.pending_leaves === 1 ? "" : "s"} waiting for review.`
+            : "No pending items. Log attendance and leave as needed.",
+        sublinks: [
+            { label: "Attendance", href: "attendance.html" },
+            { label: "Leave",      href: "leave.html" },
+            { label: "Overtime",   href: "overtime.html" },
+            { label: "Loans",      href: "loans.html" },
+        ],
+        ctaLabel: "Log Attendance",
+        ctaHref: "attendance.html",
+    });
 
     // Step 3: Run Payroll
-    const hasOpen   = c.open_periods > 0;
-    const runStatus = hasOpen ? "go" : (latestRun ? "ok" : "warn");
-    const runNote   = hasOpen
-        ? `${c.open_periods} Open period${c.open_periods === 1 ? "" : "s"} ready to process`
-        : (latestRun
-            ? `Last run: #${latestRun.run_id} · ${latestRun.payslip_count} payslip${latestRun.payslip_count === 1 ? "" : "s"}`
-            : "Create a period to start");
+    const hasOpen = counts.open_periods > 0;
+    let payrollStatus, payrollStatusLabel, payrollNote, payrollCta, payrollCtaHref;
+
+    if (hasOpen) {
+        payrollStatus = "go";
+        payrollStatusLabel = "Ready";
+        payrollNote = `${counts.open_periods} Open period${counts.open_periods === 1 ? "" : "s"} ready to process.`;
+        payrollCta = "Run Payroll";
+        payrollCtaHref = "payroll_periods.html";
+    } else if (latest_run) {
+        payrollStatus = "ok";
+        payrollStatusLabel = "Up to Date";
+        payrollNote = `Last run #${latest_run.run_id} on ${latest_run.run_date} · ${latest_run.payslip_count} payslip${latest_run.payslip_count === 1 ? "" : "s"}.`;
+        payrollCta = "View Latest Payslips";
+        payrollCtaHref = `payslips.html?run_id=${latest_run.run_id}`;
+    } else {
+        payrollStatus = "warn";
+        payrollStatusLabel = "Waiting";
+        payrollNote = "Create a payroll period to start processing.";
+        payrollCta = "Create Period";
+        payrollCtaHref = "payroll_periods.html";
+    }
+
+    const payrollCard = workflowCard({
+        step: "3",
+        status: payrollStatus,
+        statusLabel: payrollStatusLabel,
+        title: "Run Payroll",
+        note: payrollNote,
+        sublinks: [],
+        ctaLabel: payrollCta,
+        ctaHref: payrollCtaHref,
+    });
 
     // Step 4: Reports
-    const reportsReady  = !!latestRun;
-    const reportsStatus = reportsReady ? "ok" : "warn";
-    const reportsNote   = reportsReady
-        ? `Latest run #${latestRun.run_id} available`
-        : "Run payroll first";
+    const reportsReady = !!latest_run;
+    const reportsCard = workflowCard({
+        step: "4",
+        status: reportsReady ? "ok" : "warn",
+        statusLabel: reportsReady ? "Available" : "Waiting",
+        title: "Reports",
+        note: reportsReady
+            ? `Payroll Register, Remittance Summary, and Ledger are ready for run #${latest_run.run_id}.`
+            : "Run payroll first to unlock reports.",
+        sublinks: [
+            { label: "Reports", href: "reports.html" },
+            { label: "Ledger",  href: "ledger.html" },
+        ],
+        ctaLabel: "Open Reports",
+        ctaHref: "reports.html",
+    });
 
-    grid.innerHTML = `
-        <div class="workflow-card status-${setupStatus}">
-            <div class="workflow-step">STEP 1</div>
-            <div class="workflow-title">Setup Master Data</div>
-            <div class="workflow-note">${escapeHtml(setupNote)}</div>
-            <div class="workflow-links">
-                <a href="departments.html">Departments</a>
-                <a href="positions.html">Positions</a>
-                <a href="employees.html">Employees</a>
-                <a href="leave_types.html">Leave Types</a>
-                <a href="users.html">Users</a>
-            </div>
+    document.getElementById("workflow-grid").innerHTML =
+        setupCard + dailyCard + payrollCard + reportsCard;
+
+    // =================================================================
+    // Row 3 — Today's attendance snapshot
+    // =================================================================
+    const totalToday = today_attendance.present + today_attendance.late + today_attendance.absent;
+    document.getElementById("attendance-snapshot").innerHTML = `
+        <div class="snapshot-header">
+            <h3 style="margin:0;">Today's Attendance</h3>
+            <span style="font-size:12.5px;color:var(--muted);">${escapeHtml(today)}</span>
         </div>
-
-        <div class="workflow-card status-${dailyStatus}">
-            <div class="workflow-step">STEP 2</div>
-            <div class="workflow-title">Daily Logs</div>
-            <div class="workflow-note">${escapeHtml(dailyNote)}</div>
-            <div class="workflow-links">
-                <a href="attendance.html">Attendance</a>
-                <a href="leave_requests.html">Leave Requests</a>
-                <a href="leave_balances.html">Leave Balances</a>
-                <a href="overtime.html">Overtime</a>
-                <a href="loans.html">Loans</a>
+        <div class="snapshot-bars">
+            <div class="snapshot-item">
+                <div class="snapshot-label">Present</div>
+                <div class="snapshot-value" style="color:var(--green);">${today_attendance.present}</div>
             </div>
-        </div>
-
-        <div class="workflow-card status-${runStatus}">
-            <div class="workflow-step">STEP 3</div>
-            <div class="workflow-title">Run Payroll</div>
-            <div class="workflow-note">${escapeHtml(runNote)}</div>
-            <div class="workflow-links">
-                <a href="payroll_periods.html">Payroll Periods</a>
-                <a href="payroll_runs.html">Payroll Runs</a>
-                ${latestRun ? `<a href="payslips.html?run_id=${latestRun.run_id}">Latest Payslips</a>` : ""}
+            <div class="snapshot-item">
+                <div class="snapshot-label">Late</div>
+                <div class="snapshot-value" style="color:var(--yellow-dark);">${today_attendance.late}</div>
             </div>
-        </div>
-
-        <div class="workflow-card status-${reportsStatus}">
-            <div class="workflow-step">STEP 4</div>
-            <div class="workflow-title">Reports</div>
-            <div class="workflow-note">${escapeHtml(reportsNote)}</div>
-            <div class="workflow-links">
-                <a href="reports.html">Payroll Summary</a>
-                <a href="reports.html">Register</a>
-                <a href="reports.html">Remittance</a>
-                <a href="ledger.html">Employee Ledger</a>
+            <div class="snapshot-item">
+                <div class="snapshot-label">Absent</div>
+                <div class="snapshot-value" style="color:var(--red);">${today_attendance.absent}</div>
+            </div>
+            <div class="snapshot-item">
+                <div class="snapshot-label">Total</div>
+                <div class="snapshot-value">${totalToday}</div>
             </div>
         </div>
     `;
+
+    // =================================================================
+    // Row 4 — Recent payroll runs
+    // =================================================================
+    const runsEl = document.getElementById("recent-runs");
+    if (recent_runs.length === 0) {
+        runsEl.innerHTML = `
+            <div class="empty-state">
+                No payroll runs yet.
+                <a href="payroll_periods.html">Create a period →</a>
+            </div>`;
+    } else {
+        runsEl.innerHTML = `
+            <table>
+                <thead>
+                    <tr>
+                        <th>Run #</th>
+                        <th>Period</th>
+                        <th>Type</th>
+                        <th class="col-center">Payslips</th>
+                        <th style="text-align:right;">Net Pay</th>
+                        <th class="col-center"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${recent_runs.map((r) => `
+                        <tr>
+                            <td>#${r.run_id}</td>
+                            <td>${escapeHtml(r.start_date)} → ${escapeHtml(r.end_date)}</td>
+                            <td>${escapeHtml(r.period_type)}</td>
+                            <td class="col-center">${r.payslip_count}</td>
+                            <td style="text-align:right;font-weight:600;">${formatMoney(r.total_net)}</td>
+                            <td class="col-center">
+                                <a class="btn btn-plain" href="payslips.html?run_id=${r.run_id}">View</a>
+                            </td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        `;
+    }
 }
 
 document.addEventListener("DOMContentLoaded", loadDashboard);

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leave — UNITOP Payroll</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<nav class="sidebar">
+    <div class="sidebar-brand">
+        <div class="brand-logo">U</div>
+        <div class="brand-text">
+            <strong>UNITOP</strong>
+            <small>Payroll System</small>
+        </div>
+    </div>
+
+    <div class="sidebar-links">
+        <a href="index.html" data-page="index.html">Dashboard</a>
+
+        <div class="nav-section">Setup</div>
+        <a href="departments.html" data-page="departments.html">Departments</a>
+        <a href="positions.html" data-page="positions.html">Positions</a>
+        <a href="employees.html" data-page="employees.html">Employees</a>
+        <a href="users.html" data-page="users.html">Users</a>
+
+        <div class="nav-section">Daily Logs</div>
+        <a href="attendance.html" data-page="attendance.html">Attendance</a>
+        <a href="leave.html" data-page="leave.html">Leave</a>
+        <a href="overtime.html" data-page="overtime.html">Overtime</a>
+        <a href="loans.html" data-page="loans.html">Loans</a>
+
+        <div class="nav-section">Payroll</div>
+        <a href="payroll_periods.html" data-page="payroll_periods.html">Payroll</a>
+
+        <div class="nav-section">Outputs</div>
+        <a href="ledger.html" data-page="ledger.html">Ledger</a>
+        <a href="reports.html" data-page="reports.html">Reports</a>
+    </div>
+
+    <!-- api.js will append the user block here -->
+</nav>
+<div class="container">
+
+    <h1>Leave</h1>
+    <p class="subtitle">File leave requests, track balances, and configure leave types.</p>
+
+    <div id="msg" class="msg hidden"></div>
+
+    <!-- TABS -->
+    <div class="tabs">
+        <button class="tab active" data-tab="requests">Requests</button>
+        <button class="tab" data-tab="balances">Balances</button>
+        <button class="tab" data-tab="types">Types</button>
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- TAB: LEAVE REQUESTS                                            -->
+    <!-- ============================================================= -->
+    <div class="tab-panel" id="tab-requests">
+
+        <div class="card">
+            <h3 id="req-form-title">File Leave Request</h3>
+            <form id="req-form">
+                <input type="hidden" id="req_leave_id" value="">
+                <div class="form-grid">
+                    <div>
+                        <label>Employee</label>
+                        <select id="req_employee_id" required>
+                            <option value="">-- Select --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Leave Type</label>
+                        <select id="req_leave_type_id" required>
+                            <option value="">-- Select --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Start Date</label>
+                        <input type="date" id="req_start_date" required>
+                    </div>
+                    <div>
+                        <label>End Date</label>
+                        <input type="date" id="req_end_date" required>
+                    </div>
+                </div>
+                <button class="btn btn-primary" type="submit" id="req_submit_btn">File Request</button>
+                <button class="btn btn-plain hidden" type="button" id="req_cancel_btn">Cancel</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <div class="toolbar">
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <label style="font-size:13px;color:#555;font-weight:600;">Status:</label>
+                    <select id="req_filter_status" style="padding:5px 8px;border:1px solid #ccd3dc;border-radius:5px;font-size:13px;">
+                        <option value="">All</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Approved">Approved</option>
+                        <option value="Rejected">Rejected</option>
+                    </select>
+                </div>
+                <strong id="req_count">0 record(s)</strong>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Employee</th>
+                        <th>Leave Type</th>
+                        <th>Start</th>
+                        <th>End</th>
+                        <th class="col-center">Days</th>
+                        <th class="col-center">Status</th>
+                        <th class="col-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="req_rows">
+                    <tr class="loading-row"><td colspan="7">Loading…</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- TAB: LEAVE BALANCES                                            -->
+    <!-- ============================================================= -->
+    <div class="tab-panel hidden" id="tab-balances">
+        <div class="card">
+            <div class="toolbar">
+                <div style="display:flex;gap:10px;align-items:center;">
+                    <label style="font-size:13px;color:#555;font-weight:600;">Year:</label>
+                    <input type="number" id="bal_year" min="2000" max="2100"
+                           style="width:100px;padding:6px 10px;border:1px solid #ccd3dc;border-radius:5px;font-size:13.5px;">
+                    <button class="btn btn-primary" id="bal_reload_btn">Reload</button>
+                    <button class="btn btn-plain" id="bal_init_btn">Initialize Balances</button>
+                </div>
+                <strong id="bal_count">0 employee(s)</strong>
+            </div>
+            <div id="bal_grid">
+                <div style="text-align:center;padding:20px;color:#888;">Loading…</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- TAB: LEAVE TYPES                                               -->
+    <!-- ============================================================= -->
+    <div class="tab-panel hidden" id="tab-types">
+
+        <div class="card">
+            <h3 id="type_form_title">Add New Leave Type</h3>
+            <form id="type_form">
+                <input type="hidden" id="type_leave_type_id" value="">
+                <div class="form-grid">
+                    <div>
+                        <label>Name</label>
+                        <input type="text" id="type_name" required>
+                    </div>
+                    <div>
+                        <label>Days per Year</label>
+                        <input type="number" step="0.5" id="type_days_per_year" value="0">
+                    </div>
+                </div>
+                <button class="btn btn-primary" type="submit" id="type_submit_btn">Add Leave Type</button>
+                <button class="btn btn-plain hidden" type="button" id="type_cancel_btn">Cancel</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <div class="toolbar">
+                <strong id="type_count">0 record(s)</strong>
+                <span class="filter-toggle">
+                    <a id="type_toggle_filter" href="#">Show all (incl. deactivated)</a>
+                </span>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Days/Year</th>
+                        <th class="col-center">Status</th>
+                        <th class="col-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="type_rows">
+                    <tr class="loading-row"><td colspan="5">Loading…</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+</div>
+
+<script src="assets/js/axios.min.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/leave.js"></script>
+</body>
+</html>

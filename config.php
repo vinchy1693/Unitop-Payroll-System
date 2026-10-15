@@ -1,8 +1,5 @@
 <?php
-// =====================================================================
-// config.php — Database connection (PDO)
-// Update these 4 values to match your local MySQL setup.
-// =====================================================================
+
 $DB_HOST = "localhost";
 $DB_NAME = "payroll_db";
 $DB_USER = "root";
