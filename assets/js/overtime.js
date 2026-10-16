@@ -22,6 +22,12 @@ function todayISO() {
     return `${y}-${m}-${day}`;
 }
 
+function getEmployeeLabel() {
+    const sel = document.getElementById("employee_id");
+    if (!sel || sel.selectedIndex < 0) return "this employee";
+    return sel.options[sel.selectedIndex].text || "this employee";
+}
+
 async function loadEmployeeOptions() {
     const select = document.getElementById("employee_id");
     const currentVal = select.value;
@@ -31,7 +37,7 @@ async function loadEmployeeOptions() {
             data.data.map((e) => `<option value="${e.id}">${escapeHtml(e.label)}</option>`).join("");
         if (currentVal) select.value = currentVal;
     } catch (err) {
-        showMessage("Could not load employees list: " + apiErrorMessage(err), "error");
+        showToast("Could not load employees: " + apiErrorMessage(err), "error");
     }
 }
 
@@ -84,12 +90,11 @@ function renderRows(rows) {
 function startEdit(row) {
     if (!row) return;
     editId = row.ot_id;
-    document.getElementById("ot_id").value    = row.ot_id;
-    document.getElementById("employee_id").value = row.employee_id;
-    document.getElementById("ot_date").value  = row.ot_date ?? "";
-    document.getElementById("hours").value    = row.hours;
+    document.getElementById("ot_id").value       = row.ot_id;
+    document.getElementById("employee_id").value  = row.employee_id;
+    document.getElementById("ot_date").value      = row.ot_date ?? "";
+    document.getElementById("hours").value        = row.hours;
 
-    // Match the type in the dropdown (or add it if it doesn't exist)
     let found = false;
     for (const opt of typeSelect.options) {
         if (opt.value === row.ot_type) { typeSelect.value = row.ot_type; found = true; break; }
@@ -135,12 +140,29 @@ typeSelect.addEventListener("change", () => {
 
 form.addEventListener("submit", async (e) => {
     e.preventDefault();
+
+    const empId    = document.getElementById("employee_id").value;
+    const date     = document.getElementById("ot_date").value;
+    const hours    = document.getElementById("hours").value;
+    const type     = typeSelect.value;
+    const mult     = multiplierEl.value;
+    const empLabel = getEmployeeLabel();
+
+    if (!empId || !date || !hours || !type || !mult) return;
+
+    if (!editId) {
+        if (!await confirmDialog(
+            `Log ${hours} hour(s) of ${type} overtime for ${empLabel} on ${date} at ${mult}× rate?`,
+            { title: "Confirm Overtime", icon: "question", confirmText: "Log Overtime" }
+        )) return;
+    }
+
     const payload = {
-        employee_id:     document.getElementById("employee_id").value,
-        ot_date:         document.getElementById("ot_date").value,
-        hours:           document.getElementById("hours").value,
-        ot_type:         typeSelect.value,
-        rate_multiplier: multiplierEl.value,
+        employee_id:     empId,
+        ot_date:         date,
+        hours:           hours,
+        ot_type:         type,
+        rate_multiplier: mult,
     };
 
     submitBtn.disabled = true;
@@ -148,28 +170,32 @@ form.addEventListener("submit", async (e) => {
         if (editId) {
             payload.ot_id = editId;
             const { data } = await api.put("overtime_records.php", payload);
-            showMessage(data.message, "success");
+            showToast(data.message, "success");
         } else {
             const { data } = await api.post("overtime_records.php", payload);
-            showMessage(data.message, "success");
+            showToast(data.message, "success");
         }
         resetForm();
         await loadRows();
     } catch (err) {
-        showMessage(apiErrorMessage(err), "error");
+        showToast(apiErrorMessage(err), "error");
     } finally {
         submitBtn.disabled = false;
     }
 });
 
 async function deleteRow(id) {
-    if (!confirm("Delete this overtime record?")) return;
+    if (!await confirmDialog(
+        "Delete this overtime record? This cannot be undone.",
+        { title: "Confirm Delete", icon: "warning", confirmText: "Delete" }
+    )) return;
+
     try {
         const { data } = await api.delete("overtime_records.php", { params: { id } });
-        showMessage(data.message, "success");
+        showToast(data.message, "success");
         await loadRows();
     } catch (err) {
-        showMessage(apiErrorMessage(err), "error");
+        showToast(apiErrorMessage(err), "error");
     }
 }
 

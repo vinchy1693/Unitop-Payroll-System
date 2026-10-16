@@ -3,17 +3,17 @@
 // =====================================================================
 
 let showAll = false;
-let editId = null;
+let editId  = null;
 
-const form = document.getElementById("user-form");
-const submitBtn = document.getElementById("submit-btn");
-const cancelBtn = document.getElementById("cancel-btn");
-const formTitle = document.getElementById("form-title");
-const passwordEl = document.getElementById("password");
+const form          = document.getElementById("user-form");
+const submitBtn     = document.getElementById("submit-btn");
+const cancelBtn     = document.getElementById("cancel-btn");
+const formTitle     = document.getElementById("form-title");
+const passwordEl    = document.getElementById("password");
 const passwordLabel = document.getElementById("password-label");
-const rowsEl = document.getElementById("rows");
-const countEl = document.getElementById("record-count");
-const toggleLink = document.getElementById("toggle-filter");
+const rowsEl        = document.getElementById("rows");
+const countEl       = document.getElementById("record-count");
+const toggleLink    = document.getElementById("toggle-filter");
 
 async function loadRows() {
     rowsEl.innerHTML = `<tr class="loading-row"><td colspan="5">Loading…</td></tr>`;
@@ -37,9 +37,9 @@ function renderRows(rows) {
         <tr class="${r.is_active ? "" : "inactive-row"}">
             <td>#${r.user_id}</td>
             <td>${escapeHtml(r.username)}</td>
-            <td>${escapeHtml(r.role)}</td>
-            <td><span class="badge ${r.is_active ? "active" : "inactive"}">${r.is_active ? "Active" : "Inactive"}</span></td>
-            <td>
+            <td>${escapeHtml(r.role ?? "—")}</td>
+            <td class="col-center"><span class="badge ${r.is_active ? "active" : "inactive"}">${r.is_active ? "Active" : "Inactive"}</span></td>
+            <td class="col-center">
                 <button class="btn btn-edit" data-edit="${r.user_id}">Edit</button>
                 <button class="btn ${r.is_active ? "btn-delete" : "btn-restore"}" data-toggle="${r.user_id}" data-active="${r.is_active ? 0 : 1}">
                     ${r.is_active ? "Deactivate" : "Restore"}
@@ -59,9 +59,9 @@ function renderRows(rows) {
 function startEdit(row) {
     if (!row) return;
     editId = row.user_id;
-    document.getElementById("user_id").value = row.user_id;
+    document.getElementById("user_id").value  = row.user_id;
     document.getElementById("username").value = row.username;
-    document.getElementById("role").value = row.role;
+    document.getElementById("role").value     = row.role ?? "Administrator";
     passwordEl.value = "";
     passwordEl.required = false;
     passwordLabel.textContent = "Password (leave blank to keep current)";
@@ -88,7 +88,7 @@ form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const payload = {
         username: document.getElementById("username").value.trim(),
-        role: document.getElementById("role").value,
+        role:     document.getElementById("role").value,
         password: passwordEl.value,
     };
 
@@ -97,15 +97,15 @@ form.addEventListener("submit", async (e) => {
         if (editId) {
             payload.user_id = editId;
             const { data } = await api.put("users.php", payload);
-            showMessage(data.message, "success");
+            showToast(data.message, "success");
         } else {
             const { data } = await api.post("users.php", payload);
-            showMessage(data.message, "success");
+            showToast(data.message, "success");
         }
         resetForm();
         await loadRows();
     } catch (err) {
-        showMessage(apiErrorMessage(err), "error");
+        showToast(apiErrorMessage(err), "error");
     } finally {
         submitBtn.disabled = false;
     }
@@ -113,13 +113,13 @@ form.addEventListener("submit", async (e) => {
 
 async function toggleStatus(id, newStatus) {
     const verb = newStatus ? "Restore" : "Deactivate";
-    if (!confirm(`${verb} this user?`)) return;
+    if (!await confirmDialog(`${verb} this user?`)) return;
     try {
         const { data } = await api.patch("users.php", { user_id: id, is_active: newStatus });
-        showMessage(data.message, "success");
+        showToast(data.message, "success");
         await loadRows();
     } catch (err) {
-        showMessage(apiErrorMessage(err), "error");
+        showToast(apiErrorMessage(err), "error");
     }
 }
 

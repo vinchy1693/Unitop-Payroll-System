@@ -103,18 +103,46 @@ function renderRows(rows) {
 }
 
 // ---------------------------------------------------------------------
-// One-click run payroll
+// One-click run payroll — warning confirm + loading
 // ---------------------------------------------------------------------
 async function runPayroll(periodId, btn) {
-    if (!confirm("Run payroll for this period? This will generate payslips and lock the period.")) return;
+    // Find the period's dates from the button's row for the message
+    const row = btn.closest("tr");
+    const cells = row ? row.querySelectorAll("td") : null;
+    const type = cells ? cells[1].textContent.trim() : "period";
+    const start = cells ? cells[2].textContent.trim() : "";
+    const end = cells ? cells[3].textContent.trim() : "";
+
+    const confirmed = await confirmDialog(
+        `Run payroll for the ${type} period (${start} → ${end})?\n\nThis will generate payslips for all active employees and permanently lock the period.`,
+        {
+            title: "Run Payroll",
+            icon: "warning",
+            confirmText: "Yes, run payroll",
+            cancelText: "Cancel",
+        }
+    );
+    if (!confirmed) return;
+
+    // Show a loading dialog while the run executes
+    Swal.fire({
+        title: "Processing payroll…",
+        html: "Generating payslips. Please wait.",
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        didOpen: () => {
+            Swal.showLoading();
+        },
+    });
 
     const originalText = btn.textContent;
     btn.disabled = true;
-    btn.textContent = "Running…";
 
     try {
         const { data } = await api.post("payroll_runs.php", { period_id: periodId });
-        showMessage(data.message, "success");
+
+        Swal.close();
+        showToast(data.message, "success");
 
         const runId = data.data?.run_id;
         if (runId) {
@@ -127,9 +155,10 @@ async function runPayroll(periodId, btn) {
             await loadRows();
         }
     } catch (err) {
-        showMessage(apiErrorMessage(err), "error");
+        Swal.close();
         btn.disabled = false;
         btn.textContent = originalText;
+        showToast(apiErrorMessage(err), "error");
     }
 }
 
@@ -162,10 +191,24 @@ cancelBtn.addEventListener("click", resetForm);
 
 form.addEventListener("submit", async (e) => {
     e.preventDefault();
+
+    const type  = document.getElementById("period_type").value;
+    const start = document.getElementById("start_date").value;
+    const end   = document.getElementById("end_date").value;
+
+    if (!type || !start || !end) return;
+
+    if (!editId) {
+        if (!await confirmDialog(
+            `Create a ${type} payroll period from ${start} to ${end}?`,
+            { title: "Confirm New Period", icon: "question", confirmText: "Create Period" }
+        )) return;
+    }
+
     const payload = {
-        period_type: document.getElementById("period_type").value,
-        start_date:  document.getElementById("start_date").value,
-        end_date:    document.getElementById("end_date").value,
+        period_type: type,
+        start_date:  start,
+        end_date:    end,
     };
 
     submitBtn.disabled = true;
@@ -173,15 +216,15 @@ form.addEventListener("submit", async (e) => {
         if (editId) {
             payload.period_id = editId;
             const { data } = await api.put("payroll_periods.php", payload);
-            showMessage(data.message, "success");
+            showToast(data.message, "success");
         } else {
             const { data } = await api.post("payroll_periods.php", payload);
-            showMessage(data.message, "success");
+            showToast(data.message, "success");
         }
         resetForm();
         await loadRows();
     } catch (err) {
-        showMessage(apiErrorMessage(err), "error");
+        showToast(apiErrorMessage(err), "error");
     } finally {
         submitBtn.disabled = false;
     }
@@ -191,14 +234,26 @@ form.addEventListener("submit", async (e) => {
 // Close / reopen
 // ---------------------------------------------------------------------
 async function changeStatus(id, newStatus) {
-    const verb = newStatus === "Closed" ? "Close" : "Reopen";
-    if (!confirm(`${verb} this period?`)) return;
+    const isClose = newStatus === "Closed";
+    const verb = isClose ? "Close" : "Reopen";
+
+    const options = isClose
+        ? { title: "Close Period", icon: "warning", confirmText: "Close Period" }
+        : { title: "Reopen Period", icon: "question", confirmText: "Reopen" };
+
+    if (!await confirmDialog(
+        isClose
+            ? "Close this period? It will no longer be processable."
+            : "Reopen this period? It will become available for payroll runs again.",
+        options
+    )) return;
+
     try {
         const { data } = await api.patch("payroll_periods.php", { period_id: Number(id), status: newStatus });
-        showMessage(data.message, "success");
+        showToast(data.message, "success");
         await loadRows();
     } catch (err) {
-        showMessage(apiErrorMessage(err), "error");
+        showToast(apiErrorMessage(err), "error");
     }
 }
 

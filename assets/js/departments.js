@@ -5,12 +5,12 @@
 let showAll = false;
 let editId = null;
 
-const form = document.getElementById("dept-form");
-const submitBtn = document.getElementById("submit-btn");
-const cancelBtn = document.getElementById("cancel-btn");
-const formTitle = document.getElementById("form-title");
-const rowsEl = document.getElementById("rows");
-const countEl = document.getElementById("record-count");
+const form       = document.getElementById("dept-form");
+const submitBtn  = document.getElementById("submit-btn");
+const cancelBtn  = document.getElementById("cancel-btn");
+const formTitle  = document.getElementById("form-title");
+const rowsEl     = document.getElementById("rows");
+const countEl    = document.getElementById("record-count");
 const toggleLink = document.getElementById("toggle-filter");
 
 // ---- Load managers dropdown (active employees) ----
@@ -21,7 +21,7 @@ async function loadManagerOptions() {
         const options = data.data.map((e) => `<option value="${e.id}">${escapeHtml(e.label)}</option>`).join("");
         select.innerHTML = `<option value="">-- None --</option>${options}`;
     } catch (err) {
-        showMessage("Could not load managers list: " + apiErrorMessage(err), "error");
+        showToast("Could not load managers list: " + apiErrorMessage(err), "error");
     }
 }
 
@@ -49,8 +49,8 @@ function renderRows(rows) {
             <td>#${r.department_id}</td>
             <td>${escapeHtml(r.department_name)}</td>
             <td>${r.manager_name ? escapeHtml(r.manager_name) : "—"}</td>
-            <td><span class="badge ${r.is_active ? "active" : "inactive"}">${r.is_active ? "Active" : "Inactive"}</span></td>
-            <td>
+            <td class="col-center"><span class="badge ${r.is_active ? "active" : "inactive"}">${r.is_active ? "Active" : "Inactive"}</span></td>
+            <td class="col-center">
                 <button class="btn btn-edit" data-edit="${r.department_id}">Edit</button>
                 <button class="btn ${r.is_active ? "btn-delete" : "btn-restore"}" data-toggle="${r.department_id}" data-active="${r.is_active ? 0 : 1}">
                     ${r.is_active ? "Deactivate" : "Restore"}
@@ -104,15 +104,15 @@ form.addEventListener("submit", async (e) => {
         if (editId) {
             payload.department_id = editId;
             const { data } = await api.put("departments.php", payload);
-            showMessage(data.message, "success");
+            showToast(data.message, "success");
         } else {
             const { data } = await api.post("departments.php", payload);
-            showMessage(data.message, "success");
+            showToast(data.message, "success");
         }
         resetForm();
         await Promise.all([loadRows(), loadManagerOptions()]);
     } catch (err) {
-        showMessage(apiErrorMessage(err), "error");
+        showToast(apiErrorMessage(err), "error");
     } finally {
         submitBtn.disabled = false;
     }
@@ -121,13 +121,13 @@ form.addEventListener("submit", async (e) => {
 // ---- Deactivate / restore ----
 async function toggleStatus(id, newStatus) {
     const verb = newStatus ? "Restore" : "Deactivate";
-    if (!confirm(`${verb} this department?`)) return;
+    if (!await confirmDialog(`${verb} this department?`)) return;
     try {
         const { data } = await api.patch("departments.php", { department_id: id, is_active: newStatus });
-        showMessage(data.message, "success");
+        showToast(data.message, "success");
         await Promise.all([loadRows(), loadManagerOptions()]);
     } catch (err) {
-        showMessage(apiErrorMessage(err), "error");
+        showToast(apiErrorMessage(err), "error");
     }
 }
 

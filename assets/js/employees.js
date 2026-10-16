@@ -38,7 +38,7 @@ async function loadDropdowns() {
         if (posVal) posSel.value = posVal;
         if (deptVal) deptSel.value = deptVal;
     } catch (err) {
-        showMessage("Could not load position/department lists: " + apiErrorMessage(err), "error");
+        showToast("Could not load position/department lists: " + apiErrorMessage(err), "error");
     }
 }
 
@@ -120,15 +120,15 @@ form.addEventListener("submit", async (e) => {
         if (editId) {
             payload.employee_id = editId;
             const { data } = await api.put("employees.php", payload);
-            showMessage(data.message, "success");
+            showToast(data.message, "success");
         } else {
             const { data } = await api.post("employees.php", payload);
-            showMessage(data.message, "success");
+            showToast(data.message, "success");
         }
         resetForm();
         await loadRows();
     } catch (err) {
-        showMessage(apiErrorMessage(err), "error");
+        showToast(apiErrorMessage(err), "error");
     } finally {
         submitBtn.disabled = false;
     }
@@ -136,13 +136,13 @@ form.addEventListener("submit", async (e) => {
 
 async function toggleStatus(id, newStatus) {
     const verb = newStatus ? "Restore" : "Deactivate";
-    if (!confirm(`${verb} this employee record?`)) return;
+    if (!await confirmDialog(`${verb} this employee record?`)) return;
     try {
         const { data } = await api.patch("employees.php", { employee_id: id, is_active: newStatus });
-        showMessage(data.message, "success");
+        showToast(data.message, "success");
         await loadRows();
     } catch (err) {
-        showMessage(apiErrorMessage(err), "error");
+        showToast(apiErrorMessage(err), "error");
     }
 }
 

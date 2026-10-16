@@ -15,6 +15,12 @@ function formatMoney(n) {
     return "₱" + Number(n || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function getEmployeeLabel() {
+    const sel = document.getElementById("employee_id");
+    if (!sel || sel.selectedIndex < 0) return "this employee";
+    return sel.options[sel.selectedIndex].text || "this employee";
+}
+
 async function loadEmployeeOptions() {
     const select = document.getElementById("employee_id");
     const currentVal = select.value;
@@ -24,7 +30,7 @@ async function loadEmployeeOptions() {
             data.data.map((e) => `<option value="${e.id}">${escapeHtml(e.label)}</option>`).join("");
         if (currentVal) select.value = currentVal;
     } catch (err) {
-        showMessage("Could not load employees list: " + apiErrorMessage(err), "error");
+        showToast("Could not load employees: " + apiErrorMessage(err), "error");
     }
 }
 
@@ -123,11 +129,27 @@ cancelBtn.addEventListener("click", resetForm);
 
 form.addEventListener("submit", async (e) => {
     e.preventDefault();
+
+    const empId     = document.getElementById("employee_id").value;
+    const loanType  = document.getElementById("loan_type").value;
+    const principal = document.getElementById("principal_amount").value;
+    const amort     = document.getElementById("monthly_amortization").value;
+    const empLabel  = getEmployeeLabel();
+
+    if (!empId || !loanType || !principal || !amort) return;
+
+    if (!editId) {
+        if (!await confirmDialog(
+            `Add a ${loanType} for ${empLabel} with ₱${Number(principal).toLocaleString()} principal and ₱${Number(amort).toLocaleString()} monthly amortization?`,
+            { title: "Confirm New Loan", icon: "question", confirmText: "Add Loan" }
+        )) return;
+    }
+
     const payload = {
-        employee_id:          document.getElementById("employee_id").value,
-        loan_type:            document.getElementById("loan_type").value,
-        principal_amount:     document.getElementById("principal_amount").value,
-        monthly_amortization: document.getElementById("monthly_amortization").value,
+        employee_id:          empId,
+        loan_type:            loanType,
+        principal_amount:     principal,
+        monthly_amortization: amort,
     };
 
     submitBtn.disabled = true;
@@ -135,29 +157,41 @@ form.addEventListener("submit", async (e) => {
         if (editId) {
             payload.loan_id = editId;
             const { data } = await api.put("loans.php", payload);
-            showMessage(data.message, "success");
+            showToast(data.message, "success");
         } else {
             const { data } = await api.post("loans.php", payload);
-            showMessage(data.message, "success");
+            showToast(data.message, "success");
         }
         resetForm();
         await loadRows();
     } catch (err) {
-        showMessage(apiErrorMessage(err), "error");
+        showToast(apiErrorMessage(err), "error");
     } finally {
         submitBtn.disabled = false;
     }
 });
 
 async function setStatus(id, status) {
-    const verb = status === "Cancelled" ? "Cancel" : "Reactivate";
-    if (!confirm(`${verb} this loan?`)) return;
+    const isCancel = status === "Cancelled";
+    const verb = isCancel ? "Cancel" : "Reactivate";
+
+    const options = isCancel
+        ? { title: "Cancel Loan", icon: "warning", confirmText: "Cancel Loan" }
+        : { title: "Reactivate Loan", icon: "question", confirmText: "Reactivate" };
+
+    if (!await confirmDialog(
+        isCancel
+            ? "Cancel this loan? It will stop being deducted from future payroll runs."
+            : "Reactivate this loan? It will resume being deducted from payroll.",
+        options
+    )) return;
+
     try {
         const { data } = await api.patch("loans.php", { loan_id: Number(id), status });
-        showMessage(data.message, "success");
+        showToast(data.message, "success");
         await loadRows();
     } catch (err) {
-        showMessage(apiErrorMessage(err), "error");
+        showToast(apiErrorMessage(err), "error");
     }
 }
 

@@ -3,7 +3,7 @@
 // =====================================================================
 
 let editId = null;
-let lastSummary = null; // cache for drill-down
+let lastSummary = null;
 
 const form        = document.getElementById("att-form");
 const submitBtn   = document.getElementById("submit-btn");
@@ -21,11 +21,9 @@ const summaryOut  = document.getElementById("summary-output");
 const detailModal = document.getElementById("detail-modal");
 const detailBody  = document.getElementById("detail-body");
 
-// Time In form elements
 const timeinForm     = document.getElementById("timein-form");
 const timeinBtn      = document.getElementById("timein-btn");
 
-// Time Out form elements
 const timeoutForm    = document.getElementById("timeout-form");
 const timeoutBtn     = document.getElementById("timeout-btn");
 
@@ -37,8 +35,14 @@ function todayISO() {
     return `${y}-${m}-${day}`;
 }
 
+function getSelectedLabel(selectId) {
+    const sel = document.getElementById(selectId);
+    if (!sel || sel.selectedIndex < 0) return "this employee";
+    return sel.options[sel.selectedIndex].text || "this employee";
+}
+
 // ---------------------------------------------------------------------
-// Employee dropdown — populate all three selects
+// Employee dropdowns
 // ---------------------------------------------------------------------
 async function loadEmployeeOptions() {
     const selects = [
@@ -53,12 +57,13 @@ async function loadEmployeeOptions() {
             data.data.map((e) => `<option value="${e.id}">${escapeHtml(e.label)}</option>`).join("");
 
         selects.forEach((sel) => {
+            if (!sel) return;
             const currentVal = sel.value;
             sel.innerHTML = optionsHtml;
             if (currentVal) sel.value = currentVal;
         });
     } catch (err) {
-        showMessage("Could not load employees: " + apiErrorMessage(err), "error");
+        showToast("Could not load employees: " + apiErrorMessage(err), "error");
     }
 }
 
@@ -67,19 +72,32 @@ async function loadEmployeeOptions() {
 // ---------------------------------------------------------------------
 timeinForm.addEventListener("submit", async (e) => {
     e.preventDefault();
+
+    const empId  = document.getElementById("timein_employee").value;
+    const date   = document.getElementById("timein_date").value;
+    const time   = document.getElementById("timein_time").value;
+    const empLabel = getSelectedLabel("timein_employee");
+
+    if (!empId || !date || !time) return;
+
+    if (!await confirmDialog(
+        `Clock in ${empLabel} on ${date} at ${time}?`,
+        { title: "Confirm Time In", icon: "question", confirmText: "Clock In" }
+    )) return;
+
     const payload = {
-        employee_id: document.getElementById("timein_employee").value,
-        work_date:   document.getElementById("timein_date").value,
-        time_in:     document.getElementById("timein_time").value,
+        employee_id: empId,
+        work_date:   date,
+        time_in:     time,
     };
 
     timeinBtn.disabled = true;
     try {
         const { data } = await api.post("attendance.php", payload);
-        showMessage(data.message, "success");
+        showToast(data.message, "success");
         await loadRows();
     } catch (err) {
-        showMessage(apiErrorMessage(err), "error");
+        showToast(apiErrorMessage(err), "error");
     } finally {
         timeinBtn.disabled = false;
     }
@@ -90,19 +108,32 @@ timeinForm.addEventListener("submit", async (e) => {
 // ---------------------------------------------------------------------
 timeoutForm.addEventListener("submit", async (e) => {
     e.preventDefault();
+
+    const empId  = document.getElementById("timeout_employee").value;
+    const date   = document.getElementById("timeout_date").value;
+    const time   = document.getElementById("timeout_time").value;
+    const empLabel = getSelectedLabel("timeout_employee");
+
+    if (!empId || !date || !time) return;
+
+    if (!await confirmDialog(
+        `Clock out ${empLabel} on ${date} at ${time}?`,
+        { title: "Confirm Time Out", icon: "question", confirmText: "Clock Out" }
+    )) return;
+
     const payload = {
-        employee_id: document.getElementById("timeout_employee").value,
-        work_date:   document.getElementById("timeout_date").value,
-        time_out:    document.getElementById("timeout_time").value,
+        employee_id: empId,
+        work_date:   date,
+        time_out:    time,
     };
 
     timeoutBtn.disabled = true;
     try {
         const { data } = await api.patch("attendance.php", payload);
-        showMessage(data.message, "success");
+        showToast(data.message, "success");
         await loadRows();
     } catch (err) {
-        showMessage(apiErrorMessage(err), "error");
+        showToast(apiErrorMessage(err), "error");
     } finally {
         timeoutBtn.disabled = false;
     }
@@ -215,28 +246,35 @@ form.addEventListener("submit", async (e) => {
         if (editId) {
             payload.attendance_id = editId;
             const { data } = await api.put("attendance.php", payload);
-            showMessage(data.message, "success");
+            showToast(data.message, "success");
         } else {
             const { data } = await api.post("attendance.php", payload);
-            showMessage(data.message, "success");
+            showToast(data.message, "success");
         }
         resetForm();
         await loadRows();
     } catch (err) {
-        showMessage(apiErrorMessage(err), "error");
+        showToast(apiErrorMessage(err), "error");
     } finally {
         submitBtn.disabled = false;
     }
 });
 
+// ---------------------------------------------------------------------
+// DELETE
+// ---------------------------------------------------------------------
 async function deleteRow(id) {
-    if (!confirm("Delete this attendance record?")) return;
+    if (!await confirmDialog(
+        "Delete this attendance record? This cannot be undone.",
+        { title: "Confirm Delete", icon: "warning", confirmText: "Delete" }
+    )) return;
+
     try {
         const { data } = await api.delete("attendance.php", { params: { id } });
-        showMessage(data.message, "success");
+        showToast(data.message, "success");
         await loadRows();
     } catch (err) {
-        showMessage(apiErrorMessage(err), "error");
+        showToast(apiErrorMessage(err), "error");
     }
 }
 
@@ -345,7 +383,6 @@ function renderSummary(payload) {
         </div>
     `;
 
-    // Wire up row click
     summaryOut.querySelectorAll(".clickable-row").forEach((row) => {
         row.addEventListener("click", () => openEmployeeDetail(Number(row.dataset.emp)));
     });
@@ -476,7 +513,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const y = now.getFullYear();
     const m = String(now.getMonth() + 1).padStart(2, "0");
     document.getElementById("summary_from").value = `${y}-${m}-01`;
-    const last = new Date(y, now.getMonth() + 1, 0).getDate();
+    const last = new Date(y, new Date(y, now.getMonth() + 1, 0).getDate()).getDate();
     document.getElementById("summary_to").value = `${y}-${m}-${String(last).padStart(2, "0")}`;
 
     const today = todayISO();

@@ -5,12 +5,12 @@
 let showAll = false;
 let editId = null;
 
-const form = document.getElementById("pos-form");
-const submitBtn = document.getElementById("submit-btn");
-const cancelBtn = document.getElementById("cancel-btn");
-const formTitle = document.getElementById("form-title");
-const rowsEl = document.getElementById("rows");
-const countEl = document.getElementById("record-count");
+const form       = document.getElementById("pos-form");
+const submitBtn  = document.getElementById("submit-btn");
+const cancelBtn  = document.getElementById("cancel-btn");
+const formTitle  = document.getElementById("form-title");
+const rowsEl     = document.getElementById("rows");
+const countEl    = document.getElementById("record-count");
 const toggleLink = document.getElementById("toggle-filter");
 
 async function loadDepartmentOptions() {
@@ -22,7 +22,7 @@ async function loadDepartmentOptions() {
         select.innerHTML = `<option value="">-- Select --</option>${options}`;
         if (currentVal) select.value = currentVal;
     } catch (err) {
-        showMessage("Could not load departments list: " + apiErrorMessage(err), "error");
+        showToast("Could not load departments list: " + apiErrorMessage(err), "error");
     }
 }
 
@@ -70,9 +70,9 @@ function renderRows(rows) {
 function startEdit(row) {
     if (!row) return;
     editId = row.position_id;
-    document.getElementById("position_id").value = row.position_id;
+    document.getElementById("position_id").value   = row.position_id;
     document.getElementById("department_id").value = row.department_id;
-    document.getElementById("title").value = row.title;
+    document.getElementById("title").value         = row.title;
     formTitle.textContent = "Edit Position";
     submitBtn.textContent = "Save Changes";
     cancelBtn.classList.remove("hidden");
@@ -94,7 +94,7 @@ form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const payload = {
         department_id: document.getElementById("department_id").value,
-        title: document.getElementById("title").value.trim(),
+        title:         document.getElementById("title").value.trim(),
     };
 
     submitBtn.disabled = true;
@@ -102,15 +102,15 @@ form.addEventListener("submit", async (e) => {
         if (editId) {
             payload.position_id = editId;
             const { data } = await api.put("positions.php", payload);
-            showMessage(data.message, "success");
+            showToast(data.message, "success");
         } else {
             const { data } = await api.post("positions.php", payload);
-            showMessage(data.message, "success");
+            showToast(data.message, "success");
         }
         resetForm();
         await loadRows();
     } catch (err) {
-        showMessage(apiErrorMessage(err), "error");
+        showToast(apiErrorMessage(err), "error");
     } finally {
         submitBtn.disabled = false;
     }
@@ -118,13 +118,13 @@ form.addEventListener("submit", async (e) => {
 
 async function toggleStatus(id, newStatus) {
     const verb = newStatus ? "Restore" : "Deactivate";
-    if (!confirm(`${verb} this position?`)) return;
+    if (!await confirmDialog(`${verb} this position?`)) return;
     try {
         const { data } = await api.patch("positions.php", { position_id: id, is_active: newStatus });
-        showMessage(data.message, "success");
+        showToast(data.message, "success");
         await loadRows();
     } catch (err) {
-        showMessage(apiErrorMessage(err), "error");
+        showToast(apiErrorMessage(err), "error");
     }
 }
 

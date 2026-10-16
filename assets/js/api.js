@@ -1,7 +1,6 @@
 // =====================================================================
 // assets/js/api.js
-// Shared axios instance + helpers. Also injects the user/logout UI
-// into the nav on every page that includes it.
+// Shared axios instance + helpers (including SweetAlert dialogs)
 // =====================================================================
 
 const api = axios.create({
@@ -9,7 +8,6 @@ const api = axios.create({
     headers: { "Content-Type": "application/json" },
 });
 
-// ---- 401 interceptor: kick to login if the session expires ----
 api.interceptors.response.use(
     (response) => response,
     (error) => {
@@ -20,7 +18,9 @@ api.interceptors.response.use(
     }
 );
 
-/** Escape text before injecting into innerHTML. */
+// ---------------------------------------------------------------------
+// Text utilities
+// ---------------------------------------------------------------------
 function escapeHtml(str) {
     if (str === null || str === undefined) return "";
     return String(str)
@@ -31,7 +31,14 @@ function escapeHtml(str) {
         .replace(/'/g, "&#39;");
 }
 
-/** Show a success/error banner in the given element id (default #msg). */
+function apiErrorMessage(err) {
+    return err?.response?.data?.message || err.message || "Something went wrong.";
+}
+
+// ---------------------------------------------------------------------
+// Inline banner (kept for backward compatibility — not used anymore
+// in most pages since we switched to toasts)
+// ---------------------------------------------------------------------
 function showMessage(text, type = "success", elId = "msg") {
     const el = document.getElementById(elId);
     if (!el) return;
@@ -44,12 +51,73 @@ function showMessage(text, type = "success", elId = "msg") {
     }
 }
 
-/** Pull a human-readable message out of an axios error. */
-function apiErrorMessage(err) {
-    return err?.response?.data?.message || err.message || "Something went wrong.";
+// ---------------------------------------------------------------------
+// SweetAlert2 helpers
+// ---------------------------------------------------------------------
+
+/**
+ * Confirmation dialog. Returns true if user confirms, false otherwise.
+ * Usage: if (!await confirmDialog("Deactivate this?")) return;
+ */
+async function confirmDialog(message, options = {}) {
+    const result = await Swal.fire({
+        title: options.title || "Are you sure?",
+        text: message,
+        icon: options.icon || "question",
+        showCancelButton: true,
+        confirmButtonText: options.confirmText || "Yes, proceed",
+        cancelButtonText: options.cancelText || "Cancel",
+        confirmButtonColor: "#0038A8",
+        cancelButtonColor: "#6b7280",
+        reverseButtons: true,
+        focusCancel: true,
+    });
+    return result.isConfirmed;
 }
 
-/** Mark the current page's nav link as active based on the file name. */
+/**
+ * Info / error / success dialog.
+ * Usage: await alertDialog("Something went wrong", "error");
+ */
+async function alertDialog(message, type = "info", title = null) {
+    const titles = {
+        success: title || "Success",
+        error:   title || "Oops!",
+        warning: title || "Warning",
+        info:    title || "Note",
+    };
+    await Swal.fire({
+        title: titles[type],
+        text: message,
+        icon: type,
+        confirmButtonColor: "#0038A8",
+        confirmButtonText: "OK",
+    });
+}
+
+/**
+ * Toast notification — slides in from top-right.
+ * Usage: showToast("Record saved", "success");
+ */
+function showToast(message, type = "success") {
+    Swal.fire({
+        toast: true,
+        position: "top-end",
+        icon: type,
+        title: message,
+        showConfirmButton: false,
+        timer: 2500,
+        timerProgressBar: true,
+        didOpen: (toast) => {
+            toast.addEventListener("mouseenter", Swal.stopTimer);
+            toast.addEventListener("mouseleave", Swal.resumeTimer);
+        },
+    });
+}
+
+// ---------------------------------------------------------------------
+// Navigation highlighting
+// ---------------------------------------------------------------------
 function highlightNav() {
     const page = location.pathname.split("/").pop() || "index.html";
     document.querySelectorAll("nav a[data-page]").forEach((a) => {
@@ -57,15 +125,13 @@ function highlightNav() {
     });
 }
 
-/**
- * Inject the logged-in user's name and a logout button into the nav.
- * Called on every page that includes api.js.
- */
+// ---------------------------------------------------------------------
+// User info + logout (injected into sidebar)
+// ---------------------------------------------------------------------
 async function injectNavUser() {
     const nav = document.querySelector("nav");
     if (!nav) return;
 
-    // Remove any old injection
     nav.querySelectorAll(".nav-user").forEach((el) => el.remove());
 
     try {
@@ -77,7 +143,7 @@ async function injectNavUser() {
         wrap.innerHTML = `
             <span class="nav-user-info">
                 <span class="nav-user-name">${escapeHtml(user.username)}</span>
-                <span class="nav-user-role">${escapeHtml(user.role)}</span>
+                <span class="nav-user-role">${escapeHtml(user.role || "")}</span>
             </span>
             <a href="#" class="nav-logout" id="nav-logout-btn">Log out</a>
         `;
@@ -85,17 +151,20 @@ async function injectNavUser() {
 
         wrap.querySelector("#nav-logout-btn").addEventListener("click", async (e) => {
             e.preventDefault();
-            if (!confirm("Log out of the payroll system?")) return;
+            if (!await confirmDialog("Log out of the payroll system?", { confirmText: "Log out" })) return;
             try {
                 await api.post("auth.php?action=logout");
             } catch (_) { /* ignore */ }
             window.location.href = "login.html";
         });
     } catch (err) {
-        // 401 is handled by the interceptor — this is a fallback for other errors
+        // 401 handled by interceptor
     }
 }
 
+// ---------------------------------------------------------------------
+// Init
+// ---------------------------------------------------------------------
 document.addEventListener("DOMContentLoaded", () => {
     highlightNav();
     injectNavUser();

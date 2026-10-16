@@ -21,13 +21,19 @@ document.querySelectorAll(".tab").forEach((btn) => {
 (function initRequests() {
     let editId = null;
 
-    const form       = document.getElementById("req-form");
-    const submitBtn  = document.getElementById("req_submit_btn");
-    const cancelBtn  = document.getElementById("req_cancel_btn");
-    const formTitle  = document.getElementById("req-form-title");
-    const rowsEl     = document.getElementById("req_rows");
-    const countEl    = document.getElementById("req_count");
-    const filterEl   = document.getElementById("req_filter_status");
+    const form      = document.getElementById("req-form");
+    const submitBtn = document.getElementById("req_submit_btn");
+    const cancelBtn = document.getElementById("req_cancel_btn");
+    const formTitle = document.getElementById("req-form-title");
+    const rowsEl    = document.getElementById("req_rows");
+    const countEl   = document.getElementById("req_count");
+    const filterEl  = document.getElementById("req_filter_status");
+
+    function getEmployeeLabel() {
+        const sel = document.getElementById("req_employee_id");
+        if (!sel || sel.selectedIndex < 0) return "this employee";
+        return sel.options[sel.selectedIndex].text || "this employee";
+    }
 
     async function loadEmployees() {
         const select = document.getElementById("req_employee_id");
@@ -38,7 +44,7 @@ document.querySelectorAll(".tab").forEach((btn) => {
                 data.data.map((e) => `<option value="${e.id}">${escapeHtml(e.label)}</option>`).join("");
             if (cur) select.value = cur;
         } catch (err) {
-            showMessage("Could not load employees: " + apiErrorMessage(err), "error");
+            showToast("Could not load employees: " + apiErrorMessage(err), "error");
         }
     }
 
@@ -51,7 +57,7 @@ document.querySelectorAll(".tab").forEach((btn) => {
                 data.data.map((t) => `<option value="${t.leave_type_id}">${escapeHtml(t.name)}</option>`).join("");
             if (cur) select.value = cur;
         } catch (err) {
-            showMessage("Could not load leave types: " + apiErrorMessage(err), "error");
+            showToast("Could not load leave types: " + apiErrorMessage(err), "error");
         }
     }
 
@@ -134,11 +140,11 @@ document.querySelectorAll(".tab").forEach((btn) => {
     function startEdit(row) {
         if (!row) return;
         editId = row.leave_id;
-        document.getElementById("req_leave_id").value          = row.leave_id;
-        document.getElementById("req_employee_id").value       = row.employee_id;
-        document.getElementById("req_leave_type_id").value     = row.leave_type_id;
-        document.getElementById("req_start_date").value        = row.start_date ?? "";
-        document.getElementById("req_end_date").value          = row.end_date ?? "";
+        document.getElementById("req_leave_id").value      = row.leave_id;
+        document.getElementById("req_employee_id").value   = row.employee_id;
+        document.getElementById("req_leave_type_id").value = row.leave_type_id;
+        document.getElementById("req_start_date").value    = row.start_date ?? "";
+        document.getElementById("req_end_date").value      = row.end_date ?? "";
         formTitle.textContent = "Edit Leave Request";
         submitBtn.textContent = "Save Changes";
         cancelBtn.classList.remove("hidden");
@@ -158,11 +164,29 @@ document.querySelectorAll(".tab").forEach((btn) => {
 
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
+
+        const empId   = document.getElementById("req_employee_id").value;
+        const typeId  = document.getElementById("req_leave_type_id").value;
+        const start   = document.getElementById("req_start_date").value;
+        const end     = document.getElementById("req_end_date").value;
+        const empName = getEmployeeLabel();
+
+        if (!empId || !typeId || !start || !end) return;
+
+        if (!editId) {
+            // Confirm filing
+            const days = countBusinessDays(start, end);
+            if (!await confirmDialog(
+                `File a ${days}-day leave for ${empName} from ${start} to ${end}?`,
+                { title: "Confirm Leave Request", icon: "question", confirmText: "File Request" }
+            )) return;
+        }
+
         const payload = {
-            employee_id:   document.getElementById("req_employee_id").value,
-            leave_type_id: document.getElementById("req_leave_type_id").value,
-            start_date:    document.getElementById("req_start_date").value,
-            end_date:      document.getElementById("req_end_date").value,
+            employee_id:   empId,
+            leave_type_id: typeId,
+            start_date:    start,
+            end_date:      end,
         };
 
         submitBtn.disabled = true;
@@ -170,15 +194,15 @@ document.querySelectorAll(".tab").forEach((btn) => {
             if (editId) {
                 payload.leave_id = editId;
                 const { data } = await api.put("leave_requests.php", payload);
-                showMessage(data.message, "success");
+                showToast(data.message, "success");
             } else {
                 const { data } = await api.post("leave_requests.php", payload);
-                showMessage(data.message, "success");
+                showToast(data.message, "success");
             }
             resetForm();
             await loadRows();
         } catch (err) {
-            showMessage(apiErrorMessage(err), "error");
+            showToast(apiErrorMessage(err), "error");
         } finally {
             submitBtn.disabled = false;
         }
@@ -186,20 +210,27 @@ document.querySelectorAll(".tab").forEach((btn) => {
 
     async function changeStatus(id, status) {
         const verb = status === "Approved" ? "Approve" : "Reject";
-        if (!confirm(`${verb} this leave request?`)) return;
+        const row = document.querySelector(`[data-approve="${id}"], [data-reject="${id}"]`);
+        const tr = row ? row.closest("tr") : null;
+        const empName = tr ? tr.querySelector("td").textContent.trim().split("\n")[0] : "this request";
+
+        const options = status === "Approved"
+            ? { title: "Approve Leave", icon: "success", confirmText: "Approve", iconColor: "#1e7d32" }
+            : { title: "Reject Leave", icon: "warning", confirmText: "Reject" };
+
+        if (!await confirmDialog(`${verb} the leave request for ${empName}?`, options)) return;
+
         try {
             const { data } = await api.patch("leave_requests.php", { leave_id: Number(id), status });
-            showMessage(data.message, "success");
+            showToast(data.message, "success");
             await loadRows();
         } catch (err) {
-            showMessage(apiErrorMessage(err), "error");
+            showToast(apiErrorMessage(err), "error");
         }
     }
 
     filterEl.addEventListener("change", loadRows);
 
-    // Expose reload for external triggers (e.g. after adding a leave type)
-    window.__reloadLeaveRequests = loadRows;
     window.__reloadLeaveTypesForRequests = loadLeaveTypes;
 
     document.addEventListener("DOMContentLoaded", () => {
@@ -279,17 +310,18 @@ document.querySelectorAll(".tab").forEach((btn) => {
     document.getElementById("bal_init_btn").addEventListener("click", async () => {
         const year = parseInt(yearEl.value, 10);
         if (!year) return;
-        if (!confirm(`Initialize balances for ${year}? This creates missing rows for all active employees and leave types.`)) return;
+        if (!await confirmDialog(
+            `Initialize leave balances for ${year}? This creates missing rows for all active employees and leave types.`,
+            { title: "Initialize Balances", icon: "question", confirmText: "Initialize" }
+        )) return;
         try {
             const { data } = await api.post("leave_balances.php", { year });
-            showMessage(data.message, "success");
+            showToast(data.message, "success");
             await loadGrid();
         } catch (err) {
-            showMessage(apiErrorMessage(err), "error");
+            showToast(apiErrorMessage(err), "error");
         }
     });
-
-    window.__reloadLeaveBalances = loadGrid;
 
     document.addEventListener("DOMContentLoaded", () => {
         yearEl.value = new Date().getFullYear();
@@ -388,19 +420,18 @@ document.querySelectorAll(".tab").forEach((btn) => {
             if (editId) {
                 payload.leave_type_id = editId;
                 const { data } = await api.put("leave_types.php", payload);
-                showMessage(data.message, "success");
+                showToast(data.message, "success");
             } else {
                 const { data } = await api.post("leave_types.php", payload);
-                showMessage(data.message, "success");
+                showToast(data.message, "success");
             }
             resetForm();
             await loadRows();
-            // Refresh the requests dropdown so the new type shows up
             if (window.__reloadLeaveTypesForRequests) {
                 window.__reloadLeaveTypesForRequests();
             }
         } catch (err) {
-            showMessage(apiErrorMessage(err), "error");
+            showToast(apiErrorMessage(err), "error");
         } finally {
             submitBtn.disabled = false;
         }
@@ -408,16 +439,16 @@ document.querySelectorAll(".tab").forEach((btn) => {
 
     async function toggleStatus(id, newStatus) {
         const verb = newStatus ? "Restore" : "Deactivate";
-        if (!confirm(`${verb} this leave type?`)) return;
+        if (!await confirmDialog(`${verb} this leave type?`)) return;
         try {
             const { data } = await api.patch("leave_types.php", { leave_type_id: Number(id), is_active: newStatus });
-            showMessage(data.message, "success");
+            showToast(data.message, "success");
             await loadRows();
             if (window.__reloadLeaveTypesForRequests) {
                 window.__reloadLeaveTypesForRequests();
             }
         } catch (err) {
-            showMessage(apiErrorMessage(err), "error");
+            showToast(apiErrorMessage(err), "error");
         }
     }
 

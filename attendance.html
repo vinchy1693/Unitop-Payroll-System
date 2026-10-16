@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Attendance — UNITOP Payroll</title>
+<title>Attendance — UNITOP Payroll System</title>
 <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
@@ -38,8 +38,6 @@
         <a href="ledger.html" data-page="ledger.html">Ledger</a>
         <a href="reports.html" data-page="reports.html">Reports</a>
     </div>
-
-    <!-- api.js will append the user block here -->
 </nav>
 <div class="container">
 
@@ -73,12 +71,11 @@
         <div id="summary-output"></div>
     </div>
 
-    <!-- TIME IN / TIME OUT FORMS (side-by-side) -->
+    <!-- TIME IN / TIME OUT -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
 
-        <!-- TIME IN -->
         <div class="card">
-            <h3 style="color:#1e7d32;">⏰ Time In</h3>
+            <h3 style="color:#1e7d32;">Time In</h3>
             <p style="margin:0 0 12px;font-size:12.5px;color:#666;">Clock in an employee. Creates a new attendance record for the day.</p>
             <form id="timein-form">
                 <div class="form-grid">
@@ -101,9 +98,8 @@
             </form>
         </div>
 
-        <!-- TIME OUT -->
         <div class="card">
-            <h3 style="color:#b3261e;">🏁 Time Out</h3>
+            <h3 style="color:#b3261e;">Time Out</h3>
             <p style="margin:0 0 12px;font-size:12.5px;color:#666;">Clock out an employee. Updates their existing record with time out.</p>
             <form id="timeout-form">
                 <div class="form-grid">
@@ -128,7 +124,7 @@
 
     </div>
 
-    <!-- EDIT FORM (hidden by default, shown when editing a record) -->
+    <!-- EDIT FORM -->
     <div class="card hidden" id="edit-card">
         <h3 id="form-title">Edit Attendance</h3>
         <form id="att-form">
@@ -201,6 +197,8 @@
 </div>
 
 <script src="assets/js/axios.min.js"></script>
+<script src="assets/js/sweetalert2.min.js"></script>
+<script src="assets/js/dialogs.js"></script>
 <script src="assets/js/api.js"></script>
 <script src="assets/js/attendance.js"></script>
 </body>
