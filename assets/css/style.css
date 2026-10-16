@@ -7,6 +7,7 @@
 * { box-sizing: border-box; }
 
 :root {
+    color-scheme: light;
     --blue:       #0038A8;
     --blue-dark:  #002a7a;
     --blue-deep:  #001a4d;
@@ -18,6 +19,7 @@
     --yellow-dark:#d4af0a;
     --yellow-lite:#fff8d6;
     --green:      #1e7d32;
+    --green-dark: #15682a;
     --green-lite: #dff5e1;
     --bg:         #f5f6fa;
     --card:       #ffffff;
@@ -25,6 +27,65 @@
     --muted:      #6b7280;
     --border:     #e5e7eb;
     --border-mid: #cbd5e1;
+
+    /* Themeable surfaces (kept separate so dark mode stays readable) */
+    --row-hover:  #fafbfd;
+    --surface-1:  #ffffff;
+    --surface-2:  #f9fafc;
+    --surface-3:  #f4f8ff;
+    --control-bg: #ffffff;
+    --disabled-bg:#6b7280;
+
+    /* Sidebar keeps its own deep brand gradient so linking the accent tokens
+       to brighter dark-mode values never washes out the white nav labels. */
+    --sidebar-top:    #0038A8;
+    --sidebar-mid:    #002a7a;
+    --sidebar-bottom: #001a4d;
+    --sidebar-link:   rgba(255,255,255,0.78);
+    --sidebar-link-hover: #ffffff;
+    --nav-active-text: #001a4d;
+
+    /* Foreground that sits on a filled accent surface (buttons, CTAs, pills) */
+    --on-accent:  #ffffff;
+
+    /* Shared shape tokens — keeps cards/tiles consistent */
+    --radius:     12px;
+    --radius-sm:  8px;
+    --shadow:     0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03);
+    --shadow-hover: 0 6px 16px rgba(0,0,0,0.06);
+}
+
+/* ---- Dark theme ---- */
+html[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0f1420;  --card: #171e2e;  --text: #e8ecf5;  --muted: #9aa4b8;
+    --border: #263049; --border-mid: #33405e;
+    --blue-lite: #16233d; --red-lite: #3a1a20; --yellow-lite: #3a3320; --green-lite: #16301d;
+    --blue: #6f9bff; --blue-dark: #4d84ff; --blue-deep: #cfe0ff;
+    --red: #ff6b7d;  --red-dark: #e04b5e;
+    --yellow: #ffd94a; --yellow-dark: #e6c132;
+    --green: #5fd07a;
+    --green-dark: #3fae5c;
+
+    --row-hover:  #1e2740;
+    --surface-1:  #1b2436;
+    --surface-2:  #1b2436;
+    --surface-3:  #1a2742;
+    --control-bg: #131a29;
+    --disabled-bg:#495570;
+    --shadow:     0 1px 3px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.4);
+    --shadow-hover: 0 6px 18px rgba(0,0,0,0.55);
+
+    /* Sidebar stays a deep navy in dark mode (not the bright accent blue) */
+    --sidebar-top:    #18243c;
+    --sidebar-mid:    #141f36;
+    --sidebar-bottom: #101828;
+    --sidebar-link:   rgba(255,255,255,0.88);
+    --sidebar-link-hover: #ffffff;
+    --nav-active-text: #1a1f2e;
+
+    /* Dark accents are bright, so text on them must be dark to stay legible */
+    --on-accent:  #0d1424;
 }
 
 html, body { height: 100%; }
@@ -38,6 +99,27 @@ body {
     line-height: 1.55;
     padding-left: 240px;
     -webkit-font-smoothing: antialiased;
+    transition: background-color .18s ease, color .18s ease, border-color .18s ease;
+}
+
+[type="checkbox"], [type="radio"], progress { accent-color: var(--blue); }
+
+/* Visible keyboard focus (accessibility) — accent outline follows the theme */
+:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: 2px;
+}
+/* Sidebar links sit on a blue gradient, so ring them instead of outlining */
+nav.sidebar a:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--yellow);
+}
+/* Inputs/buttons already draw their own focus ring — don't double up */
+.form-grid input:focus-visible,
+.form-grid select:focus-visible,
+.form-grid textarea:focus-visible,
+.login-field input:focus-visible {
+    outline: none;
 }
 
 /* =====================================================================
@@ -49,12 +131,41 @@ nav.sidebar {
     left: 0;
     width: 240px;
     height: 100vh;
-    background: linear-gradient(180deg, var(--blue) 0%, var(--blue-dark) 60%, var(--blue-deep) 100%);
+    background: linear-gradient(180deg, var(--sidebar-top) 0%, var(--sidebar-mid) 60%, var(--sidebar-bottom) 100%);
     display: flex;
     flex-direction: column;
     overflow-y: auto;
     z-index: 100;
     box-shadow: 2px 0 12px rgba(0,0,0,0.15);
+}
+/* ---- Theme toggle (sits at the end of the nav link list) ---- */
+.theme-toggle {
+    display: block;
+    margin: 12px 4px 4px auto;
+    padding: 6px 12px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+    border-radius: 999px;
+    cursor: pointer;
+    white-space: nowrap;
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.22);
+    transition: background-color .18s ease, color .18s ease, border-color .18s ease;
+}
+.theme-toggle:hover { background: rgba(255,255,255,0.22); }
+.theme-toggle:active { transform: scale(0.97); }
+.theme-toggle:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+/* Login page has no nav — float the toggle in the page corner */
+.theme-toggle.theme-toggle-fixed {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    margin: 0;
+    z-index: 1100;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.25);
 }
 nav.sidebar::-webkit-scrollbar { width: 6px; }
 nav.sidebar::-webkit-scrollbar-thumb {
@@ -133,7 +244,7 @@ nav.sidebar::-webkit-scrollbar-thumb {
 .sidebar-links a {
     display: flex;
     align-items: center;
-    color: rgba(255,255,255,0.78);
+    color: var(--sidebar-link);
     text-decoration: none;
     padding: 10px 14px;
     margin-bottom: 2px;
@@ -165,7 +276,7 @@ nav.sidebar::-webkit-scrollbar-thumb {
 /* Hover */
 .sidebar-links a:hover {
     background: rgba(255,255,255,0.10);
-    color: #ffffff;
+    color: var(--sidebar-link-hover);
 }
 .sidebar-links a:hover::before {
     transform: translateY(-50%) scaleY(1);
@@ -174,12 +285,12 @@ nav.sidebar::-webkit-scrollbar-thumb {
 /* Active — solid yellow pill */
 .sidebar-links a.active {
     background: var(--yellow);
-    color: var(--blue-deep);
+    color: var(--nav-active-text);
     font-weight: 700;
     box-shadow: 0 3px 10px rgba(252,209,22,0.28);
 }
 .sidebar-links a.active::before {
-    background: var(--blue-deep);
+    background: var(--nav-active-text);
     transform: translateY(-50%) scaleY(1);
 }
 
@@ -191,8 +302,8 @@ nav.sidebar::-webkit-scrollbar-thumb {
     top: 50%;
     width: 6px;
     height: 6px;
-    border-top: 2px solid var(--blue-deep);
-    border-right: 2px solid var(--blue-deep);
+    border-top: 2px solid var(--nav-active-text);
+    border-right: 2px solid var(--nav-active-text);
     transform: translateY(-50%) rotate(45deg);
 }
 
@@ -261,11 +372,12 @@ h3 { font-size: 15px; margin: 0 0 14px; font-weight: 600; }
    ===================================================================== */
 .card {
     background: var(--card);
-    border-radius: 12px;
+    border-radius: var(--radius);
     padding: 24px 26px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03);
+    box-shadow: var(--shadow);
     margin-bottom: 20px;
     border: 1px solid var(--border);
+    transition: background-color .18s ease, color .18s ease, border-color .18s ease;
 }
 
 /* =====================================================================
@@ -291,7 +403,7 @@ th {
     font-weight: 700;
 }
 tbody tr { transition: background 0.1s; }
-tbody tr:hover { background: #fafbfd; }
+tbody tr:hover { background: var(--row-hover); }
 tr.inactive-row { opacity: 0.5; }
 th.col-center, td.col-center { text-align: center; }
 td.col-center .btn { margin: 0 2px; }
@@ -331,21 +443,21 @@ td.col-center .btn { margin: 0 2px; }
 .btn:active { transform: scale(0.97); }
 .btn:disabled { cursor: not-allowed; opacity: 0.5; }
 
-.btn-primary { background: var(--blue); color: #fff; }
+.btn-primary { background: var(--blue); color: var(--on-accent); }
 .btn-primary:hover { background: var(--blue-dark); }
-.btn-primary:disabled { background: #99a8c8; }
+.btn-primary:disabled { background: var(--disabled-bg); }
 
 .btn-edit    { background: var(--yellow); color: #5a4a00; }
 .btn-edit:hover { background: var(--yellow-dark); }
 
-.btn-delete  { background: var(--red); color: #fff; }
+.btn-delete  { background: var(--red); color: var(--on-accent); }
 .btn-delete:hover { background: var(--red-dark); }
 
-.btn-restore { background: var(--green); color: #fff; }
-.btn-restore:hover { background: #15682a; }
+.btn-restore { background: var(--green); color: var(--on-accent); }
+.btn-restore:hover { background: var(--green-dark); }
 
-.btn-plain { background: #e5e7eb; color: #333; }
-.btn-plain:hover { background: #d5d8dd; }
+.btn-plain { background: var(--border); color: var(--text); }
+.btn-plain:hover { background: var(--border-mid); }
 
 /* =====================================================================
    FORMS
@@ -359,7 +471,7 @@ td.col-center .btn { margin: 0 2px; }
 .form-grid label {
     display: block;
     font-size: 12.5px;
-    color: #4b5563;
+    color: var(--muted);
     margin-bottom: 6px;
     font-weight: 600;
 }
@@ -372,7 +484,7 @@ td.col-center .btn { margin: 0 2px; }
     border-radius: 6px;
     font-size: 13.5px;
     font-family: inherit;
-    background: #fff;
+    background: var(--control-bg);
     transition: border-color 0.12s, box-shadow 0.12s;
     color: var(--text);
 }
@@ -412,7 +524,7 @@ td.col-center .btn { margin: 0 2px; }
 
 .loading-row td, .empty-row td {
     text-align: center;
-    color: #888;
+    color: var(--muted);
     padding: 28px;
     font-style: italic;
 }
@@ -432,7 +544,7 @@ td.col-center .btn { margin: 0 2px; }
     padding: 10px 18px;
     font-size: 13.5px;
     font-weight: 600;
-    color: #666;
+    color: var(--muted);
     cursor: pointer;
     font-family: inherit;
     border-bottom: 2px solid transparent;
@@ -455,10 +567,10 @@ td.col-center .btn { margin: 0 2px; }
     gap: 18px;
 }
 .workflow-card {
-    background: #fff;
-    border-radius: 12px;
+    background: var(--surface-1);
+    border-radius: var(--radius);
     padding: 22px 24px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    box-shadow: var(--shadow);
     border: 1px solid var(--border);
     border-left: 4px solid var(--border-mid);
     display: flex;
@@ -467,17 +579,17 @@ td.col-center .btn { margin: 0 2px; }
     transition: box-shadow 0.15s, transform 0.12s;
 }
 .workflow-card:hover {
-    box-shadow: 0 6px 16px rgba(0,0,0,0.06);
+    box-shadow: var(--shadow-hover);
     transform: translateY(-2px);
 }
 .workflow-card.status-ok   { border-left-color: var(--green); }
 .workflow-card.status-warn { border-left-color: var(--yellow-dark); background: var(--yellow-lite); }
-.workflow-card.status-go   { border-left-color: var(--blue); background: #f4f8ff; }
+.workflow-card.status-go   { border-left-color: var(--blue); background: var(--surface-3); }
 
 .workflow-step {
     font-size: 10.5px;
     font-weight: 700;
-    color: #9ca3af;
+    color: var(--muted);
     letter-spacing: 1.2px;
     margin-bottom: 6px;
 }
@@ -532,13 +644,14 @@ td.col-center .btn { margin: 0 2px; }
 }
 .modal-overlay.hidden { display: none; }
 .modal-content {
-    background: #fff;
-    border-radius: 12px;
+    background: var(--card);
+    border-radius: var(--radius);
     max-width: 780px;
     width: 100%;
     padding: 28px 32px;
     position: relative;
     box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+    color: var(--text);
 }
 .modal-close {
     position: absolute;
@@ -548,7 +661,7 @@ td.col-center .btn { margin: 0 2px; }
     border: none;
     font-size: 26px;
     line-height: 1;
-    color: #9ca3af;
+    color: var(--muted);
     cursor: pointer;
     transition: color 0.1s;
 }
@@ -586,7 +699,7 @@ td.col-center .btn { margin: 0 2px; }
     text-align: right;
     font-size: 12px;
     line-height: 1.6;
-    color: #4b5563;
+    color: var(--muted);
 }
 .payslip-employee {
     display: grid;
@@ -640,7 +753,7 @@ td.col-center .btn { margin: 0 2px; }
     justify-content: space-between;
     align-items: center;
     background: var(--blue);
-    color: #fff;
+    color: var(--on-accent);
     padding: 16px 22px;
     border-radius: 8px;
     font-size: 15px;
@@ -650,7 +763,7 @@ td.col-center .btn { margin: 0 2px; }
 }
 .payslip-netpay span:last-child { font-size: 22px; color: var(--yellow); }
 .payslip-er-block {
-    background: #f9fafc;
+    background: var(--surface-2);
     border: 1px dashed var(--border-mid);
     border-radius: 8px;
     padding: 14px 16px;
@@ -724,7 +837,7 @@ td.col-center .btn { margin: 0 2px; }
     text-align: right;
     font-size: 12px;
     line-height: 1.6;
-    color: #4b5563;
+    color: var(--muted);
 }
 .report-table {
     width: 100%;
@@ -742,11 +855,11 @@ td.col-center .btn { margin: 0 2px; }
     font-size: 11.5px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    border-bottom: 2px solid #c8d3e5;
+    border-bottom: 2px solid var(--border-mid);
 }
 .report-table thead th.grp-earn { background: var(--green-lite); color: var(--green); text-align: center; }
 .report-table thead th.grp-ded  { background: var(--red-lite);   color: var(--red);   text-align: center; }
-.report-table tbody tr:hover { background: #f9fafc; }
+.report-table tbody tr:hover { background: var(--row-hover); }
 .report-table tfoot td {
     border-top: 2px solid var(--blue);
     background: var(--bg);
@@ -773,7 +886,7 @@ td.col-center .btn { margin: 0 2px; }
 }
 .report-footer > div { width: 200px; text-align: center; }
 .signature-line {
-    border-top: 1px solid #4b5563;
+    border-top: 1px solid var(--text);
     padding-top: 6px;
     font-size: 12.5px;
     font-weight: 600;
@@ -821,7 +934,7 @@ td.col-center .btn { margin: 0 2px; }
     margin-bottom: 20px;
 }
 .summary-section {
-    background: #fff;
+    background: var(--card);
     border: 1px solid var(--border);
     border-radius: 10px;
     padding: 16px 18px;
@@ -879,7 +992,7 @@ td.col-center .btn { margin: 0 2px; }
     font-size: 14px;
 }
 .ledger-balance-value small {
-    color: #888;
+    color: var(--muted);
     font-weight: 400;
     font-size: 11px;
 }
@@ -909,7 +1022,12 @@ td.col-center .btn { margin: 0 2px; }
    LOGIN
    ===================================================================== */
 .login-body {
-    background: linear-gradient(135deg, var(--blue) 0%, var(--blue-deep) 100%);
+    /* The backdrop is a large SURFACE, so it must not use the accent tokens:
+       in dark mode --blue/--blue-deep are brightened because they act as fills,
+       which turned the whole login backdrop light. The sidebar tokens are the
+       same deep brand navy and keep their own values per theme. Light mode is
+       pixel-identical to the previous --blue -> --blue-deep gradient. */
+    background: linear-gradient(135deg, var(--sidebar-top) 0%, var(--sidebar-bottom) 100%);
     min-height: 100vh;
     display: flex;
     align-items: center;
@@ -919,7 +1037,7 @@ td.col-center .btn { margin: 0 2px; }
 }
 .login-wrap { width: 100%; max-width: 420px; }
 .login-card {
-    background: #fff;
+    background: var(--card);
     border-radius: 14px;
     padding: 40px 36px 32px;
     box-shadow: 0 20px 60px rgba(0,0,0,0.3);
@@ -945,7 +1063,7 @@ td.col-center .btn { margin: 0 2px; }
 .login-field label {
     display: block;
     font-size: 12.5px;
-    color: #4b5563;
+    color: var(--muted);
     margin-bottom: 6px;
     font-weight: 600;
 }
@@ -956,6 +1074,8 @@ td.col-center .btn { margin: 0 2px; }
     border-radius: 8px;
     font-size: 14px;
     font-family: inherit;
+    background: var(--control-bg);
+    color: var(--text);
     transition: border-color 0.15s, box-shadow 0.15s;
 }
 .login-field input:focus {
@@ -976,7 +1096,7 @@ td.col-center .btn { margin: 0 2px; }
     text-align: center;
     margin-top: 26px;
     font-size: 11px;
-    color: #9ca3af;
+    color: var(--muted);
     text-transform: uppercase;
     letter-spacing: 1px;
 }
@@ -991,9 +1111,10 @@ td.col-center .btn { margin: 0 2px; }
     padding: 10px 12px;
     border: 1px solid var(--border-mid);
     border-radius: 6px;
-    background: #fff;
+    background: var(--control-bg);
     min-height: 42px;
     align-items: center;
+    color: var(--text);
 }
 .checkbox-item {
     display: flex;
@@ -1073,10 +1194,10 @@ td.col-center .btn { margin: 0 2px; }
 }
 
 .kpi-tile {
-    background: #fff;
-    border-radius: 12px;
+    background: var(--surface-1);
+    border-radius: var(--radius);
     padding: 18px 20px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    box-shadow: var(--shadow);
     border: 1px solid var(--border);
     border-left: 4px solid var(--border-mid);
     display: flex;
@@ -1087,7 +1208,7 @@ td.col-center .btn { margin: 0 2px; }
     min-height: 110px;
 }
 a.kpi-tile:hover {
-    box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+    box-shadow: var(--shadow-hover);
     transform: translateY(-2px);
     text-decoration: none;
     color: inherit;
@@ -1167,7 +1288,7 @@ a.kpi-tile:hover {
 .empty-state {
     text-align: center;
     padding: 32px 20px;
-    color: #888;
+    color: var(--muted);
     font-size: 13.5px;
 }
 .empty-state a {
@@ -1189,10 +1310,10 @@ a.kpi-tile:hover {
 }
 
 .workflow-card {
-    background: #fff;
-    border-radius: 12px;
+    background: var(--surface-1);
+    border-radius: var(--radius);
     padding: 20px 22px 18px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    box-shadow: var(--shadow);
     border: 1px solid var(--border);
     display: flex;
     flex-direction: column;
@@ -1203,7 +1324,7 @@ a.kpi-tile:hover {
 }
 
 .workflow-card:hover {
-    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    box-shadow: var(--shadow-hover);
     transform: translateY(-2px);
 }
 
@@ -1221,7 +1342,7 @@ a.kpi-tile:hover {
 .workflow-card.status-warn::before { background: var(--yellow); }
 .workflow-card.status-go::before   { background: var(--blue); }
 .workflow-card.status-go {
-    background: linear-gradient(180deg, #f4f8ff 0%, #fff 100%);
+    background: linear-gradient(180deg, var(--surface-3) 0%, var(--surface-1) 100%);
 }
 
 /* Header row */
@@ -1246,7 +1367,7 @@ a.kpi-tile:hover {
 }
 .workflow-card.status-ok   .workflow-step-badge { background: var(--green-lite);  color: var(--green); }
 .workflow-card.status-warn .workflow-step-badge { background: var(--yellow-lite); color: var(--yellow-dark); }
-.workflow-card.status-go   .workflow-step-badge { background: var(--blue);        color: #fff; }
+.workflow-card.status-go   .workflow-step-badge { background: var(--blue);        color: var(--on-accent); }
 
 /* Status pill */
 .workflow-status-pill {
@@ -1320,7 +1441,7 @@ a.kpi-tile:hover {
     align-items: center;
     gap: 6px;
     background: var(--blue);
-    color: #fff !important;
+    color: var(--on-accent) !important;
     padding: 8px 16px;
     border-radius: 6px;
     font-size: 12.5px;
@@ -1344,13 +1465,14 @@ a.kpi-tile:hover {
     background: var(--blue-lite);
 }
 
-/* Reader placeholder — shows when camera is off */
+/* Reader placeholder — shows when camera is off (uses the page text colour
+   so the dark camera viewport below stays the only hard black surface) */
 #reader:empty {
     display: flex;
     align-items: center;
     justify-content: center;
     min-height: 320px;
-    background: #1a1f2e;
+    background: var(--text);
     color: rgba(255,255,255,0.55);
     font-size: 13.5px;
     text-align: center;
@@ -1389,10 +1511,10 @@ a.kpi-tile:hover {
     max-width: 480px;
     margin: 16px auto 0;
     padding: 20px 24px;
-    background: #f5f6fa;
+    background: var(--surface-2);
     border-radius: 10px;
     text-align: center;
-    border: 2px solid var(--border, #e5e7eb);
+    border: 2px solid var(--border);
 }
 .scanner-status.hidden { display: none; }
 
@@ -1405,7 +1527,7 @@ a.kpi-tile:hover {
     justify-content: center;
     font-size: 28px;
     font-weight: 700;
-    color: #fff;
+    color: var(--on-accent);
     background: var(--blue, #0038A8);
     margin-bottom: 10px;
 }

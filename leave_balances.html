@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>(function(){try{var t=localStorage.getItem('unitop-theme');if(!t){t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';}document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Leave Balances — Payroll Master Files</title>
@@ -37,6 +38,7 @@
         <div class="nav-section">Outputs</div>
         <a href="ledger.html" data-page="ledger.html">Ledger</a>
         <a href="reports.html" data-page="reports.html">Reports</a>
+        <button type="button" class="theme-toggle" data-theme-toggle>🌙 Dark</button>
     </div>
 
     <!-- api.js will append the user block here -->
@@ -71,5 +73,6 @@
 <script src="assets/js/dialogs.js"></script>
 <script src="assets/js/api.js"></script>
 <script src="assets/js/leave_balances.js"></script>
+<script src="assets/js/theme.js"></script>
 </body>
 </html>

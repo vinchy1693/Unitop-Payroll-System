@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>(function(){try{var t=localStorage.getItem('unitop-theme');if(!t){t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';}document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Attendance — UNITOP Payroll System</title>
@@ -38,6 +39,7 @@
         <div class="nav-section">Outputs</div>
         <a href="ledger.html" data-page="ledger.html">Ledger</a>
         <a href="reports.html" data-page="reports.html">Reports</a>
+        <button type="button" class="theme-toggle" data-theme-toggle>🌙 Dark</button>
     </div>
 </nav>
 <div class="container">
@@ -232,5 +234,6 @@
 <script src="assets/js/html5-qrcode.min.js"></script>
 <script src="assets/js/api.js"></script>
 <script src="assets/js/attendance.js"></script>
+<script src="assets/js/theme.js"></script>
 </body>
 </html>
