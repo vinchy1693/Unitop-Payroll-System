@@ -15,13 +15,32 @@ const rowsEl        = document.getElementById("rows");
 const countEl       = document.getElementById("record-count");
 const toggleLink    = document.getElementById("toggle-filter");
 
+// ---------------------------------------------------------------------
+// Employee dropdown
+// ---------------------------------------------------------------------
+async function loadEmployeeOptions() {
+    const select = document.getElementById("employee_id");
+    const currentVal = select.value;
+    try {
+        const { data } = await api.get("employees.php", { params: { simple: 1 } });
+        select.innerHTML = `<option value="">-- None --</option>` +
+            data.data.map((e) => `<option value="${e.id}">${escapeHtml(e.label)}</option>`).join("");
+        if (currentVal) select.value = currentVal;
+    } catch (err) {
+        showToast("Could not load employees: " + apiErrorMessage(err), "error");
+    }
+}
+
+// ---------------------------------------------------------------------
+// Load rows
+// ---------------------------------------------------------------------
 async function loadRows() {
-    rowsEl.innerHTML = `<tr class="loading-row"><td colspan="5">Loading…</td></tr>`;
+    rowsEl.innerHTML = `<tr class="loading-row"><td colspan="6">Loading…</td></tr>`;
     try {
         const { data } = await api.get("users.php", { params: showAll ? { all: 1 } : {} });
         renderRows(data.data);
     } catch (err) {
-        rowsEl.innerHTML = `<tr class="empty-row"><td colspan="5">Failed to load: ${escapeHtml(apiErrorMessage(err))}</td></tr>`;
+        rowsEl.innerHTML = `<tr class="empty-row"><td colspan="6">Failed to load: ${escapeHtml(apiErrorMessage(err))}</td></tr>`;
     }
 }
 
@@ -29,7 +48,7 @@ function renderRows(rows) {
     countEl.textContent = `${rows.length} record(s)`;
 
     if (rows.length === 0) {
-        rowsEl.innerHTML = `<tr class="empty-row"><td colspan="5">No records found.</td></tr>`;
+        rowsEl.innerHTML = `<tr class="empty-row"><td colspan="6">No records found.</td></tr>`;
         return;
     }
 
@@ -38,6 +57,7 @@ function renderRows(rows) {
             <td>#${r.user_id}</td>
             <td>${escapeHtml(r.username)}</td>
             <td>${escapeHtml(r.role ?? "—")}</td>
+            <td>${r.employee_name ? escapeHtml(r.employee_name) : `<span style="color:#9ca3af;">—</span>`}</td>
             <td class="col-center"><span class="badge ${r.is_active ? "active" : "inactive"}">${r.is_active ? "Active" : "Inactive"}</span></td>
             <td class="col-center">
                 <button class="btn btn-edit" data-edit="${r.user_id}">Edit</button>
@@ -56,12 +76,16 @@ function renderRows(rows) {
     });
 }
 
+// ---------------------------------------------------------------------
+// Edit / reset
+// ---------------------------------------------------------------------
 function startEdit(row) {
     if (!row) return;
     editId = row.user_id;
-    document.getElementById("user_id").value  = row.user_id;
-    document.getElementById("username").value = row.username;
-    document.getElementById("role").value     = row.role ?? "Administrator";
+    document.getElementById("user_id").value     = row.user_id;
+    document.getElementById("username").value    = row.username;
+    document.getElementById("role").value        = row.role ?? "Administrator";
+    document.getElementById("employee_id").value = row.employee_id ?? "";
     passwordEl.value = "";
     passwordEl.required = false;
     passwordLabel.textContent = "Password (leave blank to keep current)";
@@ -75,6 +99,7 @@ function resetForm() {
     editId = null;
     form.reset();
     document.getElementById("user_id").value = "";
+    document.getElementById("employee_id").value = "";
     passwordEl.required = true;
     passwordLabel.textContent = "Password";
     formTitle.textContent = "Add New User";
@@ -84,12 +109,16 @@ function resetForm() {
 
 cancelBtn.addEventListener("click", resetForm);
 
+// ---------------------------------------------------------------------
+// Submit
+// ---------------------------------------------------------------------
 form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const payload = {
-        username: document.getElementById("username").value.trim(),
-        role:     document.getElementById("role").value,
-        password: passwordEl.value,
+        username:    document.getElementById("username").value.trim(),
+        role:        document.getElementById("role").value,
+        employee_id: document.getElementById("employee_id").value || 0,
+        password:    passwordEl.value,
     };
 
     submitBtn.disabled = true;
@@ -111,6 +140,9 @@ form.addEventListener("submit", async (e) => {
     }
 });
 
+// ---------------------------------------------------------------------
+// Deactivate / restore
+// ---------------------------------------------------------------------
 async function toggleStatus(id, newStatus) {
     const verb = newStatus ? "Restore" : "Deactivate";
     if (!await confirmDialog(`${verb} this user?`)) return;
@@ -130,4 +162,7 @@ toggleLink.addEventListener("click", (e) => {
     loadRows();
 });
 
-document.addEventListener("DOMContentLoaded", loadRows);
+document.addEventListener("DOMContentLoaded", () => {
+    loadEmployeeOptions();
+    loadRows();
+});

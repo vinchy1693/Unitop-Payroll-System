@@ -59,11 +59,18 @@
                         <option>HR Staff</option>
                         <option>Payroll Officer</option>
                         <option>IT Admin</option>
+                        <option>Employee</option>
                     </select>
                 </div>
                 <div>
                     <label id="password-label">Password</label>
                     <input type="password" id="password" required>
+                </div>
+                <div>
+                    <label>Linked Employee <span style="color:#888;font-weight:400;">(required for Employee role)</span></label>
+                    <select id="employee_id">
+                        <option value="">-- None --</option>
+                    </select>
                 </div>
             </div>
             <button class="btn btn-primary" type="submit" id="submit-btn">Add User</button>
@@ -84,12 +91,13 @@
                     <th>ID</th>
                     <th>Username</th>
                     <th>Role</th>
+                    <th>Linked Employee</th>
                     <th class="col-center">Status</th>
                     <th class="col-center">Actions</th>
                 </tr>
             </thead>
             <tbody id="rows">
-                <tr class="loading-row"><td colspan="5">Loading…</td></tr>
+                <tr class="loading-row"><td colspan="6">Loading…</td></tr>
             </tbody>
         </table>
     </div>

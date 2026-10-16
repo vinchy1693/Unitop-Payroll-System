@@ -1,5 +1,4 @@
 <?php
-// Opt out of the login guard — this endpoint *is* the login.
 define("AUTH_ENDPOINT", true);
 require __DIR__ . "/_bootstrap.php";
 
@@ -19,7 +18,7 @@ if ($method === "POST" && $action === "login") {
     }
 
     $stmt = $pdo->prepare(
-        "SELECT user_id, username, role, password_hash, is_active
+        "SELECT user_id, username, role, password_hash, is_active, employee_id
          FROM users WHERE username = ? LIMIT 1"
     );
     $stmt->execute([$username]);
@@ -35,17 +34,18 @@ if ($method === "POST" && $action === "login") {
         respond(false, "Invalid username or password.", null, 401);
     }
 
-    // Fresh session ID to prevent fixation
-    // session_regenerate_id(true);
+    session_regenerate_id(true);
 
-    $_SESSION["user_id"]  = (int) $user["user_id"];
-    $_SESSION["username"] = $user["username"];
-    $_SESSION["role"]     = $user["role"];
+    $_SESSION["user_id"]     = (int) $user["user_id"];
+    $_SESSION["username"]    = $user["username"];
+    $_SESSION["role"]        = $user["role"];
+    $_SESSION["employee_id"] = $user["employee_id"] ? (int) $user["employee_id"] : null;
 
     respond(true, "Welcome, " . $user["username"] . ".", [
-        "user_id"  => (int) $user["user_id"],
-        "username" => $user["username"],
-        "role"     => $user["role"],
+        "user_id"     => (int) $user["user_id"],
+        "username"    => $user["username"],
+        "role"        => $user["role"],
+        "employee_id" => $_SESSION["employee_id"],
     ]);
 }
 
@@ -84,10 +84,10 @@ if ($method === "POST" && $action === "change_password") {
         respond(false, "Not authenticated.", null, 401);
     }
 
-    $in          = json_input();
-    $currentPw   = $in["current_password"] ?? "";
-    $newPw       = $in["new_password"]     ?? "";
-    $confirmPw   = $in["confirm_password"] ?? "";
+    $in        = json_input();
+    $currentPw = $in["current_password"] ?? "";
+    $newPw     = $in["new_password"]     ?? "";
+    $confirmPw = $in["confirm_password"] ?? "";
 
     if ($currentPw === "" || $newPw === "" || $confirmPw === "") {
         respond(false, "All password fields are required.", null, 422);

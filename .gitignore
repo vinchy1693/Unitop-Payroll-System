@@ -20,3 +20,11 @@ backups/
 # config.php
 
 *.sql
+
+# Executables and installers
+*.exe
+*.msi
+*.dmg
+*.app
+*.deb
+*.rpm

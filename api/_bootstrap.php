@@ -1,7 +1,7 @@
 <?php
 // =====================================================================
 // api/_bootstrap.php
-// Session + DB + JSON helpers. Every endpoint includes this file.
+// Session + DB + JSON helpers.
 // =====================================================================
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -27,9 +27,6 @@ try {
     exit;
 }
 
-/**
- * Decode the JSON request body into an assoc array.
- */
 function json_input(): array {
     $raw = file_get_contents("php://input");
     $data = json_decode($raw, true);
@@ -37,9 +34,6 @@ function json_input(): array {
     return $_POST ?: [];
 }
 
-/**
- * Send a standard JSON response and stop execution.
- */
 function respond(bool $success, string $message = "", $data = null, int $status = 200): void {
     http_response_code($status);
     echo json_encode([
@@ -52,39 +46,35 @@ function respond(bool $success, string $message = "", $data = null, int $status 
 
 /**
  * Return the currently-logged-in user or null.
+ * Includes `employee_id` when the user is linked to an employee record.
  */
 function currentUser(): ?array {
     if (empty($_SESSION["user_id"])) return null;
     return [
-        "user_id"  => (int) $_SESSION["user_id"],
-        "username" => $_SESSION["username"] ?? "",
-        "role"     => $_SESSION["role"] ?? "",
+        "user_id"     => (int) $_SESSION["user_id"],
+        "username"    => $_SESSION["username"] ?? "",
+        "role"        => $_SESSION["role"] ?? "",
+        "employee_id" => isset($_SESSION["employee_id"]) && $_SESSION["employee_id"] !== null
+            ? (int) $_SESSION["employee_id"]
+            : null,
     ];
 }
 
-/**
- * Require an authenticated session. Sends 401 and exits if not logged in.
- * Skipped automatically for auth.php (see AUTH_ENDPOINT constant).
- */
 function requireLogin(): void {
     if (!currentUser()) {
         respond(false, "Not authenticated. Please log in.", null, 401);
     }
 }
 
-/**
- * Require a specific role (or one of several roles).
- */
 function requireRole($roles): void {
     requireLogin();
     $allowed = is_array($roles) ? $roles : [$roles];
-    $user = currentUser();
+    $user    = currentUser();
     if (!in_array($user["role"], $allowed, true)) {
         respond(false, "You do not have permission to perform this action.", null, 403);
     }
 }
 
-// Auth endpoints opt out of the guard by defining AUTH_ENDPOINT first.
 if (!defined("AUTH_ENDPOINT")) {
     requireLogin();
 }
