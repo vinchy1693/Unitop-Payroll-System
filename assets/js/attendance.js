@@ -4,6 +4,10 @@
 
 let editId = null;
 let lastSummary = null;
+let scanner = null;
+let scannerRunning = false;
+let lastScannedCode = null;
+let lastScannedAt = 0;
 
 const form        = document.getElementById("att-form");
 const submitBtn   = document.getElementById("submit-btn");
@@ -21,11 +25,13 @@ const summaryOut  = document.getElementById("summary-output");
 const detailModal = document.getElementById("detail-modal");
 const detailBody  = document.getElementById("detail-body");
 
-const timeinForm     = document.getElementById("timein-form");
-const timeinBtn      = document.getElementById("timein-btn");
-
-const timeoutForm    = document.getElementById("timeout-form");
-const timeoutBtn     = document.getElementById("timeout-btn");
+const startBtn    = document.getElementById("start-btn");
+const stopBtn     = document.getElementById("stop-btn");
+const cameraSel   = document.getElementById("camera-select");
+const statusBox   = document.getElementById("scanner-status");
+const statusIcon  = document.getElementById("scanner-icon");
+const statusTitle = document.getElementById("scanner-title");
+const statusDetail= document.getElementById("scanner-detail");
 
 function todayISO() {
     const d = new Date();
@@ -35,113 +41,178 @@ function todayISO() {
     return `${y}-${m}-${day}`;
 }
 
-function getSelectedLabel(selectId) {
-    const sel = document.getElementById(selectId);
-    if (!sel || sel.selectedIndex < 0) return "this employee";
-    return sel.options[sel.selectedIndex].text || "this employee";
+// =====================================================================
+// QR SCANNER
+// =====================================================================
+function resetStatus() {
+    statusBox.classList.add("hidden");
+    statusIcon.className = "scanner-icon";
+    statusIcon.textContent = "";
+    statusTitle.textContent = "Ready";
+    statusDetail.textContent = "";
 }
 
-// ---------------------------------------------------------------------
-// Employee dropdowns
-// ---------------------------------------------------------------------
-async function loadEmployeeOptions() {
-    const selects = [
-        document.getElementById("employee_id"),
-        document.getElementById("timein_employee"),
-        document.getElementById("timeout_employee"),
-    ];
+function showStatus(kind, title, detail) {
+    statusBox.classList.remove("hidden");
+    statusIcon.className = "scanner-icon " + kind;
+    statusIcon.textContent = kind === "success" ? "✓" : kind === "error" ? "✕" : "ℹ";
+    statusTitle.textContent = title;
+    statusDetail.textContent = detail;
+}
+
+async function startScanner(preferredDeviceId = null) {
+    if (scannerRunning) return;
 
     try {
-        const { data } = await api.get("employees.php", { params: { simple: 1 } });
-        const optionsHtml = `<option value="">-- Select --</option>` +
-            data.data.map((e) => `<option value="${e.id}">${escapeHtml(e.label)}</option>`).join("");
+        const cameras = await Html5Qrcode.getCameras();
+        if (!cameras || cameras.length === 0) {
+            showToast("No camera detected. Connect a webcam and try again.", "error");
+            return;
+        }
 
-        selects.forEach((sel) => {
-            if (!sel) return;
-            const currentVal = sel.value;
-            sel.innerHTML = optionsHtml;
-            if (currentVal) sel.value = currentVal;
-        });
+        // Populate the camera dropdown
+        cameraSel.innerHTML = cameras
+            .map((c) => `<option value="${c.id}">${escapeHtml(c.label || c.id)}</option>`)
+            .join("");
+        cameraSel.classList.remove("hidden");
+
+        // Pick which camera to use
+        let deviceId = preferredDeviceId;
+
+        if (!deviceId) {
+            const preferred = cameras.find((c) => {
+                const label = (c.label || "").toLowerCase();
+                return label.includes("integrated") ||
+                       label.includes("webcam") ||
+                       label.includes("usb");
+            });
+            const nonVirtual = cameras.find((c) => {
+                const label = (c.label || "").toLowerCase();
+                return !label.includes("obs") &&
+                       !label.includes("virtual") &&
+                       !label.includes("lvs");
+            });
+            deviceId = (preferred || nonVirtual || cameras[0]).id;
+        }
+
+        cameraSel.value = deviceId;
+
+        scanner = new Html5Qrcode("reader");
+        await scanner.start(
+            { deviceId: { exact: deviceId } },
+            { fps: 10 },
+            onScanSuccess,
+            () => {}
+        );
+
+        scannerRunning = true;
+        startBtn.classList.add("hidden");
+        stopBtn.classList.remove("hidden");
+        resetStatus();
+        showStatus("info", "Scanning…", "Point an employee QR code at the camera.");
+
+    } catch (err) {
+        console.error("Camera start error:", err);
+        showToast("Could not start camera: " + (err.message || err), "error");
+        startBtn.classList.remove("hidden");
+        stopBtn.classList.add("hidden");
+        cameraSel.classList.add("hidden");
+    }
+}
+
+async function stopScanner() {
+    if (!scannerRunning || !scanner) return;
+    try {
+        await scanner.stop();
+        await scanner.clear();
+    } catch (err) { /* ignore */ }
+    scannerRunning = false;
+    scanner = null;
+    startBtn.classList.remove("hidden");
+    stopBtn.classList.add("hidden");
+    cameraSel.classList.add("hidden");
+    resetStatus();
+}
+
+function shouldIgnoreScan(code) {
+    const now = Date.now();
+    if (code === lastScannedCode && (now - lastScannedAt) < 3000) return true;
+    lastScannedCode = code;
+    lastScannedAt = now;
+    return false;
+}
+
+async function onScanSuccess(decodedText) {
+    if (shouldIgnoreScan(decodedText)) return;
+
+    try { scanner.pause(true); } catch (e) {}
+
+    try {
+        const { data } = await api.post("scan_attendance.php", { code_value: decodedText });
+        const d = data.data;
+
+        if (d.action === "in") {
+            const lateMsg = d.late_minutes > 0 ? ` • Late by ${d.late_minutes} min` : "";
+            showStatus("success",
+                `Welcome, ${d.employee_name}!`,
+                `Clocked IN at ${d.time}${lateMsg}`
+            );
+        } else if (d.action === "out") {
+            showStatus("success",
+                `Goodbye, ${d.employee_name}!`,
+                `Clocked OUT at ${d.time} • ${d.hours_worked} hrs worked`
+            );
+        }
+
+        await loadRows();
+
+        setTimeout(() => {
+            resetStatus();
+            try { scanner.resume(); } catch (e) {}
+        }, 3000);
+
+    } catch (err) {
+        const msg = apiErrorMessage(err);
+        showStatus("error", "Scan Rejected", msg);
+
+        setTimeout(() => {
+            resetStatus();
+            try { scanner.resume(); } catch (e) {}
+        }, 3000);
+    }
+}
+
+// ---- Event listeners (only declared ONCE at the top level) ----
+startBtn.addEventListener("click", () => startScanner());
+stopBtn.addEventListener("click", () => stopScanner());
+
+cameraSel.addEventListener("change", async () => {
+    const newDeviceId = cameraSel.value;
+    if (!scannerRunning) return;
+    await stopScanner();
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    await startScanner(newDeviceId);
+});
+
+// =====================================================================
+// Employee dropdown (edit form)
+// =====================================================================
+async function loadEmployeeOptions() {
+    const select = document.getElementById("employee_id");
+    const cur = select.value;
+    try {
+        const { data } = await api.get("employees.php", { params: { simple: 1 } });
+        select.innerHTML = `<option value="">-- Select --</option>` +
+            data.data.map((e) => `<option value="${e.id}">${escapeHtml(e.label)}</option>`).join("");
+        if (cur) select.value = cur;
     } catch (err) {
         showToast("Could not load employees: " + apiErrorMessage(err), "error");
     }
 }
 
-// ---------------------------------------------------------------------
-// TIME IN form
-// ---------------------------------------------------------------------
-timeinForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    const empId  = document.getElementById("timein_employee").value;
-    const date   = document.getElementById("timein_date").value;
-    const time   = document.getElementById("timein_time").value;
-    const empLabel = getSelectedLabel("timein_employee");
-
-    if (!empId || !date || !time) return;
-
-    if (!await confirmDialog(
-        `Clock in ${empLabel} on ${date} at ${time}?`,
-        { title: "Confirm Time In", icon: "question", confirmText: "Clock In" }
-    )) return;
-
-    const payload = {
-        employee_id: empId,
-        work_date:   date,
-        time_in:     time,
-    };
-
-    timeinBtn.disabled = true;
-    try {
-        const { data } = await api.post("attendance.php", payload);
-        showToast(data.message, "success");
-        await loadRows();
-    } catch (err) {
-        showToast(apiErrorMessage(err), "error");
-    } finally {
-        timeinBtn.disabled = false;
-    }
-});
-
-// ---------------------------------------------------------------------
-// TIME OUT form
-// ---------------------------------------------------------------------
-timeoutForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    const empId  = document.getElementById("timeout_employee").value;
-    const date   = document.getElementById("timeout_date").value;
-    const time   = document.getElementById("timeout_time").value;
-    const empLabel = getSelectedLabel("timeout_employee");
-
-    if (!empId || !date || !time) return;
-
-    if (!await confirmDialog(
-        `Clock out ${empLabel} on ${date} at ${time}?`,
-        { title: "Confirm Time Out", icon: "question", confirmText: "Clock Out" }
-    )) return;
-
-    const payload = {
-        employee_id: empId,
-        work_date:   date,
-        time_out:    time,
-    };
-
-    timeoutBtn.disabled = true;
-    try {
-        const { data } = await api.patch("attendance.php", payload);
-        showToast(data.message, "success");
-        await loadRows();
-    } catch (err) {
-        showToast(apiErrorMessage(err), "error");
-    } finally {
-        timeoutBtn.disabled = false;
-    }
-});
-
-// ---------------------------------------------------------------------
+// =====================================================================
 // Daily view
-// ---------------------------------------------------------------------
+// =====================================================================
 async function loadRows() {
     const date = filterDate.value;
     if (!date) {
@@ -193,8 +264,8 @@ function renderRows(rows) {
                 <button class="btn btn-edit" data-edit="${r.attendance_id}">Edit</button>
                 <button class="btn btn-delete" data-delete="${r.attendance_id}">Delete</button>
             </td>
-        </tr>
-    `}).join("");
+        </tr>`;
+    }).join("");
 
     rowsEl.querySelectorAll("[data-edit]").forEach((btn) => {
         btn.addEventListener("click", () => startEdit(rows.find((r) => r.attendance_id == btn.dataset.edit)));
@@ -204,6 +275,9 @@ function renderRows(rows) {
     });
 }
 
+// =====================================================================
+// Edit form
+// =====================================================================
 function startEdit(row) {
     if (!row) return;
     editId = row.attendance_id;
@@ -247,9 +321,6 @@ form.addEventListener("submit", async (e) => {
             payload.attendance_id = editId;
             const { data } = await api.put("attendance.php", payload);
             showToast(data.message, "success");
-        } else {
-            const { data } = await api.post("attendance.php", payload);
-            showToast(data.message, "success");
         }
         resetForm();
         await loadRows();
@@ -260,9 +331,9 @@ form.addEventListener("submit", async (e) => {
     }
 });
 
-// ---------------------------------------------------------------------
-// DELETE
-// ---------------------------------------------------------------------
+// =====================================================================
+// Delete
+// =====================================================================
 async function deleteRow(id) {
     if (!await confirmDialog(
         "Delete this attendance record? This cannot be undone.",
@@ -280,9 +351,9 @@ async function deleteRow(id) {
 
 filterDate.addEventListener("change", loadRows);
 
-// ---------------------------------------------------------------------
+// =====================================================================
 // Summary view
-// ---------------------------------------------------------------------
+// =====================================================================
 summaryForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const from = document.getElementById("summary_from").value;
@@ -347,7 +418,6 @@ function renderSummary(payload) {
                     <div><strong>Employees:</strong> ${employees.length}</div>
                 </div>
             </div>
-
             <div class="table-scroll">
                 <table class="report-table">
                     <thead>
@@ -376,7 +446,6 @@ function renderSummary(payload) {
                     </tfoot>
                 </table>
             </div>
-
             <p style="font-size:12px;color:#666;margin-top:14px;">
                 <strong>Click any row</strong> to see the employee's day-by-day attendance.
             </p>
@@ -388,9 +457,9 @@ function renderSummary(payload) {
     });
 }
 
-// ---------------------------------------------------------------------
+// =====================================================================
 // Employee detail modal
-// ---------------------------------------------------------------------
+// =====================================================================
 async function openEmployeeDetail(employeeId) {
     if (!lastSummary) return;
     const { from, to } = lastSummary;
@@ -426,9 +495,7 @@ function renderDetail(payload) {
         } else {
             statusCell = `<span class="badge inactive">Absent</span>`;
         }
-
         const rowStyle = d.is_weekend ? 'style="opacity:0.5;"' : "";
-
         return `
             <tr ${rowStyle}>
                 <td>${escapeHtml(d.date)}</td>
@@ -458,7 +525,6 @@ function renderDetail(payload) {
                     <div><strong>Working Days:</strong> ${totals.expected_days}</div>
                 </div>
             </div>
-
             <div class="ledger-stats">
                 <div class="ledger-stat"><span>Present</span><strong style="color:#1e7d32;">${totals.present}</strong></div>
                 <div class="ledger-stat"><span>Absent</span><strong style="color:#b3261e;">${totals.absent}</strong></div>
@@ -466,7 +532,6 @@ function renderDetail(payload) {
                 <div class="ledger-stat"><span>Late Minutes</span><strong>${totals.late_minutes}</strong></div>
                 <div class="ledger-stat"><span>Total Hours</span><strong>${Number(totals.hours).toFixed(2)}</strong></div>
             </div>
-
             <div class="table-scroll">
                 <table class="report-table">
                     <thead>
@@ -487,40 +552,29 @@ function renderDetail(payload) {
     `;
 }
 
-document.getElementById("detail-close").addEventListener("click", () => {
-    detailModal.classList.add("hidden");
-});
-document.getElementById("detail-done").addEventListener("click", () => {
-    detailModal.classList.add("hidden");
-});
-document.getElementById("detail-print").addEventListener("click", () => {
-    window.print();
-});
-detailModal.addEventListener("click", (e) => {
-    if (e.target === detailModal) detailModal.classList.add("hidden");
-});
+document.getElementById("detail-close").addEventListener("click", () => detailModal.classList.add("hidden"));
+document.getElementById("detail-done").addEventListener("click", () => detailModal.classList.add("hidden"));
+document.getElementById("detail-print").addEventListener("click", () => window.print());
+detailModal.addEventListener("click", (e) => { if (e.target === detailModal) detailModal.classList.add("hidden"); });
 document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !detailModal.classList.contains("hidden")) {
         detailModal.classList.add("hidden");
     }
 });
 
-// ---------------------------------------------------------------------
+// =====================================================================
 // Init
-// ---------------------------------------------------------------------
+// =====================================================================
 document.addEventListener("DOMContentLoaded", () => {
     const now = new Date();
     const y = now.getFullYear();
     const m = String(now.getMonth() + 1).padStart(2, "0");
     document.getElementById("summary_from").value = `${y}-${m}-01`;
-    const last = new Date(y, new Date(y, now.getMonth() + 1, 0).getDate()).getDate();
+    const last = new Date(y, now.getMonth() + 1, 0).getDate();
     document.getElementById("summary_to").value = `${y}-${m}-${String(last).padStart(2, "0")}`;
 
-    const today = todayISO();
-    filterDate.value = today;
-    document.getElementById("work_date").value = today;
-    document.getElementById("timein_date").value = today;
-    document.getElementById("timeout_date").value = today;
+    filterDate.value = todayISO();
+    document.getElementById("work_date").value = todayISO();
 
     loadEmployeeOptions();
     loadRows();

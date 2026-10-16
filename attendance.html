@@ -27,6 +27,7 @@
 
         <div class="nav-section">Daily Logs</div>
         <a href="attendance.html" data-page="attendance.html">Attendance</a>
+        <a href="qr_codes.html" data-page="qr_codes.html">QR Codes</a>
         <a href="leave.html" data-page="leave.html">Leave</a>
         <a href="overtime.html" data-page="overtime.html">Overtime</a>
         <a href="loans.html" data-page="loans.html">Loans</a>
@@ -42,9 +43,31 @@
 <div class="container">
 
     <h1>Attendance</h1>
-    <p class="subtitle">Log daily time-in/time-out, view summaries, and drill into individual employee records.</p>
+    <p class="subtitle">Scan employee QR codes to clock them in/out. View summaries below.</p>
 
     <div id="msg" class="msg hidden"></div>
+
+    <!-- QR SCANNER -->
+    <div class="card">
+        <h3 style="margin-top:0;">QR Scanner</h3>
+        <p style="margin:0 0 14px;font-size:13px;color:#666;">
+            Point the employee's QR code at the camera. The system will automatically decide whether to clock them in or out.
+        </p>
+
+        <div id="reader"></div>
+
+        <div id="scanner-status" class="scanner-status hidden">
+            <div class="scanner-icon" id="scanner-icon"></div>
+            <div class="scanner-title" id="scanner-title">Ready</div>
+            <div class="scanner-detail" id="scanner-detail"></div>
+        </div>
+
+        <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;">
+            <button class="btn btn-primary" id="start-btn">Start Camera</button>
+            <button class="btn btn-plain hidden" id="stop-btn">Stop Camera</button>
+            <select id="camera-select" class="hidden" style="padding:8px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:13.5px;"></select>
+        </div>
+    </div>
 
     <!-- SUMMARY -->
     <div class="card">
@@ -55,13 +78,11 @@
         <form id="summary-form" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
             <div style="min-width:160px;">
                 <label style="display:block;font-size:12.5px;color:#555;margin-bottom:4px;font-weight:600;">From</label>
-                <input type="date" id="summary_from" required
-                       style="width:100%;padding:8px 10px;border:1px solid #ccd3dc;border-radius:5px;font-size:13.5px;">
+                <input type="date" id="summary_from" required style="width:100%;padding:8px 10px;border:1px solid #ccd3dc;border-radius:5px;font-size:13.5px;">
             </div>
             <div style="min-width:160px;">
                 <label style="display:block;font-size:12.5px;color:#555;margin-bottom:4px;font-weight:600;">To</label>
-                <input type="date" id="summary_to" required
-                       style="width:100%;padding:8px 10px;border:1px solid #ccd3dc;border-radius:5px;font-size:13.5px;">
+                <input type="date" id="summary_to" required style="width:100%;padding:8px 10px;border:1px solid #ccd3dc;border-radius:5px;font-size:13.5px;">
             </div>
             <button class="btn btn-primary" type="submit">Generate Summary</button>
         </form>
@@ -71,60 +92,7 @@
         <div id="summary-output"></div>
     </div>
 
-    <!-- TIME IN / TIME OUT -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-
-        <div class="card">
-            <h3 style="color:#1e7d32;">Time In</h3>
-            <p style="margin:0 0 12px;font-size:12.5px;color:#666;">Clock in an employee. Creates a new attendance record for the day.</p>
-            <form id="timein-form">
-                <div class="form-grid">
-                    <div>
-                        <label>Employee</label>
-                        <select id="timein_employee" required>
-                            <option value="">-- Select --</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label>Work Date</label>
-                        <input type="date" id="timein_date" required>
-                    </div>
-                    <div>
-                        <label>Time In</label>
-                        <input type="time" id="timein_time" value="08:00" required>
-                    </div>
-                </div>
-                <button class="btn btn-primary" type="submit" id="timein-btn" style="margin-top:12px;">Clock In</button>
-            </form>
-        </div>
-
-        <div class="card">
-            <h3 style="color:#b3261e;">Time Out</h3>
-            <p style="margin:0 0 12px;font-size:12.5px;color:#666;">Clock out an employee. Updates their existing record with time out.</p>
-            <form id="timeout-form">
-                <div class="form-grid">
-                    <div>
-                        <label>Employee</label>
-                        <select id="timeout_employee" required>
-                            <option value="">-- Select --</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label>Work Date</label>
-                        <input type="date" id="timeout_date" required>
-                    </div>
-                    <div>
-                        <label>Time Out</label>
-                        <input type="time" id="timeout_time" value="17:00" required>
-                    </div>
-                </div>
-                <button class="btn btn-primary" type="submit" id="timeout-btn" style="margin-top:12px;background:#b3261e;">Clock Out</button>
-            </form>
-        </div>
-
-    </div>
-
-    <!-- EDIT FORM -->
+    <!-- EDIT FORM (hidden) -->
     <div class="card hidden" id="edit-card">
         <h3 id="form-title">Edit Attendance</h3>
         <form id="att-form">
@@ -156,7 +124,7 @@
 
     <!-- DAILY VIEW -->
     <div class="card">
-        <div class="toolbar">
+        <div class="toolbar" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
             <div style="display:flex;align-items:center;gap:10px;">
                 <label for="filter-date" style="font-size:13px;color:#555;font-weight:600;">Date:</label>
                 <input type="date" id="filter-date" style="padding:5px 8px;border:1px solid #ccd3dc;border-radius:5px;">
@@ -199,6 +167,7 @@
 <script src="assets/js/axios.min.js"></script>
 <script src="assets/js/sweetalert2.min.js"></script>
 <script src="assets/js/dialogs.js"></script>
+<script src="assets/js/html5-qrcode.min.js"></script>
 <script src="assets/js/api.js"></script>
 <script src="assets/js/attendance.js"></script>
 </body>

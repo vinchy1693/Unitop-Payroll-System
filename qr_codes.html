@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QR Codes — UNITOP Payroll System</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<nav class="sidebar">
+    <div class="sidebar-brand">
+        <div class="brand-logo">U</div>
+        <div class="brand-text">
+            <strong>UNITOP</strong>
+            <small>Payroll System</small>
+        </div>
+    </div>
+
+    <div class="sidebar-links">
+        <a href="index.html" data-page="index.html">Dashboard</a>
+
+        <div class="nav-section">Setup</div>
+        <a href="departments.html" data-page="departments.html">Departments</a>
+        <a href="positions.html" data-page="positions.html">Positions</a>
+        <a href="employees.html" data-page="employees.html">Employees</a>
+        <a href="users.html" data-page="users.html">Users</a>
+
+        <div class="nav-section">Daily Logs</div>
+        <a href="attendance.html" data-page="attendance.html">Attendance</a>
+        <a href="qr_codes.html" data-page="qr_codes.html">QR Codes</a>
+        <a href="leave.html" data-page="leave.html">Leave</a>
+        <a href="overtime.html" data-page="overtime.html">Overtime</a>
+        <a href="loans.html" data-page="loans.html">Loans</a>
+
+        <div class="nav-section">Payroll</div>
+        <a href="payroll_periods.html" data-page="payroll_periods.html">Payroll</a>
+
+        <div class="nav-section">Outputs</div>
+        <a href="ledger.html" data-page="ledger.html">Ledger</a>
+        <a href="reports.html" data-page="reports.html">Reports</a>
+    </div>
+</nav>
+<div class="container">
+
+    <h1>QR Codes</h1>
+    <p class="subtitle">Generate attendance QR codes for employees. Print and hand out. Employees scan these at the attendance scanner.</p>
+
+    <div id="msg" class="msg hidden"></div>
+
+    <div class="card">
+        <h3 style="margin-top:0;">Generate New QR Code</h3>
+        <form id="qr-form" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+            <div style="flex:1;min-width:260px;">
+                <label style="display:block;font-size:12.5px;color:#555;margin-bottom:6px;font-weight:600;">Employee</label>
+                <select id="employee_id" required style="width:100%;padding:9px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:13.5px;">
+                    <option value="">-- Select an employee --</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" type="submit">Generate QR Code</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="toolbar" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <strong id="record-count">0 QR code(s)</strong>
+            <button class="btn btn-plain" id="print-all-btn" disabled>Print All Active</button>
+        </div>
+        <div id="qr-grid" class="qr-grid">
+            <div style="text-align:center;padding:30px;color:#888;">Loading…</div>
+        </div>
+    </div>
+
+</div>
+
+<script src="assets/js/axios.min.js"></script>
+<script src="assets/js/sweetalert2.min.js"></script>
+<script src="assets/js/dialogs.js"></script>
+<script src="assets/js/qrcode.min.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/qr_codes.js"></script>
+</body>
+</html>
