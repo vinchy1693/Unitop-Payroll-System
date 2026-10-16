@@ -155,7 +155,7 @@ async function onScanSuccess(decodedText) {
         const payload = { code_value: decodedText };
 
         // If Demo Mode is enabled, pass the simulated time
-           if (demoToggle && demoToggle.checked && demoTimeEl) {
+        if (demoToggle && demoToggle.checked && demoTimeEl) {
             payload.demo_mode = true;
             payload.demo_time = demoTimeEl.value + ":00";
             payload.demo_date = demoDateEl.value || todayISO();
