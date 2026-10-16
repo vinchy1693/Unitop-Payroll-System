@@ -201,6 +201,33 @@ async function onScanSuccess(decodedText) {
 startBtn.addEventListener("click", () => startScanner());
 stopBtn.addEventListener("click", () => stopScanner());
 
+// ---- Manual QR entry: fallback when the camera is broken or unavailable ----
+// Reuses onScanSuccess(), so the manual path records exactly the same thing a
+// camera scan would. It only clears the 3-second duplicate-scan guard first.
+const manualCodeEl = document.getElementById("manual-code");
+const manualBtnEl  = document.getElementById("manual-submit");
+if (manualCodeEl && manualBtnEl) {
+    const submitManualCode = async () => {
+        const code = (manualCodeEl.value || "").trim();
+        if (!code) {
+            showStatus("error", "No code entered", "Type or paste the QR code value first.");
+            return;
+        }
+        manualBtnEl.disabled = true;
+        lastScannedCode = null;
+        try {
+            await onScanSuccess(code);
+            manualCodeEl.value = "";
+        } finally {
+            manualBtnEl.disabled = false;
+        }
+    };
+    manualBtnEl.addEventListener("click", submitManualCode);
+    manualCodeEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); submitManualCode(); }
+    });
+}
+
 cameraSel.addEventListener("change", async () => {
     const newDeviceId = cameraSel.value;
     if (!scannerRunning) return;

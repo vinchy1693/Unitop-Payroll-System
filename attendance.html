@@ -67,6 +67,20 @@
             <button class="btn btn-plain hidden" id="stop-btn">Stop Camera</button>
             <select id="camera-select" class="hidden" style="padding:8px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:13.5px;"></select>
         </div>
+
+        <!-- Fallback when the camera cannot be used -->
+        <div style="margin-top:18px;padding-top:16px;border-top:1px solid #e5e7eb;">
+            <div style="font-size:13px;font-weight:600;color:#1a1f2e;margin-bottom:4px;">Camera not working?</div>
+            <p style="margin:0 0 10px;font-size:12.5px;color:#666;">
+                Type or paste the employee's QR code value below and submit it. It records exactly the same
+                clock-in / clock-out as a camera scan.
+            </p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <input type="text" id="manual-code" placeholder="UNITOP-…" autocomplete="off"
+                       style="flex:1;min-width:240px;padding:9px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:13.5px;font-family:monospace;">
+                <button class="btn btn-primary" id="manual-submit" type="button">Submit code</button>
+            </div>
+        </div>
     </div>
 
     <!-- DEMO MODE -->
