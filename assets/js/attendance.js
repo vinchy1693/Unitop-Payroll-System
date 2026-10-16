@@ -33,6 +33,13 @@ const statusIcon  = document.getElementById("scanner-icon");
 const statusTitle = document.getElementById("scanner-title");
 const statusDetail= document.getElementById("scanner-detail");
 
+// ---- Demo mode elements ----
+const demoToggle   = document.getElementById("demo-toggle");
+const demoControls = document.getElementById("demo-controls");
+const demoDateEl   = document.getElementById("demo_date");
+const demoTimeEl   = document.getElementById("demo_time");
+const liveClockEl  = document.getElementById("live-clock");
+
 function todayISO() {
     const d = new Date();
     const y = d.getFullYear();
@@ -70,15 +77,12 @@ async function startScanner(preferredDeviceId = null) {
             return;
         }
 
-        // Populate the camera dropdown
         cameraSel.innerHTML = cameras
             .map((c) => `<option value="${c.id}">${escapeHtml(c.label || c.id)}</option>`)
             .join("");
         cameraSel.classList.remove("hidden");
 
-        // Pick which camera to use
         let deviceId = preferredDeviceId;
-
         if (!deviceId) {
             const preferred = cameras.find((c) => {
                 const label = (c.label || "").toLowerCase();
@@ -148,7 +152,16 @@ async function onScanSuccess(decodedText) {
     try { scanner.pause(true); } catch (e) {}
 
     try {
-        const { data } = await api.post("scan_attendance.php", { code_value: decodedText });
+        const payload = { code_value: decodedText };
+
+        // If Demo Mode is enabled, pass the simulated time
+           if (demoToggle && demoToggle.checked && demoTimeEl) {
+            payload.demo_mode = true;
+            payload.demo_time = demoTimeEl.value + ":00";
+            payload.demo_date = demoDateEl.value || todayISO();
+        }
+
+        const { data } = await api.post("scan_attendance.php", payload);
         const d = data.data;
 
         if (d.action === "in") {
@@ -166,23 +179,25 @@ async function onScanSuccess(decodedText) {
 
         await loadRows();
 
+        // FIX: Increased from 3000 to 5000 to give user time to move QR away
         setTimeout(() => {
             resetStatus();
             try { scanner.resume(); } catch (e) {}
-        }, 3000);
+        }, 5000);
 
     } catch (err) {
         const msg = apiErrorMessage(err);
         showStatus("error", "Scan Rejected", msg);
 
+        // FIX: Increased from 3000 to 5000
         setTimeout(() => {
             resetStatus();
             try { scanner.resume(); } catch (e) {}
-        }, 3000);
+        }, 5000);
     }
 }
 
-// ---- Event listeners (only declared ONCE at the top level) ----
+// ---- Event listeners (declared ONCE at the top level) ----
 startBtn.addEventListener("click", () => startScanner());
 stopBtn.addEventListener("click", () => stopScanner());
 
@@ -193,6 +208,38 @@ cameraSel.addEventListener("change", async () => {
     await new Promise((resolve) => setTimeout(resolve, 700));
     await startScanner(newDeviceId);
 });
+
+// =====================================================================
+// DEMO MODE
+// =====================================================================
+if (demoToggle) {
+    demoToggle.addEventListener("change", () => {
+        if (demoToggle.checked) {
+            demoControls.classList.remove("hidden");
+        } else {
+            demoControls.classList.add("hidden");
+        }
+    });
+}
+
+// Quick-set time buttons
+document.querySelectorAll("[data-set-time]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+        if (demoTimeEl) demoTimeEl.value = btn.dataset.setTime;
+    });
+});
+
+// Live clock — updates every second
+function updateLiveClock() {
+    if (!liveClockEl) return;
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, "0");
+    const mm = String(now.getMinutes()).padStart(2, "0");
+    const ss = String(now.getSeconds()).padStart(2, "0");
+    liveClockEl.textContent = `${hh}:${mm}:${ss}`;
+}
+setInterval(updateLiveClock, 1000);
+updateLiveClock();
 
 // =====================================================================
 // Employee dropdown (edit form)
@@ -575,6 +622,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     filterDate.value = todayISO();
     document.getElementById("work_date").value = todayISO();
+    if (demoDateEl) demoDateEl.value = todayISO();
 
     loadEmployeeOptions();
     loadRows();

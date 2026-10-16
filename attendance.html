@@ -69,6 +69,54 @@
         </div>
     </div>
 
+    <!-- DEMO MODE -->
+    <div class="card" id="demo-card" style="border-left: 4px solid var(--yellow, #FCD116);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px;">
+            <h3 style="margin:0;">Demo Mode <span style="font-size:11px;font-weight:400;color:#888;text-transform:uppercase;letter-spacing:0.5px;">(for testing / presentations)</span></h3>
+            <label class="checkbox-item" style="font-size:13.5px;">
+                <input type="checkbox" id="demo-toggle">
+                <strong>Enable Demo Mode</strong>
+            </label>
+        </div>
+        <p style="margin:0 0 14px;font-size:12.5px;color:#666;">
+            When enabled, the scanner uses the <strong>simulated time</strong> below instead of the real clock. Set the time, scan the QR, and the system records that time.
+        </p>
+
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+            <div style="background:#f5f6fa;padding:10px 16px;border-radius:8px;font-size:13px;">
+                <span style="color:#666;">Server time now:</span>
+                <strong id="live-clock" style="color:var(--blue, #0038A8);font-family:monospace;font-size:14px;margin-left:6px;">--:--:--</strong>
+            </div>
+        </div>
+
+                <div id="demo-controls" class="hidden">
+            <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px;">
+                <div style="min-width:160px;">
+                    <label style="display:block;font-size:12.5px;color:#555;margin-bottom:4px;font-weight:600;">Simulated Date</label>
+                    <input type="date" id="demo_date"
+                           style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;font-weight:600;">
+                </div>
+                <div style="min-width:160px;">
+                    <label style="display:block;font-size:12.5px;color:#555;margin-bottom:4px;font-weight:600;">Simulated Time</label>
+                    <input type="time" id="demo_time" value="08:00"
+                           style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;font-weight:600;">
+                </div>
+                <div style="font-size:12px;color:#888;padding-bottom:10px;">
+                    This is what the next scan will record as "now".
+                </div>
+            </div>
+
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <span style="font-size:12px;color:#666;align-self:center;margin-right:4px;">Quick set:</span>
+                <button type="button" class="btn btn-plain" data-set-time="08:00">08:00 AM</button>
+                <button type="button" class="btn btn-plain" data-set-time="12:00">12:00 PM</button>
+                <button type="button" class="btn btn-plain" data-set-time="13:00">01:00 PM</button>
+                <button type="button" class="btn btn-plain" data-set-time="17:00">05:00 PM</button>
+                <button type="button" class="btn btn-plain" data-set-time="18:00">06:00 PM</button>
+            </div>
+        </div>
+    </div>
+
     <!-- SUMMARY -->
     <div class="card">
         <h3>Attendance Summary</h3>

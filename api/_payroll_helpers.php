@@ -116,6 +116,9 @@ function recomputePayslipTotals(PDO $pdo, int $payslipId): array {
 }
 
 // ---- Attendance-based deductions ----
+// Any logged attendance means the period is "actively tracked" and
+// absence deductions apply normally. Only if ZERO records exist do we
+// assume HR hasn't finished logging and skip deductions.
 function computeAttendanceDeductions(
     PDO $pdo,
     int $employeeId,
@@ -142,11 +145,16 @@ function computeAttendanceDeductions(
     $presentDays = (int) $att["days"];
     $lateMinutes = (int) $att["late_total"];
 
+    // If HR logged nothing for this employee, assume perfect attendance
     if ($presentDays === 0) {
         return [
-            "expected_days" => $expectedDays, "present_days" => 0, "absent_days" => 0,
-            "late_minutes" => 0, "daily_rate" => 0,
-            "absence_deduction" => 0.0, "late_deduction" => 0.0,
+            "expected_days"     => $expectedDays,
+            "present_days"      => 0,
+            "absent_days"       => 0,
+            "late_minutes"      => 0,
+            "daily_rate"        => 0,
+            "absence_deduction" => 0.0,
+            "late_deduction"    => 0.0,
         ];
     }
 
@@ -165,7 +173,7 @@ function computeAttendanceDeductions(
     ];
 }
 
-// ---- 13th Month Pay (reads basic_salary from employees now) ----
+// ---- 13th Month Pay (reads basic_salary from employees) ----
 function compute13thMonthPay(PDO $pdo, int $employeeId, int $year): array {
     $stmt = $pdo->prepare("SELECT basic_salary, date_hired FROM employees WHERE employee_id = ?");
     $stmt->execute([$employeeId]);
