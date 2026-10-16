@@ -1,6 +1,8 @@
 <?php
 require __DIR__ . "/_bootstrap.php";
 
+requireRole(PAYROLL_ROLES);   // admin / payroll staff only
+
 $method = $_SERVER["REQUEST_METHOD"];
 
 // ---- GET: list (or ?simple=1 for dropdown options, ?all=1 for incl. inactive) ----

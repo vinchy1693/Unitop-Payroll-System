@@ -1,6 +1,8 @@
 <?php
 require __DIR__ . "/_bootstrap.php";
 
+requireRole(PAYROLL_ROLES);   // admin / payroll staff only
+
 $method = $_SERVER["REQUEST_METHOD"];
 
 $fields = ["employee_number", "first_name", "last_name", "birth_date", "civil_status",
@@ -46,10 +48,14 @@ if ($method === "POST") {
         $placeholders = implode(",", array_fill(0, count($fields), "?"));
         $sql = "INSERT INTO employees (" . implode(",", $fields) . ", is_active) VALUES ($placeholders, 1)";
         $stmt = $pdo->prepare($sql);
-        $stmt->execute(array_values($vals));
+        // Optional inputs the form leaves blank arrive as "" - store NULL instead,
+        // which an INT/DATE column would otherwise reject.
+        $stmt->execute(array_map(fn($v) => $v === "" ? null : $v, array_values($vals)));
         respond(true, "Employee added.", ["employee_id" => (int) $pdo->lastInsertId()]);
     } catch (PDOException $e) {
-        respond(false, "Error: employee number may already exist.", null, 409);
+        respond(false, $e->getCode() === '23000'
+            ? "Error: employee number may already exist."
+            : "Error: the employee could not be saved. Please check the values entered.", null, 409);
     }
 }
 
@@ -70,10 +76,13 @@ if ($method === "PUT") {
     try {
         $sql = "UPDATE employees SET " . implode(" = ?, ", $fields) . " = ? WHERE employee_id = ?";
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([...array_values($vals), $id]);
+        $params = array_map(fn($v) => $v === "" ? null : $v, array_values($vals));
+        $stmt->execute([...$params, $id]);
         respond(true, "Employee updated.");
     } catch (PDOException $e) {
-        respond(false, "Error: employee number may already exist.", null, 409);
+        respond(false, $e->getCode() === '23000'
+            ? "Error: employee number may already exist."
+            : "Error: the employee could not be saved. Please check the values entered.", null, 409);
     }
 }
 

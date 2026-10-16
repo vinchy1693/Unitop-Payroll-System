@@ -5,8 +5,15 @@
 // =====================================================================
 
 if (session_status() === PHP_SESSION_NONE) {
+    // Own session cookie name, so an employee-portal login cannot be replayed
+    // against this admin site (and vice versa).
+    session_name("admin_sid");
     session_start();
 }
+
+// Roles permitted to manage master data and run payroll. Endpoints that are
+// admin-only call requireRole(PAYROLL_ROLES) straight after this include.
+const PAYROLL_ROLES = ["Administrator", "Payroll Officer"];
 
 header("Content-Type: application/json; charset=utf-8");
 

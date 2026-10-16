@@ -1,6 +1,9 @@
 <?php
 require __DIR__ . "/_bootstrap.php";
 
+requireRole(PAYROLL_ROLES);   // admin / payroll staff only
+require __DIR__ . "/_payroll_helpers.php";
+
 $method = $_SERVER["REQUEST_METHOD"];
 if ($method !== "GET") {
     respond(false, "Method not allowed.", null, 405);
@@ -113,7 +116,7 @@ while ($cursor < $endEx) {
     $dateStr   = $cursor->format("Y-m-d");
     $dayLabel  = $cursor->format("D");
     $dow       = (int) $cursor->format("N");
-    $isWeekend = $dow >= 6;
+    $isWeekend = !isWorkingDay($cursor);
 
     if ($isWeekend) {
         $ledger[] = [

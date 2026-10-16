@@ -1,6 +1,8 @@
 <?php
 require __DIR__ . "/_bootstrap.php";
 
+requireRole(PAYROLL_ROLES);   // admin / payroll staff only
+
 $method = $_SERVER["REQUEST_METHOD"];
 if ($method !== "GET") {
     respond(false, "Method not allowed.", null, 405);

@@ -1,5 +1,7 @@
 <?php
 require __DIR__ . "/_bootstrap.php";
+
+requireRole(PAYROLL_ROLES);   // admin / payroll staff only
 require __DIR__ . "/_payroll_helpers.php";
 
 $method = $_SERVER["REQUEST_METHOD"];
@@ -109,7 +111,7 @@ if ($method === "POST") {
         $slipStmt = $pdo->prepare(
             "INSERT INTO payslips
              (run_id, employee_id, basic_pay, overtime_pay, gross_pay, total_deductions, net_pay)
-             VALUES (?, ?, ?, 0, ?, 0, ?)"
+             VALUES (?, ?, ?, ?, ?, 0, ?)"
         );
 
         $contribStmt = $pdo->prepare(
@@ -155,15 +157,50 @@ if ($method === "POST") {
             // Semi-monthly: half the monthly basic
             $basic = round($monthly / 2, 2);
 
-            // Government contributions
-            $calc = computePayslipDeductions($monthly, $basic);
+            // Attendance deductions are computed FIRST because absences and
+            // undertime reduce taxable compensation. Computing the withholding
+            // tax on the full semi-monthly basic and only then subtracting the
+            // absence produced a negative net pay. The returned daily_rate is
+            // this period's own rate (basic / its working days, Mon-Sat).
+            $att = computeAttendanceDeductions(
+                $pdo,
+                (int) $emp["employee_id"],
+                $period["start_date"],
+                $period["end_date"],
+                $monthly,
+                $basic
+            );
+            $attendanceDeduction = round($att["absence_deduction"] + $att["late_deduction"], 2);
+
+            // Overtime, priced at the same period-based rate as the daily rate
+            $otStmt->execute([$emp["employee_id"], $period["start_date"], $period["end_date"]]);
+            $otRows = $otStmt->fetchAll();
+
+            $hourlyRate = $att["daily_rate"] / 8.0;
+            $otPay = 0.0;
+            foreach ($otRows as $ot) {
+                $otPay += (float) $ot["hours"] * (float) $ot["rate_multiplier"] * $hourlyRate;
+            }
+            $otPay = round($otPay, 2);
+
+            // Statutory contributions (based on monthly salary) plus withholding
+            // tax computed on the reduced taxable base.
+            $calc      = computePayslipDeductions($monthly, $basic, $attendanceDeduction);
+            $statutory = $calc["total_deductions"];
+
+            // Never dock more than the employee actually earned: cap attendance
+            // deductions at what remains after statutory deductions.
+            $room             = max(0.0, round($basic + $otPay - $statutory, 2));
+            $absenceDeduction = min($att["absence_deduction"], $room);
+            $lateDeduction    = min($att["late_deduction"], max(0.0, round($room - $absenceDeduction, 2)));
 
             // Insert payslip shell
             $slipStmt->execute([
                 $runId,
                 $emp["employee_id"],
                 $basic,
-                $basic,
+                $otPay,
+                round($basic + $otPay, 2),
                 $calc["net_pay"],
             ]);
             $payslipId = (int) $pdo->lastInsertId();
@@ -177,43 +214,23 @@ if ($method === "POST") {
                 $calc["withholding_tax"],
             ]);
 
-            // Overtime
-            $otStmt->execute([$emp["employee_id"], $period["start_date"], $period["end_date"]]);
-            $otRows = $otStmt->fetchAll();
-
-            $hourlyRate = $monthly / 22.0 / 8.0;
-            $otPay = 0.0;
-            foreach ($otRows as $ot) {
-                $otPay += (float) $ot["hours"] * (float) $ot["rate_multiplier"] * $hourlyRate;
-            }
-            $otPay = round($otPay, 2);
-
-            if ($otPay > 0) {
-                $pdo->prepare("UPDATE payslips SET overtime_pay = ? WHERE payslip_id = ?")
-                    ->execute([$otPay, $payslipId]);
-            }
-
-            // Attendance-based deductions
-            $att = computeAttendanceDeductions(
-                $pdo,
-                (int) $emp["employee_id"],
-                $period["start_date"],
-                $period["end_date"],
-                $monthly
-            );
-
-            if ($att["absence_deduction"] > 0) {
+            // Attendance deductions (capped amounts, labelled when capped)
+            if ($absenceDeduction > 0) {
                 $dedStmt->execute([
                     $payslipId,
-                    "Absences ({$att['absent_days']} day(s))",
-                    $att["absence_deduction"],
+                    $absenceDeduction < $att["absence_deduction"]
+                        ? "Absences ({$att['absent_days']} day(s), capped to remaining pay)"
+                        : "Absences ({$att['absent_days']} day(s))",
+                    $absenceDeduction,
                 ]);
             }
-            if ($att["late_deduction"] > 0) {
+            if ($lateDeduction > 0) {
                 $dedStmt->execute([
                     $payslipId,
-                    "Late/Undertime ({$att['late_minutes']} min)",
-                    $att["late_deduction"],
+                    $lateDeduction < $att["late_deduction"]
+                        ? "Late/Undertime ({$att['late_minutes']} min, capped to remaining pay)"
+                        : "Late/Undertime ({$att['late_minutes']} min)",
+                    $lateDeduction,
                 ]);
             }
 

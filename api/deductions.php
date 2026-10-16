@@ -1,5 +1,7 @@
 <?php
 require __DIR__ . "/_bootstrap.php";
+
+requireRole(PAYROLL_ROLES);   // admin / payroll staff only
 require __DIR__ . "/_payroll_helpers.php";
 
 $method = $_SERVER["REQUEST_METHOD"];

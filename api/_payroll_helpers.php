@@ -4,6 +4,46 @@
 // Philippine statutory contribution + tax helpers.
 // =====================================================================
 
+// ---------------------------------------------------------------------
+// WORK WEEK: Monday .. Saturday. Sunday is the only non-working day.
+//   PHP   date('N')   : 1 = Monday .. 6 = Saturday, 7 = Sunday
+//   MySQL DAYOFWEEK() : 1 = Sunday, 2 = Monday .. 7 = Saturday
+// Change the bounds below to move the work week; every attendance, absence,
+// daily-rate and overtime calculation derives from them. This is the single
+// definition -- api/attendance.php and api/ledger.php include this file and
+// use the helpers rather than repeating the bounds.
+// ---------------------------------------------------------------------
+const WORK_WEEK_LAST_ISO_DOW    = 6;   // Saturday
+const WORK_WEEK_FIRST_MYSQL_DOW = 2;   // Monday
+const WORK_WEEK_LAST_MYSQL_DOW  = 7;   // Saturday
+
+function isWorkingDay(DateTimeInterface $day): bool {
+    return (int) $day->format('N') <= WORK_WEEK_LAST_ISO_DOW;
+}
+
+function countWorkingDays(string $from, string $to): int {
+    if ($from > $to) return 0;
+    $cursor = new DateTime($from);
+    $end    = (new DateTime($to))->modify('+1 day');
+    $days   = 0;
+    while ($cursor < $end) {
+        if (isWorkingDay($cursor)) $days++;
+        $cursor->modify('+1 day');
+    }
+    return $days;
+}
+
+// SQL fragment restricting a query to rows landing on a working day, so that a
+// Sunday scan can never cancel a genuine absence.
+function workDaySql(string $column): string {
+    return sprintf(
+        'DAYOFWEEK(%s) BETWEEN %d AND %d',
+        $column,
+        WORK_WEEK_FIRST_MYSQL_DOW,
+        WORK_WEEK_LAST_MYSQL_DOW
+    );
+}
+
 // ---- SSS (2025): 15% total, 5% EE / 10% ER, MSC ₱5,000 – ₱35,000 ----
 function computeSSS(float $monthlySalary): array {
     $msc = max(5000.0, min(35000.0, $monthlySalary));
@@ -37,7 +77,11 @@ function computeWithholdingTax(float $semiMonthlyTaxable): float {
 }
 
 // ---- One-shot calculation for a semi-monthly payslip ----
-function computePayslipDeductions(float $monthlySalary, float $semiBasic): array {
+// $preTaxDeductions: attendance-based amounts (absences / undertime). These
+// reduce taxable compensation, so they MUST be removed before the withholding
+// tax is computed. Statutory contributions are based on the monthly salary and
+// are unaffected by attendance.
+function computePayslipDeductions(float $monthlySalary, float $semiBasic, float $preTaxDeductions = 0.0): array {
     $sss = computeSSS($monthlySalary);
     $ph  = computePhilHealth($monthlySalary);
     $pi  = computePagIbig($monthlySalary);
@@ -49,7 +93,7 @@ function computePayslipDeductions(float $monthlySalary, float $semiBasic): array
     $piEE  = round($pi["ee"]  / 2, 2);
     $piER  = round($pi["er"]  / 2, 2);
 
-    $semiTaxable = round($semiBasic - $sssEE - $phEE - $piEE, 2);
+    $semiTaxable = round($semiBasic - $preTaxDeductions - $sssEE - $phEE - $piEE, 2);
     if ($semiTaxable < 0) $semiTaxable = 0;
 
     $tax = computeWithholdingTax($semiTaxable);
@@ -100,6 +144,17 @@ function recomputePayslipTotals(PDO $pdo, int $payslipId): array {
     $totalDed = round($govtDed + $extraDed, 2);
     $net      = round($gross - $totalDed, 2);
 
+    // Take-home pay can never be negative. Deductions may legitimately exceed
+    // gross pay (a full-period absence on top of full statutory contributions,
+    // or a loan amortisation larger than the remaining pay). Cap the recorded
+    // deductions at gross so the payslip stays internally consistent
+    // (gross_pay - total_deductions = net_pay) and report a zero net pay.
+    // The unrecovered excess is NOT carried forward to the next period.
+    if ($net < 0) {
+        $totalDed = $gross;
+        $net      = 0.0;
+    }
+
     $pdo->prepare(
         "UPDATE payslips
          SET gross_pay = ?, total_deductions = ?, net_pay = ?
@@ -124,21 +179,26 @@ function computeAttendanceDeductions(
     int $employeeId,
     string $startDate,
     string $endDate,
-    float $monthlySalary
+    float $monthlySalary,
+    ?float $semiMonthlyBasic = null
 ): array {
-    $cursor = new DateTime($startDate);
-    $end    = (new DateTime($endDate))->modify('+1 day');
-    $expectedDays = 0;
-    while ($cursor < $end) {
-        $dow = (int) $cursor->format('N');
-        if ($dow <= 5) $expectedDays++;
-        $cursor->modify('+1 day');
-    }
+    $expectedDays = countWorkingDays($startDate, $endDate);
 
+    // Self-balancing daily rate: the semi-monthly basic spread across the
+    // working days actually present in THIS period. A fully-absent period
+    // therefore docks exactly the basic -- never more. This is what keeps the
+    // model correct now that a period holds 13-14 working days (Mon-Sat)
+    // instead of 11; for a 5-day week it equals the old monthly/22 exactly.
+    $semiBasic = $semiMonthlyBasic ?? round($monthlySalary / 2.0, 2);
+    $dailyRate = $expectedDays > 0 ? ($semiBasic / $expectedDays) : 0.0;
+
+    // Only working-day attendance counts as "present" (Saturday counts,
+    // Sunday does not), matching $expectedDays above.
     $stmt = $pdo->prepare(
         "SELECT COUNT(*) AS days, COALESCE(SUM(minutes_late), 0) AS late_total
          FROM attendance
-         WHERE employee_id = ? AND work_date BETWEEN ? AND ?"
+         WHERE employee_id = ? AND work_date BETWEEN ? AND ?
+           AND " . workDaySql('work_date')
     );
     $stmt->execute([$employeeId, $startDate, $endDate]);
     $att = $stmt->fetch();
@@ -152,14 +212,13 @@ function computeAttendanceDeductions(
             "present_days"      => 0,
             "absent_days"       => 0,
             "late_minutes"      => 0,
-            "daily_rate"        => 0,
+            "daily_rate"        => round($dailyRate, 2),
             "absence_deduction" => 0.0,
             "late_deduction"    => 0.0,
         ];
     }
 
     $absentDays = max(0, $expectedDays - $presentDays);
-    $dailyRate  = $monthlySalary / 22.0;
     $perMinute  = $dailyRate / 480.0;
 
     return [

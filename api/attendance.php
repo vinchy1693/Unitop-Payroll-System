@@ -1,11 +1,18 @@
 <?php
 require __DIR__ . "/_bootstrap.php";
+require __DIR__ . "/_payroll_helpers.php";
 
 $method = $_SERVER["REQUEST_METHOD"];
 
 const WORK_START = "08:00:00";
 const LUNCH_THRESHOLD_MINUTES = 300;
 const LUNCH_DEDUCTION_MINUTES = 60;
+
+// Any signed-in user may VIEW attendance (the kiosk screen reads it); only
+// admin / payroll staff may create, edit or delete records.
+if ($method !== "GET") {
+    requireRole(PAYROLL_ROLES);
+}
 
 function computeAttendanceStats(string $timeIn, string $timeOut): array {
     $in  = new DateTime($timeIn);
@@ -39,18 +46,9 @@ function computeTimeInStats(string $timeIn): array {
     return ["minutes_late" => $lateMinutes];
 }
 
-function countWorkingDays(string $from, string $to): int {
-    if ($from > $to) return 0;
-    $cursor = new DateTime($from);
-    $endEx  = (new DateTime($to))->modify('+1 day');
-    $days = 0;
-    while ($cursor < $endEx) {
-        $dow = (int) $cursor->format('N');
-        if ($dow <= 5) $days++;
-        $cursor->modify('+1 day');
-    }
-    return $days;
-}
+// countWorkingDays() lived here as a duplicate of the payroll helper. The work
+// week (Mon-Sat) is now defined once in api/_payroll_helpers.php so the
+// attendance screen and the payslip engine can never disagree again.
 
 // ---- GET ----
 if ($method === "GET") {
@@ -112,7 +110,7 @@ if ($method === "GET") {
         while ($cursor < $endEx) {
             $dateStr   = $cursor->format("Y-m-d");
             $dow       = (int) $cursor->format("N");
-            $isWeekend = $dow >= 6;
+            $isWeekend = !isWorkingDay($cursor);
             $dayLabel  = $cursor->format("D");
 
             if ($isWeekend) {
@@ -189,7 +187,7 @@ if ($method === "GET") {
 
         $expectedDays = countWorkingDays($from, $to);
 
-        // Only count weekday attendance (Mon–Fri) via DAYOFWEEK 2..6
+        // Only working-day attendance (Mon-Sat) counts; Sunday scans are ignored
         $sql = "SELECT
                     e.employee_id,
                     e.employee_number,
@@ -203,7 +201,7 @@ if ($method === "GET") {
                 LEFT JOIN attendance a
                   ON a.employee_id = e.employee_id
                  AND a.work_date BETWEEN ? AND ?
-                 AND DAYOFWEEK(a.work_date) BETWEEN 2 AND 6
+                 AND " . workDaySql('a.work_date') . "
                 LEFT JOIN departments d ON d.department_id = e.department_id
                 WHERE e.is_active = 1
                 GROUP BY e.employee_id, e.employee_number, e.last_name, e.first_name, d.department_name
