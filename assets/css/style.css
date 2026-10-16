@@ -1343,3 +1343,83 @@ a.kpi-tile:hover {
 .workflow-card.status-ok .workflow-cta:hover {
     background: var(--blue-lite);
 }
+
+/* Reader placeholder — shows when camera is off */
+#reader:empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 320px;
+    background: #1a1f2e;
+    color: rgba(255,255,255,0.55);
+    font-size: 13.5px;
+    text-align: center;
+    padding: 20px;
+}
+#reader:empty::before {
+    content: "📷  Camera preview will appear here";
+}
+
+/* When the library injects a video, keep the black background */
+#reader:not(:empty) {
+    background: #000;
+    min-height: 0;
+}
+
+/* =====================================================================
+   QR Scanner
+   ===================================================================== */
+#reader {
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #000;
+    min-height: 320px;
+}
+#reader video {
+    width: 100% !important;
+    height: auto !important;
+    display: block;
+    border-radius: 10px;
+}
+
+.scanner-status {
+    max-width: 480px;
+    margin: 16px auto 0;
+    padding: 20px 24px;
+    background: #f5f6fa;
+    border-radius: 10px;
+    text-align: center;
+    border: 2px solid var(--border, #e5e7eb);
+}
+.scanner-status.hidden { display: none; }
+
+.scanner-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: 700;
+    color: #fff;
+    background: var(--blue, #0038A8);
+    margin-bottom: 10px;
+}
+.scanner-icon.success { background: var(--green, #1e7d32); }
+.scanner-icon.error   { background: var(--red, #CE1126); }
+.scanner-icon.info    { background: var(--blue, #0038A8); }
+
+.scanner-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text, #1a1f2e);
+    margin-bottom: 6px;
+}
+.scanner-detail {
+    font-size: 13px;
+    color: var(--muted, #6b7280);
+}
