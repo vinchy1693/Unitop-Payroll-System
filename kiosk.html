@@ -71,6 +71,20 @@
     </footer>
 </main>
 
+<div id="unlock" class="kiosk-unlock-overlay hidden">
+    <form id="unlock-form" class="kiosk-unlock">
+        <div class="kiosk-brand">UNITOP <span>Exit kiosk</span></div>
+        <p class="kiosk-unlock-text">Enter an Administrator or Payroll Officer password to leave kiosk mode.</p>
+        <input id="unlock-user" class="kiosk-input" type="text" placeholder="Username"
+               autocomplete="username" autocapitalize="none" spellcheck="false" required>
+        <input id="unlock-pass" class="kiosk-input" type="password" placeholder="Password"
+               autocomplete="current-password" required>
+        <div id="unlock-msg" class="kiosk-unlock-msg"></div>
+        <button class="kiosk-btn kiosk-btn-primary" type="submit">Exit kiosk</button>
+        <button class="kiosk-btn kiosk-btn-plain" type="button" id="unlock-cancel">Cancel</button>
+    </form>
+</div>
+
 <script src="assets/js/axios.min.js"></script>
 <script src="assets/js/html5-qrcode.min.js"></script>
 <script src="assets/js/theme.js"></script>

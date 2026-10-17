@@ -235,3 +235,29 @@
 @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; animation: none !important; }
 }
+
+/* ---------- unlock overlay: exiting kiosk mode needs credentials ---------- */
+.kiosk-unlock-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(0, 0, 0, .62);
+}
+.kiosk-unlock {
+    width: min(430px, 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 26px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+}
+.kiosk-unlock .kiosk-brand { color: var(--blue); }
+.kiosk-unlock-text { margin: 0; font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+.kiosk-unlock-msg { min-height: 18px; font-size: 13px; color: var(--red); }

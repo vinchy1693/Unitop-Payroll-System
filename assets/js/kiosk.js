@@ -36,7 +36,13 @@
         camState:  document.getElementById("kiosk-cam-state"),
         form:      document.getElementById("kiosk-form"),
         code:      document.getElementById("kiosk-code"),
-        submit:    document.getElementById("kiosk-submit")
+        submit:    document.getElementById("kiosk-submit"),
+        unlock:       document.getElementById("unlock"),
+        unlockForm:   document.getElementById("unlock-form"),
+        unlockUser:   document.getElementById("unlock-user"),
+        unlockPass:   document.getElementById("unlock-pass"),
+        unlockMsg:    document.getElementById("unlock-msg"),
+        unlockCancel: document.getElementById("unlock-cancel")
     };
 
     var scanner = null;
@@ -197,12 +203,46 @@
         el.code.value = "";
     });
 
+    // Exiting kiosk mode requires administrator credentials, so an employee at
+    // the terminal cannot walk away with the shared session or the admin panel.
     el.exit.addEventListener("click", function (e) {
         e.preventDefault();
-        stopCamera();
-        axios.post(API + "auth.php?action=logout")
-            .catch(function () {})
-            .then(function () { window.location.href = "login.html"; });
+        clearResult();
+        el.unlockMsg.textContent = "";
+        el.unlockUser.value = "";
+        el.unlockPass.value = "";
+        el.unlock.classList.remove("hidden");
+        el.unlockUser.focus();
+    });
+
+    el.unlockCancel.addEventListener("click", function () {
+        el.unlock.classList.add("hidden");
+        el.code.focus();
+    });
+
+    el.unlockForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+        el.unlockMsg.textContent = "";
+        var btn = el.unlockForm.querySelector('button[type="submit"]');
+        btn.disabled = true;
+
+        axios.post(API + "auth.php?action=verify", {
+            username: el.unlockUser.value.trim(),
+            password: el.unlockPass.value
+        }).then(function () {
+            stopCamera();
+            axios.post(API + "auth.php?action=logout")
+                .catch(function () {})
+                .then(function () { window.location.href = "login.html"; });
+        }).catch(function (err) {
+            el.unlockMsg.textContent =
+                (err.response && err.response.data && err.response.data.message)
+                    ? err.response.data.message
+                    : "Could not verify. Please try again.";
+            el.unlockPass.value = "";
+            el.unlockPass.focus();
+            btn.disabled = false;
+        });
     });
 
     // ---------- boot: require a session, then lock to the scanner ----------

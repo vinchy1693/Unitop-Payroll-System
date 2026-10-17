@@ -114,4 +114,42 @@ if ($method === "POST" && $action === "change_password") {
     respond(true, "Password changed successfully.");
 }
 
+// =====================================================================
+// POST ?action=verify
+// Re-checks a username/password WITHOUT touching the current session.
+// The kiosk uses this so that exiting kiosk mode must be authorised by an
+// administrator, while a wrong password (or an employee account) leaves the
+// kiosk session exactly as it was.
+// =====================================================================
+if ($method === "POST" && $action === "verify") {
+    if (!currentUser()) {
+        respond(false, "Not authenticated.", null, 401);
+    }
+
+    $in       = json_input();
+    $username = trim($in["username"] ?? "");
+    $password = $in["password"] ?? "";
+
+    if ($username === "" || $password === "") {
+        respond(false, "Username and password are required.", null, 422);
+    }
+
+    $stmt = $pdo->prepare(
+        "SELECT username, role, password_hash, is_active FROM users WHERE username = ? LIMIT 1"
+    );
+    $stmt->execute([$username]);
+    $user = $stmt->fetch();
+
+    if (!$user || (int) $user["is_active"] !== 1
+        || !$user["password_hash"] || !password_verify($password, $user["password_hash"])) {
+        respond(false, "Invalid username or password.", null, 401);
+    }
+
+    if (!in_array($user["role"], PAYROLL_ROLES, true)) {
+        respond(false, "Only an Administrator or Payroll Officer can exit the kiosk.", null, 403);
+    }
+
+    respond(true, "Verified.", ["role" => $user["role"]]);
+}
+
 respond(false, "Method or action not allowed.", null, 405);
