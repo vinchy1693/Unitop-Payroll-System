@@ -1,0 +1,237 @@
+/* =====================================================================
+   kiosk.css - the attendance kiosk only. Deliberately separate from the
+   admin stylesheet so a change here can never affect the admin pages.
+   Uses the shared theme tokens from style.css (:root + [data-theme=dark]).
+   ===================================================================== */
+
+.kiosk-body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+}
+
+/* ---------- boot / sign-in states ---------- */
+.kiosk-boot {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+.kiosk-boot-inner {
+    max-width: 460px;
+    text-align: center;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius, 12px);
+    padding: 32px 28px;
+    box-shadow: var(--shadow);
+    font-size: 15px;
+    line-height: 1.6;
+}
+.kiosk-boot-inner p { color: var(--muted); margin: 12px 0 20px; }
+
+/* ---------- shell ---------- */
+.kiosk-shell {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.kiosk-head {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 22px;
+    background: linear-gradient(135deg, var(--sidebar-top) 0%, var(--sidebar-bottom) 100%);
+    color: #fff;
+    border-bottom: 4px solid var(--yellow);
+}
+.kiosk-brand {
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    font-size: 18px;
+    color: var(--blue);
+}
+.kiosk-head .kiosk-brand { color: #fff; }
+.kiosk-brand span {
+    display: block;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--yellow);
+    margin-top: 2px;
+}
+.kiosk-clock { margin-left: auto; text-align: right; line-height: 1.2; }
+.kiosk-time {
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+.kiosk-date { font-size: 12.5px; opacity: .82; }
+.kiosk-exit {
+    color: rgba(255,255,255,.75);
+    font-size: 12px;
+    text-decoration: none;
+    border: 1px solid rgba(255,255,255,.35);
+    border-radius: 999px;
+    padding: 6px 12px;
+}
+.kiosk-exit:hover { color: #fff; border-color: #fff; }
+
+/* ---------- big result banner ---------- */
+.kiosk-result {
+    margin: 22px auto 0;
+    width: min(760px, calc(100% - 44px));
+    text-align: center;
+    padding: 26px 24px;
+    border-radius: 16px;
+    border: 2px solid var(--border);
+    background: var(--card);
+    box-shadow: var(--shadow-hover, var(--shadow));
+}
+.kiosk-result.in  { border-color: var(--green); background: var(--green-lite); }
+.kiosk-result.out { border-color: var(--blue);  background: var(--blue-lite); }
+.kiosk-result.error { border-color: var(--red); background: var(--red-lite); }
+.kiosk-result-icon { font-size: 44px; line-height: 1; }
+.kiosk-result-title {
+    font-size: clamp(24px, 3.4vw, 40px);
+    font-weight: 800;
+    margin-top: 8px;
+}
+.kiosk-result-detail {
+    font-size: clamp(15px, 1.6vw, 20px);
+    margin-top: 6px;
+    color: var(--muted);
+}
+
+/* ---------- main 2-up ---------- */
+.kiosk-main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1.35fr auto 1fr;
+    gap: 18px;
+    align-items: start;
+    align-content: center;
+    padding: 22px;
+    width: min(1200px, 100%);
+    margin: 0 auto;
+    box-sizing: border-box;
+}
+.kiosk-panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius, 12px);
+    padding: 20px;
+    box-shadow: var(--shadow);
+}
+.kiosk-panel-title {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 12px;
+}
+.kiosk-reader {
+    width: 100%;
+    min-height: 300px;
+    background: #000;
+    border-radius: 10px;
+    overflow: hidden;
+}
+.kiosk-reader:empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255,255,255,.5);
+    font-size: 14px;
+}
+.kiosk-reader:empty::before { content: "  Camera preview appears here"; }
+.kiosk-panel-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+}
+.kiosk-hint { font-size: 12.5px; color: var(--muted); }
+
+.kiosk-divider {
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.kiosk-form { display: flex; flex-direction: column; gap: 12px; }
+.kiosk-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 16px 14px;
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 17px;
+    letter-spacing: .5px;
+    color: var(--text);
+    background: var(--control-bg, var(--card));
+    border: 1px solid var(--border-mid);
+    border-radius: 10px;
+}
+.kiosk-input:focus-visible {
+    outline: 3px solid var(--blue);
+    outline-offset: 1px;
+}
+
+.kiosk-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 52px;
+    padding: 0 22px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+}
+.kiosk-btn-primary { background: var(--blue); color: var(--on-accent); }
+.kiosk-btn-primary:hover { background: var(--blue-dark); }
+.kiosk-btn-plain {
+    background: transparent;
+    color: var(--text);
+    border-color: var(--border-mid);
+}
+.kiosk-btn:disabled { background: var(--disabled-bg); color: var(--on-accent); opacity: .7; cursor: default; }
+.kiosk-btn:focus-visible { outline: 3px solid var(--yellow); outline-offset: 2px; }
+.kiosk-form .kiosk-btn { align-self: stretch; }
+
+.kiosk-foot {
+    padding: 14px 22px 22px;
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--muted);
+}
+
+/* ---------- small screens: single column, camera first ---------- */
+@media (max-width: 860px) {
+    .kiosk-main { grid-template-columns: 1fr; }
+    .kiosk-divider { padding: 2px 0; }
+    .kiosk-divider span { display: none; }
+    .kiosk-head { flex-wrap: wrap; }
+    .kiosk-clock { margin-left: 0; text-align: left; }
+    .kiosk-time { font-size: 24px; }
+    .kiosk-exit { margin-left: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+}

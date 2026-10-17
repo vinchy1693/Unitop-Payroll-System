@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>(function(){try{var t=localStorage.getItem('unitop-theme');if(!t){t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';}document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Attendance Kiosk - UNITOP</title>
+<link rel="stylesheet" href="assets/css/style.css">
+<link rel="stylesheet" href="assets/css/kiosk.css">
+</head>
+<body class="kiosk-body">
+
+<!-- Shown until we know there is a session -->
+<div id="boot" class="kiosk-boot">
+    <div class="kiosk-boot-inner">Starting kiosk...</div>
+</div>
+
+<!-- Shown when nobody is signed in -->
+<div id="signin" class="kiosk-boot hidden">
+    <div class="kiosk-boot-inner">
+        <div class="kiosk-brand">UNITOP <span>Attendance Kiosk</span></div>
+        <p>This kiosk needs a signed-in operator. Sign in, then return to this screen.</p>
+        <a class="kiosk-btn kiosk-btn-primary" href="login.html">Sign in</a>
+    </div>
+</div>
+
+<!-- The kiosk itself -->
+<main id="kiosk" class="kiosk-shell hidden">
+
+    <header class="kiosk-head">
+        <div class="kiosk-brand">UNITOP <span>Attendance Kiosk</span></div>
+        <div class="kiosk-clock">
+            <div id="kiosk-time" class="kiosk-time">--:--:--</div>
+            <div id="kiosk-date" class="kiosk-date">-</div>
+        </div>
+        <a id="kiosk-exit" class="kiosk-exit" href="#" title="Sign out and leave the kiosk">Exit</a>
+    </header>
+
+    <section id="kiosk-result" class="kiosk-result hidden" aria-live="polite">
+        <div id="kiosk-result-icon" class="kiosk-result-icon">-</div>
+        <div id="kiosk-result-title" class="kiosk-result-title">Welcome</div>
+        <div id="kiosk-result-detail" class="kiosk-result-detail"></div>
+    </section>
+
+    <section class="kiosk-main">
+        <div class="kiosk-panel">
+            <div class="kiosk-panel-title">Scan your QR code</div>
+            <div id="reader" class="kiosk-reader"></div>
+            <div class="kiosk-panel-actions">
+                <button id="kiosk-start" class="kiosk-btn kiosk-btn-primary" type="button">Start camera</button>
+                <button id="kiosk-stop" class="kiosk-btn kiosk-btn-plain hidden" type="button">Stop camera</button>
+                <span id="kiosk-cam-state" class="kiosk-hint">Camera off</span>
+            </div>
+        </div>
+
+        <div class="kiosk-divider"><span>or</span></div>
+
+        <div class="kiosk-panel kiosk-panel-manual">
+            <div class="kiosk-panel-title">Type your QR code value</div>
+            <p class="kiosk-hint">Use this if the camera is unavailable.</p>
+            <form id="kiosk-form" class="kiosk-form" autocomplete="off">
+                <input id="kiosk-code" class="kiosk-input" type="text" inputmode="text"
+                       placeholder="UNITOP-..." autocapitalize="characters" spellcheck="false" required>
+                <button id="kiosk-submit" class="kiosk-btn kiosk-btn-primary" type="submit">Record attendance</button>
+            </form>
+        </div>
+    </section>
+
+    <footer class="kiosk-foot">
+        <span>Point your QR code at the camera, or type the value above.</span>
+    </footer>
+</main>
+
+<script src="assets/js/axios.min.js"></script>
+<script src="assets/js/html5-qrcode.min.js"></script>
+<script src="assets/js/theme.js"></script>
+<script src="assets/js/kiosk.js"></script>
+</body>
+</html>

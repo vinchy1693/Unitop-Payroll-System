@@ -1,0 +1,202 @@
+// =====================================================================
+// kiosk.js - the attendance kiosk.
+//
+// Job-site screen: the ONLY actions available are (a) scan a QR code with the
+// camera and (b) type/paste a QR code value. Everything else is hidden until
+// the operator signs out.
+//
+// It posts to the same endpoint the admin scanner uses (scan_attendance.php),
+// which already decides clock-in vs clock-out and returns the employee name.
+// =====================================================================
+(function () {
+    "use strict";
+
+    var API = "api/";
+    var IGNORE_MS = 5000;   // ignore the same code again within this window
+    var RESET_MS  = 6000;   // how long the result stays on screen
+
+    var el = {
+        boot:      document.getElementById("boot"),
+        signin:    document.getElementById("signin"),
+        shell:     document.getElementById("kiosk"),
+        time:      document.getElementById("kiosk-time"),
+        date:      document.getElementById("kiosk-date"),
+        exit:      document.getElementById("kiosk-exit"),
+        result:    document.getElementById("kiosk-result"),
+        rIcon:     document.getElementById("kiosk-result-icon"),
+        rTitle:    document.getElementById("kiosk-result-title"),
+        rDetail:   document.getElementById("kiosk-result-detail"),
+        reader:    document.getElementById("reader"),
+        start:     document.getElementById("kiosk-start"),
+        stop:      document.getElementById("kiosk-stop"),
+        camState:  document.getElementById("kiosk-cam-state"),
+        form:      document.getElementById("kiosk-form"),
+        code:      document.getElementById("kiosk-code"),
+        submit:    document.getElementById("kiosk-submit")
+    };
+
+    var scanner = null;
+    var running = false;
+    var busy = false;
+    var lastCode = null;
+    var lastAt = 0;
+    var resetTimer = null;
+
+    // ---------- clock ----------
+    function tick() {
+        var now = new Date();
+        el.time.textContent = now.toLocaleTimeString();
+        el.date.textContent = now.toLocaleDateString(undefined, {
+            weekday: "long", year: "numeric", month: "long", day: "numeric"
+        });
+    }
+    tick();
+    setInterval(tick, 1000);
+
+    // ---------- result banner ----------
+    function clearResult() {
+        if (resetTimer) { clearTimeout(resetTimer); resetTimer = null; }
+        el.result.className = "kiosk-result hidden";
+    }
+
+    function showResult(kind, title, detail) {
+        if (resetTimer) clearTimeout(resetTimer);
+        el.result.className = "kiosk-result " + kind;
+        el.rIcon.textContent = kind === "error" ? "X" : (kind === "out" ? "" : "OK");
+        el.rTitle.textContent = title;
+        el.rDetail.textContent = detail || "";
+        resetTimer = setTimeout(function () {
+            clearResult();
+            el.code.value = "";
+            el.code.focus();
+        }, RESET_MS);
+    }
+
+    // ---------- submit one code ----------
+    function shouldIgnore(code) {
+        var now = Date.now();
+        if (code === lastCode && (now - lastAt) < IGNORE_MS) return true;
+        lastCode = code;
+        lastAt = now;
+        return false;
+    }
+
+    function submitCode(code, fromCamera) {
+        code = (code || "").trim();
+        if (code === "") {
+            showResult("error", "No code entered", "Type or paste your QR code value.");
+            return;
+        }
+        if (busy) return;
+        if (fromCamera && shouldIgnore(code)) return;
+
+        busy = true;
+        el.submit.disabled = true;
+
+        axios.post(API + "scan_attendance.php", { code_value: code })
+            .then(function (res) {
+                var d = res.data.data || {};
+                if (d.action === "in") {
+                    var late = d.late_minutes > 0 ? "  late by " + d.late_minutes + " min" : "";
+                    showResult("in", "Welcome, " + d.employee_name + "!",
+                        "Clocked IN at " + d.time + late);
+                } else if (d.action === "out") {
+                    showResult("out", "Goodbye, " + d.employee_name + "!",
+                        "Clocked OUT at " + d.time + "  " + d.hours_worked + " hrs");
+                } else {
+                    showResult("in", d.employee_name || "Recorded", res.data.message || "");
+                }
+                el.code.value = "";
+            })
+            .catch(function (err) {
+                var msg = (err.response && err.response.data && err.response.data.message)
+                    ? err.response.data.message
+                    : "Could not record attendance. Please ask HR.";
+                showResult("error", "Not recorded", msg);
+            })
+            .then(function () {
+                busy = false;
+                el.submit.disabled = false;
+            });
+    }
+
+    // ---------- camera ----------
+    function startCamera() {
+        if (running) return;
+        el.camState.textContent = "Starting camera";
+
+        try {
+            scanner = new Html5Qrcode("reader");
+        } catch (e) {
+            el.camState.textContent = "Camera unavailable";
+            return;
+        }
+
+        scanner.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: { width: 240, height: 240 } },
+            function (text) { submitCode(text, true); },
+            function () { /* per-frame decode errors are noise */ }
+        ).then(function () {
+            running = true;
+            el.camState.textContent = "Scanning";
+            el.start.classList.add("hidden");
+            el.stop.classList.remove("hidden");
+        }).catch(function () {
+            el.camState.textContent = "Camera unavailable - type the code instead";
+            el.start.classList.remove("hidden");
+            el.stop.classList.add("hidden");
+            running = false;
+        });
+    }
+
+    function stopCamera() {
+        if (!scanner || !running) return;
+        scanner.stop().then(function () {
+            try { scanner.clear(); } catch (e) {}
+            scanner = null;
+            running = false;
+            el.camState.textContent = "Camera off";
+            el.start.classList.remove("hidden");
+            el.stop.classList.add("hidden");
+        }).catch(function () {
+            scanner = null;
+            running = false;
+            el.camState.textContent = "Camera off";
+            el.start.classList.remove("hidden");
+            el.stop.classList.add("hidden");
+        });
+    }
+
+    // ---------- wiring ----------
+    el.start.addEventListener("click", startCamera);
+    el.stop.addEventListener("click", stopCamera);
+
+    el.form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        submitCode(el.code.value, false);
+        el.code.value = "";
+    });
+
+    el.exit.addEventListener("click", function (e) {
+        e.preventDefault();
+        stopCamera();
+        axios.post(API + "auth.php?action=logout")
+            .catch(function () {})
+            .then(function () { window.location.href = "login.html"; });
+    });
+
+    // ---------- boot: require a session, then lock to the scanner ----------
+    axios.get(API + "auth.php?action=me")
+        .then(function (res) {
+            if (!res.data || res.data.success !== true) throw new Error("no session");
+            el.boot.classList.add("hidden");
+            el.shell.classList.remove("hidden");
+            el.code.focus();
+            startCamera();                 // kiosks should just work
+        })
+        .catch(function () {
+            el.boot.classList.add("hidden");
+            el.signin.classList.remove("hidden");
+        });
+})();
