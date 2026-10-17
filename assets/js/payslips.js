@@ -23,7 +23,7 @@ async function loadRows() {
     const runId = getRunId();
     if (!runId) {
         subtitleEl.textContent = "No run selected.";
-        rowsEl.innerHTML = `<tr class="empty-row"><td colspan="9">Go to <a href="payroll_runs.html">Payroll Runs</a> and pick a run.</td></tr>`;
+        rowsEl.innerHTML = `<tr class="empty-row"><td colspan="10">Go to <a href="payroll_runs.html">Payroll Runs</a> and pick a run.</td></tr>`;
         return;
     }
 
@@ -33,7 +33,7 @@ async function loadRows() {
         const { data } = await api.get("payslips.php", { params: { run_id: runId } });
         renderRows(data.data);
     } catch (err) {
-        rowsEl.innerHTML = `<tr class="empty-row"><td colspan="9">Failed to load: ${escapeHtml(apiErrorMessage(err))}</td></tr>`;
+        rowsEl.innerHTML = `<tr class="empty-row"><td colspan="10">Failed to load: ${escapeHtml(apiErrorMessage(err))}</td></tr>`;
     }
 }
 
@@ -41,7 +41,7 @@ function renderRows(rows) {
     countEl.textContent = `${rows.length} payslip(s)`;
 
     if (rows.length === 0) {
-        rowsEl.innerHTML = `<tr class="empty-row"><td colspan="9">No payslips for this run.</td></tr>`;
+        rowsEl.innerHTML = `<tr class="empty-row"><td colspan="10">No payslips for this run.</td></tr>`;
         return;
     }
 
@@ -57,6 +57,7 @@ function renderRows(rows) {
             <td style="text-align:right;">${formatMoney(r.pagibig_ee)}</td>
             <td style="text-align:right;">${formatMoney(r.withholding_tax)}</td>
             <td style="text-align:right;">${formatMoney(r.total_deductions)}</td>
+            <td style="text-align:right; color:var(--muted);">${Number(r.gross_pay) > 0 ? ((Number(r.total_deductions) / Number(r.gross_pay)) * 100).toFixed(1) + "%" : "-"}</td>
             <td style="text-align:right; font-weight:600;">${formatMoney(r.net_pay)}</td>
             <td class="col-center">
                 <button class="btn btn-edit" data-view="${r.payslip_id}">View</button>
@@ -196,7 +197,7 @@ function renderPayslip(p) {
                     <div class="line-add">
                         <button class="btn-add-line" data-add-deduction>+ Add Deduction</button>
                     </div>
-                    <div class="line total"><span>Total Deductions</span><span>${formatMoney(totalDed)}</span></div>
+                    <div class="line total"><span>Total Deductions</span><span>${formatMoney(totalDed)} <small style="color:var(--muted); font-weight:500;">(${gross > 0 ? ((totalDed / gross) * 100).toFixed(1) + "%" : "-"} of gross)</small></span></div>
                 </div>
             </div>
 
