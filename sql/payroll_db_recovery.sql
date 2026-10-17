@@ -73,7 +73,7 @@ CREATE TABLE `attendance` (
   KEY `fk_attendance_qr_code` (`qr_code_id`),
   CONSTRAINT `fk_attendance_employee` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`employee_id`),
   CONSTRAINT `fk_attendance_qr_code` FOREIGN KEY (`qr_code_id`) REFERENCES `qr_codes` (`qr_code_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=149 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=165 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -82,7 +82,7 @@ CREATE TABLE `attendance` (
 
 LOCK TABLES `attendance` WRITE;
 /*!40000 ALTER TABLE `attendance` DISABLE KEYS */;
-INSERT INTO `attendance` VALUES (96,4,NULL,'2026-10-01','08:00:00','17:00:00','Demo',8.00,0,'Present'),(97,4,NULL,'2026-10-02','08:00:00','17:00:00','Demo',8.00,0,'Present'),(98,4,NULL,'2026-10-03','08:00:00','17:00:00','Demo',8.00,0,'Present'),(99,4,NULL,'2026-10-05','08:15:00','17:00:00','Demo',7.25,15,'Late'),(100,4,NULL,'2026-10-06','08:00:00','17:00:00','Demo',8.00,0,'Present'),(101,4,NULL,'2026-10-07','08:00:00','17:00:00','Demo',8.00,0,'Present'),(102,4,NULL,'2026-10-08','08:00:00','17:00:00','Demo',8.00,0,'Present'),(103,4,NULL,'2026-10-09','08:00:00','17:00:00','Demo',8.00,0,'Present'),(104,4,NULL,'2026-10-10','08:00:00','17:00:00','Demo',8.00,0,'Present'),(105,4,NULL,'2026-10-12','08:00:00','17:00:00','Demo',8.00,0,'Present'),(106,4,NULL,'2026-10-13','08:00:00','17:00:00','Demo',8.00,0,'Present'),(107,4,NULL,'2026-10-14','08:00:00','17:00:00','Demo',8.00,0,'Present'),(108,4,NULL,'2026-10-15','08:00:00','17:00:00','Demo',8.00,0,'Present'),(109,5,NULL,'2026-10-01','08:00:00','17:00:00','Demo',8.00,0,'Present'),(110,5,NULL,'2026-10-02','08:20:00','17:00:00','Demo',7.33,20,'Late'),(111,5,NULL,'2026-10-03','08:00:00','17:00:00','Demo',8.00,0,'Present'),(112,5,NULL,'2026-10-05','08:00:00','17:00:00','Demo',8.00,0,'Present'),(113,5,NULL,'2026-10-06','08:00:00','17:00:00','Demo',8.00,0,'Present'),(114,5,NULL,'2026-10-07','08:00:00','17:00:00','Demo',8.00,0,'Present'),(115,5,NULL,'2026-10-08','08:30:00','17:00:00','Demo',7.50,30,'Late'),(116,5,NULL,'2026-10-09','08:00:00','17:00:00','Demo',8.00,0,'Present'),(117,5,NULL,'2026-10-10','08:00:00','17:00:00','Demo',8.00,0,'Present'),(118,5,NULL,'2026-10-12','08:00:00','17:00:00','Demo',8.00,0,'Present'),(119,5,NULL,'2026-10-13','08:00:00','17:00:00','Demo',8.00,0,'Present'),(120,5,NULL,'2026-10-14','08:00:00','17:00:00','Demo',8.00,0,'Present'),(121,5,NULL,'2026-10-15','08:00:00','17:00:00','Demo',8.00,0,'Present'),(122,4,NULL,'2026-10-16','08:00:00','17:00:00','Demo',8.00,0,'Present'),(123,4,NULL,'2026-10-17','08:00:00','17:00:00','Demo',8.00,0,'Present'),(124,4,NULL,'2026-10-19','08:00:00','17:00:00','Demo',8.00,0,'Present'),(125,4,NULL,'2026-10-20','08:15:00','17:00:00','Demo',7.25,15,'Late'),(126,4,NULL,'2026-10-21','08:00:00','17:00:00','Demo',8.00,0,'Present'),(127,4,NULL,'2026-10-22','08:00:00','17:00:00','Demo',8.00,0,'Present'),(128,4,NULL,'2026-10-23','08:00:00','17:00:00','Demo',8.00,0,'Present'),(129,4,NULL,'2026-10-24','08:00:00','17:00:00','Demo',8.00,0,'Present'),(130,4,NULL,'2026-10-26','08:00:00','17:00:00','Demo',8.00,0,'Present'),(131,4,NULL,'2026-10-27','08:00:00','17:00:00','Demo',8.00,0,'Present'),(132,4,NULL,'2026-10-28','08:00:00','17:00:00','Demo',8.00,0,'Present'),(133,4,NULL,'2026-10-29','08:00:00','17:00:00','Demo',8.00,0,'Present'),(134,4,NULL,'2026-10-30','08:00:00','17:00:00','Demo',8.00,0,'Present'),(135,4,NULL,'2026-10-31','08:00:00','17:00:00','Demo',8.00,0,'Present'),(136,5,NULL,'2026-10-16','08:00:00','17:00:00','Demo',8.00,0,'Present'),(137,5,NULL,'2026-10-17','08:20:00','17:00:00','Demo',7.33,20,'Late'),(138,5,NULL,'2026-10-19','08:00:00','17:00:00','Demo',8.00,0,'Present'),(139,5,NULL,'2026-10-20','08:00:00','17:00:00','Demo',8.00,0,'Present'),(140,5,NULL,'2026-10-22','08:00:00','17:00:00','Demo',8.00,0,'Present'),(141,5,NULL,'2026-10-23','08:30:00','17:00:00','Demo',7.50,30,'Late'),(142,5,NULL,'2026-10-24','08:00:00','17:00:00','Demo',8.00,0,'Present'),(143,5,NULL,'2026-10-26','08:00:00','17:00:00','Demo',8.00,0,'Present'),(144,5,NULL,'2026-10-27','08:00:00','17:00:00','Demo',8.00,0,'Present'),(145,5,NULL,'2026-10-28','08:00:00','17:00:00','Demo',8.00,0,'Present'),(146,5,NULL,'2026-10-29','08:00:00','17:00:00','Demo',8.00,0,'Present'),(147,5,NULL,'2026-10-30','08:00:00','17:00:00','Demo',8.00,0,'Present'),(148,5,NULL,'2026-10-31','08:00:00','17:00:00','Demo',8.00,0,'Present');
+INSERT INTO `attendance` VALUES (96,4,NULL,'2026-10-01','08:00:00','17:00:00','Demo',8.00,0,'Present'),(97,4,NULL,'2026-10-02','08:00:00','17:00:00','Demo',8.00,0,'Present'),(98,4,NULL,'2026-10-03','08:00:00','17:00:00','Demo',8.00,0,'Present'),(99,4,NULL,'2026-10-05','08:15:00','17:00:00','Demo',7.25,15,'Late'),(100,4,NULL,'2026-10-06','08:00:00','17:00:00','Demo',8.00,0,'Present'),(101,4,NULL,'2026-10-07','08:00:00','17:00:00','Demo',8.00,0,'Present'),(102,4,NULL,'2026-10-08','08:00:00','17:00:00','Demo',8.00,0,'Present'),(103,4,NULL,'2026-10-09','08:00:00','17:00:00','Demo',8.00,0,'Present'),(104,4,NULL,'2026-10-10','08:00:00','17:00:00','Demo',8.00,0,'Present'),(105,4,NULL,'2026-10-12','08:00:00','17:00:00','Demo',8.00,0,'Present'),(106,4,NULL,'2026-10-13','08:00:00','17:00:00','Demo',8.00,0,'Present'),(107,4,NULL,'2026-10-14','08:00:00','17:00:00','Demo',8.00,0,'Present'),(108,4,NULL,'2026-10-15','08:00:00','17:00:00','Demo',8.00,0,'Present'),(109,5,NULL,'2026-10-01','08:00:00','17:00:00','Demo',8.00,0,'Present'),(110,5,NULL,'2026-10-02','08:20:00','17:00:00','Demo',7.33,20,'Late'),(111,5,NULL,'2026-10-03','08:00:00','17:00:00','Demo',8.00,0,'Present'),(112,5,NULL,'2026-10-05','08:00:00','17:00:00','Demo',8.00,0,'Present'),(113,5,NULL,'2026-10-06','08:00:00','17:00:00','Demo',8.00,0,'Present'),(114,5,NULL,'2026-10-07','08:00:00','17:00:00','Demo',8.00,0,'Present'),(115,5,NULL,'2026-10-08','08:30:00','17:00:00','Demo',7.50,30,'Late'),(116,5,NULL,'2026-10-09','08:00:00','17:00:00','Demo',8.00,0,'Present'),(117,5,NULL,'2026-10-10','08:00:00','17:00:00','Demo',8.00,0,'Present'),(118,5,NULL,'2026-10-12','08:00:00','17:00:00','Demo',8.00,0,'Present'),(119,5,NULL,'2026-10-13','08:00:00','17:00:00','Demo',8.00,0,'Present'),(120,5,NULL,'2026-10-14','08:00:00','17:00:00','Demo',8.00,0,'Present'),(121,5,NULL,'2026-10-15','08:00:00','17:00:00','Demo',8.00,0,'Present'),(122,4,NULL,'2026-10-16','08:00:00','17:00:00','Demo',8.00,0,'Present'),(123,4,NULL,'2026-10-17','08:00:00','17:00:00','Demo',8.00,0,'Present'),(124,4,NULL,'2026-10-19','08:00:00','17:00:00','Demo',8.00,0,'Present'),(125,4,NULL,'2026-10-20','08:15:00','17:00:00','Demo',7.25,15,'Late'),(126,4,NULL,'2026-10-21','08:00:00','17:00:00','Demo',8.00,0,'Present'),(127,4,NULL,'2026-10-22','08:00:00','17:00:00','Demo',8.00,0,'Present'),(128,4,NULL,'2026-10-23','08:00:00','17:00:00','Demo',8.00,0,'Present'),(129,4,NULL,'2026-10-24','08:00:00','17:00:00','Demo',8.00,0,'Present'),(130,4,NULL,'2026-10-26','08:00:00','17:00:00','Demo',8.00,0,'Present'),(131,4,NULL,'2026-10-27','08:00:00','17:00:00','Demo',8.00,0,'Present'),(132,4,NULL,'2026-10-28','08:00:00','17:00:00','Demo',8.00,0,'Present'),(133,4,NULL,'2026-10-29','08:00:00','17:00:00','Demo',8.00,0,'Present'),(134,4,NULL,'2026-10-30','08:00:00','17:00:00','Demo',8.00,0,'Present'),(135,4,NULL,'2026-10-31','08:00:00','17:00:00','Demo',8.00,0,'Present'),(136,5,NULL,'2026-10-16','08:00:00','17:00:00','Demo',8.00,0,'Present'),(137,5,NULL,'2026-10-17','08:20:00','17:00:00','Demo',7.33,20,'Late'),(138,5,NULL,'2026-10-19','08:00:00','17:00:00','Demo',8.00,0,'Present'),(139,5,NULL,'2026-10-20','08:00:00','17:00:00','Demo',8.00,0,'Present'),(140,5,NULL,'2026-10-22','08:00:00','17:00:00','Demo',8.00,0,'Present'),(141,5,NULL,'2026-10-23','08:30:00','17:00:00','Demo',7.50,30,'Late'),(142,5,NULL,'2026-10-24','08:00:00','17:00:00','Demo',8.00,0,'Present'),(143,5,NULL,'2026-10-26','08:00:00','17:00:00','Demo',8.00,0,'Present'),(144,5,NULL,'2026-10-27','08:00:00','17:00:00','Demo',8.00,0,'Present'),(145,5,NULL,'2026-10-28','08:00:00','17:00:00','Demo',8.00,0,'Present'),(146,5,NULL,'2026-10-29','08:00:00','17:00:00','Demo',8.00,0,'Present'),(147,5,NULL,'2026-10-30','08:00:00','17:00:00','Demo',8.00,0,'Present'),(148,5,NULL,'2026-10-31','08:00:00','17:00:00','Demo',8.00,0,'Present'),(162,4,7,'2027-01-17','08:00:00','17:00:00','QR Kiosk',8.00,0,'Present'),(163,4,7,'2026-01-16','08:00:00','17:00:00','QR Kiosk',8.00,0,'Present'),(164,4,7,'2027-02-01','08:00:00','17:00:00','QR Kiosk',8.00,0,'Present');
 /*!40000 ALTER TABLE `attendance` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -135,7 +135,7 @@ CREATE TABLE `deductions` (
   KEY `fk_deductions_attendance` (`attendance_id`),
   CONSTRAINT `fk_deductions_attendance` FOREIGN KEY (`attendance_id`) REFERENCES `attendance` (`attendance_id`),
   CONSTRAINT `fk_deductions_payslip` FOREIGN KEY (`payslip_id`) REFERENCES `payslips` (`payslip_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=30 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=33 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -144,6 +144,7 @@ CREATE TABLE `deductions` (
 
 LOCK TABLES `deductions` WRITE;
 /*!40000 ALTER TABLE `deductions` DISABLE KEYS */;
+INSERT INTO `deductions` VALUES (30,27,NULL,'Late/Undertime (15 min)',66.96),(31,28,NULL,'Absences (1 day(s))',1607.14),(32,28,NULL,'Late/Undertime (50 min)',167.41);
 /*!40000 ALTER TABLE `deductions` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -162,7 +163,7 @@ CREATE TABLE `departments` (
   PRIMARY KEY (`department_id`),
   KEY `fk_departments_manager` (`manager_employee_id`),
   CONSTRAINT `fk_departments_manager` FOREIGN KEY (`manager_employee_id`) REFERENCES `employees` (`employee_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -171,6 +172,7 @@ CREATE TABLE `departments` (
 
 LOCK TABLES `departments` WRITE;
 /*!40000 ALTER TABLE `departments` DISABLE KEYS */;
+INSERT INTO `departments` VALUES (4,'Human Resources',4,1),(5,'IT Department',4,1);
 /*!40000 ALTER TABLE `departments` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -204,7 +206,7 @@ CREATE TABLE `employees` (
   KEY `fk_employees_department` (`department_id`),
   CONSTRAINT `fk_employees_department` FOREIGN KEY (`department_id`) REFERENCES `departments` (`department_id`),
   CONSTRAINT `fk_employees_position` FOREIGN KEY (`position_id`) REFERENCES `positions` (`position_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -213,7 +215,7 @@ CREATE TABLE `employees` (
 
 LOCK TABLES `employees` WRITE;
 /*!40000 ALTER TABLE `employees` DISABLE KEYS */;
-INSERT INTO `employees` VALUES (4,'EMP-0001','Vinchy','Fantonial','1995-01-01','Single',NULL,NULL,'2025-01-01','Active',60000.00,'TIN-EMP-0001','SSS-EMP-0001','PH-EMP-0001','PI-EMP-0001',1),(5,'EMP-0002','Juan','Dela Cruz','1995-01-01','Single',NULL,NULL,'2025-01-01','Active',45000.00,'TIN-EMP-0002','SSS-EMP-0002','PH-EMP-0002','PI-EMP-0002',1);
+INSERT INTO `employees` VALUES (4,'EMP-0001','Vinchy','Fantonial','1995-01-01','Single',4,4,'2025-01-01','Active',60000.00,'TIN-EMP-0001','SSS-EMP-0001','PH-EMP-0001','PI-EMP-0001',1),(5,'EMP-0002','Juan','Dela Cruz','1995-01-01','Single',5,5,'2025-01-01','Active',45000.00,'TIN-EMP-0002','SSS-EMP-0002','PH-EMP-0002','PI-EMP-0002',1),(8,'EMP-0003','Harry Ej','Sangcopan','2006-06-06','Separated',4,4,'2026-10-16','Active',10000.00,'123-456-789-004','01-2233445-8','12-345678901-4','1122-3344-5568',1);
 /*!40000 ALTER TABLE `employees` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -237,7 +239,7 @@ CREATE TABLE `govt_contributions` (
   PRIMARY KEY (`contribution_id`),
   KEY `fk_govt_contributions_payslip` (`payslip_id`),
   CONSTRAINT `fk_govt_contributions_payslip` FOREIGN KEY (`payslip_id`) REFERENCES `payslips` (`payslip_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=23 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=30 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -246,6 +248,7 @@ CREATE TABLE `govt_contributions` (
 
 LOCK TABLES `govt_contributions` WRITE;
 /*!40000 ALTER TABLE `govt_contributions` DISABLE KEYS */;
+INSERT INTO `govt_contributions` VALUES (27,27,875.00,1750.00,750.00,750.00,100.00,100.00,3245.77),(28,28,875.00,1750.00,562.50,562.50,100.00,100.00,1441.76),(29,29,250.00,500.00,125.00,125.00,100.00,100.00,0.00);
 /*!40000 ALTER TABLE `govt_contributions` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -267,7 +270,7 @@ CREATE TABLE `leave_balances` (
   KEY `fk_leave_balances_type` (`leave_type_id`),
   CONSTRAINT `fk_leave_balances_employee` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`employee_id`),
   CONSTRAINT `fk_leave_balances_type` FOREIGN KEY (`leave_type_id`) REFERENCES `leave_types` (`leave_type_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=34 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -276,6 +279,7 @@ CREATE TABLE `leave_balances` (
 
 LOCK TABLES `leave_balances` WRITE;
 /*!40000 ALTER TABLE `leave_balances` DISABLE KEYS */;
+INSERT INTO `leave_balances` VALUES (9,4,5,2027,5.00),(10,4,6,2027,5.00),(11,4,7,2027,105.00),(12,4,8,2027,7.00),(13,4,9,2027,1.00),(15,5,5,2027,5.00),(16,5,6,2027,5.00),(17,5,7,2027,105.00),(18,5,8,2027,7.00),(19,5,9,2027,1.00),(33,4,6,2026,3.00);
 /*!40000 ALTER TABLE `leave_balances` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -298,7 +302,7 @@ CREATE TABLE `leave_requests` (
   KEY `fk_leave_requests_type` (`leave_type_id`),
   CONSTRAINT `fk_leave_requests_employee` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`employee_id`),
   CONSTRAINT `fk_leave_requests_type` FOREIGN KEY (`leave_type_id`) REFERENCES `leave_types` (`leave_type_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=22 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -307,6 +311,7 @@ CREATE TABLE `leave_requests` (
 
 LOCK TABLES `leave_requests` WRITE;
 /*!40000 ALTER TABLE `leave_requests` DISABLE KEYS */;
+INSERT INTO `leave_requests` VALUES (20,4,6,'2026-10-17','2026-10-20','Approved'),(21,4,6,'2026-10-21','2026-10-24','Pending');
 /*!40000 ALTER TABLE `leave_requests` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -324,7 +329,7 @@ CREATE TABLE `leave_types` (
   `is_paid` tinyint(1) NOT NULL DEFAULT 1,
   `is_active` tinyint(1) NOT NULL DEFAULT 1,
   PRIMARY KEY (`leave_type_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -436,10 +441,11 @@ CREATE TABLE `payroll_periods` (
   `period_id` bigint(20) NOT NULL AUTO_INCREMENT,
   `start_date` date DEFAULT NULL,
   `end_date` date DEFAULT NULL,
+  `pay_date` date DEFAULT NULL,
   `period_type` varchar(30) DEFAULT NULL,
   `status` varchar(30) DEFAULT NULL,
   PRIMARY KEY (`period_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -448,7 +454,7 @@ CREATE TABLE `payroll_periods` (
 
 LOCK TABLES `payroll_periods` WRITE;
 /*!40000 ALTER TABLE `payroll_periods` DISABLE KEYS */;
-INSERT INTO `payroll_periods` VALUES (11,'2026-10-01','2026-10-15','Semi-monthly','Open'),(12,'2026-10-16','2026-10-31','Semi-monthly','Open');
+INSERT INTO `payroll_periods` VALUES (11,'2026-10-01','2026-10-15','2026-10-20','Semi-monthly','Open'),(12,'2026-10-16','2026-10-31','2026-11-05','Semi-monthly','Processed');
 /*!40000 ALTER TABLE `payroll_periods` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -470,7 +476,7 @@ CREATE TABLE `payroll_runs` (
   KEY `fk_payroll_runs_user` (`processed_by`),
   CONSTRAINT `fk_payroll_runs_period` FOREIGN KEY (`period_id`) REFERENCES `payroll_periods` (`period_id`),
   CONSTRAINT `fk_payroll_runs_user` FOREIGN KEY (`processed_by`) REFERENCES `users` (`user_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -479,6 +485,7 @@ CREATE TABLE `payroll_runs` (
 
 LOCK TABLES `payroll_runs` WRITE;
 /*!40000 ALTER TABLE `payroll_runs` DISABLE KEYS */;
+INSERT INTO `payroll_runs` VALUES (17,12,NULL,'2026-10-17','Completed');
 /*!40000 ALTER TABLE `payroll_runs` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -503,7 +510,7 @@ CREATE TABLE `payslips` (
   KEY `fk_payslips_employee` (`employee_id`),
   CONSTRAINT `fk_payslips_employee` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`employee_id`),
   CONSTRAINT `fk_payslips_run` FOREIGN KEY (`run_id`) REFERENCES `payroll_runs` (`run_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=23 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=30 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -512,6 +519,7 @@ CREATE TABLE `payslips` (
 
 LOCK TABLES `payslips` WRITE;
 /*!40000 ALTER TABLE `payslips` DISABLE KEYS */;
+INSERT INTO `payslips` VALUES (27,17,4,30000.00,0.00,30000.00,5037.73,24962.27),(28,17,5,22500.00,0.00,22500.00,4753.81,17746.19),(29,17,8,5000.00,0.00,5000.00,475.00,4525.00);
 /*!40000 ALTER TABLE `payslips` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -530,7 +538,7 @@ CREATE TABLE `positions` (
   PRIMARY KEY (`position_id`),
   KEY `fk_positions_department` (`department_id`),
   CONSTRAINT `fk_positions_department` FOREIGN KEY (`department_id`) REFERENCES `departments` (`department_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -539,6 +547,7 @@ CREATE TABLE `positions` (
 
 LOCK TABLES `positions` WRITE;
 /*!40000 ALTER TABLE `positions` DISABLE KEYS */;
+INSERT INTO `positions` VALUES (4,4,'Manager',1),(5,5,'Maintenance',1);
 /*!40000 ALTER TABLE `positions` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -559,7 +568,7 @@ CREATE TABLE `qr_codes` (
   UNIQUE KEY `code_value` (`code_value`),
   KEY `fk_qr_codes_employee` (`employee_id`),
   CONSTRAINT `fk_qr_codes_employee` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`employee_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -568,6 +577,7 @@ CREATE TABLE `qr_codes` (
 
 LOCK TABLES `qr_codes` WRITE;
 /*!40000 ALTER TABLE `qr_codes` DISABLE KEYS */;
+INSERT INTO `qr_codes` VALUES (4,4,'UNITOP-3A21D0C6E5EE363662BFE9942F288492','2026-10-17','Revoked'),(5,5,'UNITOP-26113D1AFD4499406E7C79948797F75A','2026-10-17','Active'),(7,4,'UNITOP-944FB41C3B8802B3011586AD7AC087BD','2026-10-17','Active');
 /*!40000 ALTER TABLE `qr_codes` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -615,7 +625,7 @@ CREATE TABLE `users` (
   `password_hash` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`user_id`),
   UNIQUE KEY `username` (`username`)
-) ENGINE=InnoDB AUTO_INCREMENT=36 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=39 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -641,4 +651,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-10-17 14:51:54
+-- Dump completed on 2026-10-17 19:48:50

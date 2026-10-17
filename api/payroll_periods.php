@@ -5,9 +5,20 @@ requireRole(PAYROLL_ROLES);   // admin / payroll staff only
 
 $method = $_SERVER["REQUEST_METHOD"];
 
+// Pay date per Philippine practice: the 1-15 cut-off is paid on the 20th, and
+// the 16-end cut-off on the 5th of the following month. An explicit pay_date
+// supplied by the client always wins.
+function defaultPayDate(string $endDate): string {
+    $d = new DateTime($endDate);
+    if ((int) $d->format("d") <= 15) {
+        return $d->format("Y-m-20");
+    }
+    return (new DateTime($d->format("Y-m-01")))->modify("+1 month")->format("Y-m-05");
+}
+
 // ---- GET: list periods with their latest run info ----
 if ($method === "GET") {
-    $sql = "SELECT pp.period_id, pp.start_date, pp.end_date, pp.period_type, pp.status,
+    $sql = "SELECT pp.period_id, pp.start_date, pp.end_date, pp.pay_date, pp.period_type, pp.status,
                    pr.run_id, pr.run_date,
                    (SELECT COUNT(*) FROM payslips ps WHERE ps.run_id = pr.run_id) AS payslip_count
             FROM payroll_periods pp
@@ -25,6 +36,7 @@ if ($method === "POST") {
     $start = trim($in["start_date"]  ?? "");
     $end   = trim($in["end_date"]    ?? "");
     $type  = trim($in["period_type"] ?? "Semi-monthly");
+    $payDate = trim($in["pay_date"] ?? "");
 
     if ($start === "" || $end === "") {
         respond(false, "Start Date and End Date are required.", null, 422);
@@ -43,10 +55,10 @@ if ($method === "POST") {
     }
 
     $stmt = $pdo->prepare(
-        "INSERT INTO payroll_periods (start_date, end_date, period_type, status)
-         VALUES (?, ?, ?, 'Open')"
+        "INSERT INTO payroll_periods (start_date, end_date, pay_date, period_type, status)
+         VALUES (?, ?, ?, ?, 'Open')"
     );
-    $stmt->execute([$start, $end, $type]);
+    $stmt->execute([$start, $end, $payDate, $type]);
 
     respond(true, "Payroll period created.", ["period_id" => (int) $pdo->lastInsertId()]);
 }
@@ -58,6 +70,7 @@ if ($method === "PUT") {
     $start = trim($in["start_date"]  ?? "");
     $end   = trim($in["end_date"]    ?? "");
     $type  = trim($in["period_type"] ?? "Semi-monthly");
+    $payDate = trim($in["pay_date"] ?? "");
 
     if ($id === 0 || $start === "" || $end === "") {
         respond(false, "All fields are required.", null, 422);
@@ -76,10 +89,10 @@ if ($method === "PUT") {
 
     $stmt = $pdo->prepare(
         "UPDATE payroll_periods
-         SET start_date = ?, end_date = ?, period_type = ?
+         SET start_date = ?, end_date = ?, pay_date = ?, period_type = ?
          WHERE period_id = ?"
     );
-    $stmt->execute([$start, $end, $type, $id]);
+    $stmt->execute([$start, $end, $payDate, $type, $id]);
 
     respond(true, "Payroll period updated.");
 }

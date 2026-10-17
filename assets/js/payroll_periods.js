@@ -13,12 +13,12 @@ const rowsEl    = document.getElementById("rows");
 const countEl   = document.getElementById("record-count");
 
 async function loadRows() {
-    rowsEl.innerHTML = `<tr class="loading-row"><td colspan="8">Loading…</td></tr>`;
+    rowsEl.innerHTML = `<tr class="loading-row"><td colspan="9">Loading…</td></tr>`;
     try {
         const { data } = await api.get("payroll_periods.php");
         renderRows(data.data);
     } catch (err) {
-        rowsEl.innerHTML = `<tr class="empty-row"><td colspan="8">Failed to load: ${escapeHtml(apiErrorMessage(err))}</td></tr>`;
+        rowsEl.innerHTML = `<tr class="empty-row"><td colspan="9">Failed to load: ${escapeHtml(apiErrorMessage(err))}</td></tr>`;
     }
 }
 
@@ -38,7 +38,7 @@ function renderRows(rows) {
     if (rows.length === 0) {
         rowsEl.innerHTML = `
             <tr class="empty-row">
-                <td colspan="8" style="padding:40px 20px;">
+                <td colspan="9" style="padding:40px 20px;">
                     <div style="font-size:14px;color:#666;margin-bottom:12px;">
                         No payroll periods yet.
                     </div>
@@ -84,6 +84,7 @@ function renderRows(rows) {
             <td>${escapeHtml(r.period_type)}</td>
             <td>${escapeHtml(r.start_date)}</td>
             <td>${escapeHtml(r.end_date)}</td>
+            <td>${r.pay_date ? escapeHtml(r.pay_date) : `<span style="color:var(--muted);">-</span>`}</td>
             <td class="col-center">${statusBadge(r.status)}</td>
             <td class="col-center">${runCell}</td>
             <td class="col-center">${payslipCell}</td>
@@ -172,6 +173,7 @@ function startEdit(row) {
     document.getElementById("period_type").value = row.period_type ?? "Semi-monthly";
     document.getElementById("start_date").value  = row.start_date ?? "";
     document.getElementById("end_date").value    = row.end_date ?? "";
+    document.getElementById("pay_date").value    = row.pay_date ?? "";
     formTitle.textContent = "Edit Payroll Period";
     submitBtn.textContent = "Save Changes";
     cancelBtn.classList.remove("hidden");
@@ -207,6 +209,7 @@ form.addEventListener("submit", async (e) => {
 
     const payload = {
         period_type: type,
+        pay_date:    document.getElementById("pay_date").value,
         start_date:  start,
         end_date:    end,
     };
