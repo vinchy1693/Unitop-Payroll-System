@@ -197,7 +197,7 @@ function renderPayslip(p) {
                     <div class="line-add">
                         <button class="btn-add-line" data-add-deduction>+ Add Deduction</button>
                     </div>
-                    <div class="line total"><span>Total Deductions</span><span>${formatMoney(totalDed)} <small style="color:var(--muted); font-weight:500;">(${gross > 0 ? ((totalDed / gross) * 100).toFixed(1) + "%" : "-"} of gross)</small></span></div>
+                    <div class="line total"><span>Total Deductions</span><span>${formatMoney(totalDed)}</span></div>
                 </div>
             </div>
 
