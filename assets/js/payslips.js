@@ -23,7 +23,7 @@ async function loadRows() {
     const runId = getRunId();
     if (!runId) {
         subtitleEl.textContent = "No run selected.";
-        rowsEl.innerHTML = `<tr class="empty-row"><td colspan="10">Go to <a href="payroll_runs.html">Payroll Runs</a> and pick a run.</td></tr>`;
+        rowsEl.innerHTML = `<tr class="empty-row"><td colspan="9">Go to <a href="payroll_runs.html">Payroll Runs</a> and pick a run.</td></tr>`;
         return;
     }
 
@@ -33,7 +33,7 @@ async function loadRows() {
         const { data } = await api.get("payslips.php", { params: { run_id: runId } });
         renderRows(data.data);
     } catch (err) {
-        rowsEl.innerHTML = `<tr class="empty-row"><td colspan="10">Failed to load: ${escapeHtml(apiErrorMessage(err))}</td></tr>`;
+        rowsEl.innerHTML = `<tr class="empty-row"><td colspan="9">Failed to load: ${escapeHtml(apiErrorMessage(err))}</td></tr>`;
     }
 }
 
@@ -41,8 +41,15 @@ function renderRows(rows) {
     countEl.textContent = `${rows.length} payslip(s)`;
 
     if (rows.length === 0) {
-        rowsEl.innerHTML = `<tr class="empty-row"><td colspan="10">No payslips for this run.</td></tr>`;
+        rowsEl.innerHTML = `<tr class="empty-row"><td colspan="9">No payslips for this run.</td></tr>`;
         return;
+    }
+
+    // Share of gross for one deduction component, shown under its amount.
+    function pctOf(part, whole) {
+        const w = Number(whole || 0);
+        if (!(w > 0)) return "";
+        return `<br><span style="color:var(--muted); font-size:10.5px;">${((Number(part || 0) / w) * 100).toFixed(1)}% of gross</span>`;
     }
 
     rowsEl.innerHTML = rows.map((r) => `
@@ -52,12 +59,11 @@ function renderRows(rows) {
                 <span style="color:#888;font-size:11px;">${escapeHtml(r.employee_number)} · ${escapeHtml(r.department_name ?? "—")}</span>
             </td>
             <td style="text-align:right;">${formatMoney(r.gross_pay)}</td>
-            <td style="text-align:right;">${formatMoney(r.sss_ee)}</td>
-            <td style="text-align:right;">${formatMoney(r.philhealth_ee)}</td>
-            <td style="text-align:right;">${formatMoney(r.pagibig_ee)}</td>
-            <td style="text-align:right;">${formatMoney(r.withholding_tax)}</td>
-            <td style="text-align:right;">${formatMoney(r.total_deductions)}</td>
-            <td style="text-align:right; color:var(--muted);">${Number(r.gross_pay) > 0 ? ((Number(r.total_deductions) / Number(r.gross_pay)) * 100).toFixed(1) + "%" : "-"}</td>
+            <td style="text-align:right;">${formatMoney(r.sss_ee)}${pctOf(r.sss_ee, r.gross_pay)}</td>
+            <td style="text-align:right;">${formatMoney(r.philhealth_ee)}${pctOf(r.philhealth_ee, r.gross_pay)}</td>
+            <td style="text-align:right;">${formatMoney(r.pagibig_ee)}${pctOf(r.pagibig_ee, r.gross_pay)}</td>
+            <td style="text-align:right;">${formatMoney(r.withholding_tax)}${pctOf(r.withholding_tax, r.gross_pay)}</td>
+            <td style="text-align:right;">${formatMoney(r.total_deductions)}${pctOf(r.total_deductions, r.gross_pay)}</td>
             <td style="text-align:right; font-weight:600;">${formatMoney(r.net_pay)}</td>
             <td class="col-center">
                 <button class="btn btn-edit" data-view="${r.payslip_id}">View</button>
