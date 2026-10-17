@@ -4,7 +4,7 @@
 <script>(function(){try{var t=localStorage.getItem('unitop-theme');if(!t){t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';}document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Overtime — UNITOP Payroll System</title>
+<title>Overtime Approvals - UNITOP Payroll System</title>
 <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
@@ -43,54 +43,41 @@
 </nav>
 <div class="container">
 
-    <h1>Overtime</h1>
-    <p class="subtitle">Record OT hours per employee per day. Rate multipliers follow the PH Labor Code.</p>
+    <h1>Overtime Approvals</h1>
+    <p class="subtitle">Approve or reject overtime requests. An employee can only start overtime after the request is approved; the hours are computed when they clock out of it.</p>
 
     <div id="msg" class="msg hidden"></div>
 
-    <div class="card">
-        <h3 id="form-title">Log Overtime</h3>
-        <form id="ot-form">
-            <input type="hidden" id="ot_id" value="">
-            <div class="form-grid">
-                <div>
-                    <label>Employee</label>
-                    <select id="employee_id" required>
-                        <option value="">-- Select --</option>
-                    </select>
-                </div>
-                <div>
-                    <label>OT Date</label>
-                    <input type="date" id="ot_date" required>
-                </div>
-                <div>
-                    <label>Hours</label>
-                    <input type="number" step="0.25" min="0" id="hours" required>
-                </div>
-                <div>
-                    <label>OT Type</label>
-                    <select id="ot_type_select">
-                        <option value="Ordinary Day"              data-mult="1.25">Ordinary Day (1.25×)</option>
-                        <option value="Rest Day"                  data-mult="1.30">Rest Day (1.30×)</option>
-                        <option value="Special Non-Working Day"   data-mult="1.30">Special Non-Working Day (1.30×)</option>
-                        <option value="Regular Holiday"           data-mult="2.00">Regular Holiday (2.00×)</option>
-                    </select>
-                </div>
-                <div>
-                    <label>Rate Multiplier</label>
-                    <input type="number" step="0.01" min="1" id="rate_multiplier" value="1.25" required>
-                </div>
-            </div>
-            <button class="btn btn-primary" type="submit" id="submit-btn">Log Overtime</button>
-            <button class="btn btn-plain hidden" type="button" id="cancel-btn">Cancel</button>
-        </form>
+    <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;">
+        <div>
+            <div style="font-size:12px;text-transform:uppercase;letter-spacing:0.7px;font-weight:700;color:var(--muted);">Awaiting your decision</div>
+            <strong id="pending-count" style="display:block;font-size:30px;line-height:1.2;">0</strong>
+            <span style="font-size:13px;color:var(--muted);">pending overtime request(s)</span>
+        </div>
+        <div style="max-width:520px;font-size:13px;color:var(--muted);line-height:1.55;">
+            Flow: employee files a request after clocking out &rarr; you approve or reject it &rarr; the employee clocks overtime in and out &rarr; the hours become payable.
+            A Pending or Rejected request never reaches payroll.
+        </div>
     </div>
 
     <div class="card">
         <div class="toolbar">
-            <div style="display:flex;align-items:center;gap:10px;">
-                <label for="filter-date" style="font-size:13px;color:#555;font-weight:600;">Date:</label>
-                <input type="date" id="filter-date" style="padding:5px 8px;border:1px solid #ccd3dc;border-radius:5px;">
+            <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <label for="filter-status" style="font-size:13px;color:var(--muted);font-weight:600;">Status:</label>
+                    <select id="filter-status" style="padding:6px 9px;border:1px solid var(--border-mid);border-radius:5px;background:var(--control-bg);color:var(--text);">
+                        <option value="Pending" selected>Pending</option>
+                        <option value="Approved">Approved</option>
+                        <option value="Rejected">Rejected</option>
+                        <option value="Completed">Completed</option>
+                        <option value="">All statuses</option>
+                    </select>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <label for="filter-date" style="font-size:13px;color:var(--muted);font-weight:600;">Date:</label>
+                    <input type="date" id="filter-date" style="padding:6px 9px;border:1px solid var(--border-mid);border-radius:5px;background:var(--control-bg);color:var(--text);">
+                    <button type="button" class="btn btn-plain hidden" id="clear-date">All dates</button>
+                </div>
             </div>
             <strong id="record-count">0 record(s)</strong>
         </div>
@@ -98,15 +85,18 @@
             <thead>
                 <tr>
                     <th>Employee</th>
-                    <th>Department</th>
+                    <th class="col-center">Date</th>
                     <th class="col-center">OT Type</th>
+                    <th class="col-center">Requested</th>
+                    <th class="col-center">Time In</th>
+                    <th class="col-center">Time Out</th>
                     <th style="text-align:right;">Hours</th>
-                    <th style="text-align:right;">Multiplier</th>
+                    <th class="col-center">Status</th>
                     <th class="col-center">Actions</th>
                 </tr>
             </thead>
             <tbody id="rows">
-                <tr class="loading-row"><td colspan="6">Loading…</td></tr>
+                <tr class="loading-row"><td colspan="9">Loading...</td></tr>
             </tbody>
         </table>
     </div>

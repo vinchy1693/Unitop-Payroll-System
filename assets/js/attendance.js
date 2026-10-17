@@ -175,6 +175,26 @@ async function onScanSuccess(decodedText) {
                 `Goodbye, ${d.employee_name}!`,
                 `Clocked OUT at ${d.time} • ${d.hours_worked} hrs worked`
             );
+        } else if (d.action === "ot_request") {
+            showStatus("success",
+                "Overtime request submitted",
+                "Waiting for approval - the employee has not started overtime yet."
+            );
+        } else if (d.action === "ot_rejected") {
+            showStatus("success",
+                "New overtime request submitted",
+                "The previous request was not approved. Waiting for approval."
+            );
+        } else if (d.action === "ot_in") {
+            showStatus("success",
+                "Overtime started",
+                `Started at ${d.time}. Scan again when the overtime ends.`
+            );
+        } else if (d.action === "ot_out") {
+            showStatus("success",
+                "Overtime ended",
+                `${Number(d.hours).toFixed(2)} hour(s) recorded.`
+            );
         }
 
         await loadRows();
@@ -187,7 +207,8 @@ async function onScanSuccess(decodedText) {
 
     } catch (err) {
         const msg = apiErrorMessage(err);
-        showStatus("error", "Scan Rejected", msg);
+        const action = err?.response?.data?.data?.action;
+        showStatus("error", action === "ot_pending" ? "Still awaiting approval" : "Scan Rejected", msg);
 
         // FIX: Increased from 3000 to 5000
         setTimeout(() => {

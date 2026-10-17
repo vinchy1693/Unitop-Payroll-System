@@ -1,209 +1,162 @@
 // =====================================================================
 // assets/js/overtime.js
+// Admin overtime approval queue.
+//
+// This page no longer creates overtime by hand. It lists the requests
+// employees file from the kiosk and lets an admin approve or reject the
+// Pending ones. Hours are filled in by the employee's overtime clock-out.
 // =====================================================================
 
-let editId = null;
+const rowsEl        = document.getElementById("rows");
+const countEl       = document.getElementById("record-count");
+const pendingEl     = document.getElementById("pending-count");
+const filterStatus  = document.getElementById("filter-status");
+const filterDate    = document.getElementById("filter-date");
+const clearDateBtn  = document.getElementById("clear-date");
 
-const form         = document.getElementById("ot-form");
-const submitBtn    = document.getElementById("submit-btn");
-const cancelBtn    = document.getElementById("cancel-btn");
-const formTitle    = document.getElementById("form-title");
-const rowsEl       = document.getElementById("rows");
-const countEl      = document.getElementById("record-count");
-const filterDate   = document.getElementById("filter-date");
-const typeSelect   = document.getElementById("ot_type_select");
-const multiplierEl = document.getElementById("rate_multiplier");
+let currentRows = [];
 
-function todayISO() {
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
+function formatTime(value) {
+    if (!value) return "&mdash;";
+    const parts = String(value).split(":");
+    let hour = parseInt(parts[0], 10);
+    if (isNaN(hour)) return escapeHtml(value);
+    const minute = parts[1] || "00";
+    const suffix = hour >= 12 ? "PM" : "AM";
+    hour = hour % 12;
+    if (hour === 0) hour = 12;
+    return `${hour}:${minute} ${suffix}`;
 }
 
-function getEmployeeLabel() {
-    const sel = document.getElementById("employee_id");
-    if (!sel || sel.selectedIndex < 0) return "this employee";
-    return sel.options[sel.selectedIndex].text || "this employee";
+function formatDateTime(value) {
+    if (!value) return "&mdash;";
+    const parts = String(value).split(" ");
+    const date = parts[0] || "";
+    const time = parts[1] || "";
+    return `${escapeHtml(date)}<br><span style="color:var(--muted);font-size:11px;">${formatTime(time)}</span>`;
 }
 
-async function loadEmployeeOptions() {
-    const select = document.getElementById("employee_id");
-    const currentVal = select.value;
-    try {
-        const { data } = await api.get("employees.php", { params: { simple: 1 } });
-        select.innerHTML = `<option value="">-- Select --</option>` +
-            data.data.map((e) => `<option value="${e.id}">${escapeHtml(e.label)}</option>`).join("");
-        if (currentVal) select.value = currentVal;
-    } catch (err) {
-        showToast("Could not load employees: " + apiErrorMessage(err), "error");
-    }
+function statusBadge(status) {
+    const styles = {
+        Pending:   "background:var(--yellow-lite);color:var(--yellow-dark)",
+        Approved:  "background:var(--blue-lite);color:var(--blue)",
+        Rejected:  "background:var(--red-lite);color:var(--red)",
+        Completed: "background:var(--green-lite);color:var(--green)",
+    };
+    return `<span class="badge" style="${styles[status] || ""}">${escapeHtml(status)}</span>`;
 }
 
-async function loadRows() {
-    const date = filterDate.value;
-    if (!date) {
-        rowsEl.innerHTML = `<tr class="empty-row"><td colspan="6">Pick a date above.</td></tr>`;
-        return;
+function hoursCell(row) {
+    if (row.hours !== null && row.hours !== undefined) {
+        return Number(row.hours).toFixed(2);
     }
-
-    rowsEl.innerHTML = `<tr class="loading-row"><td colspan="6">Loading…</td></tr>`;
-    try {
-        const { data } = await api.get("overtime_records.php", { params: { date } });
-        renderRows(data.data);
-    } catch (err) {
-        rowsEl.innerHTML = `<tr class="empty-row"><td colspan="6">Failed to load: ${escapeHtml(apiErrorMessage(err))}</td></tr>`;
+    if (row.time_in && !row.time_out) {
+        return `${Number(row.pending_hours || 0).toFixed(2)}<br><span style="color:var(--muted);font-size:11px;">running</span>`;
     }
+    return "&mdash;";
 }
 
 function renderRows(rows) {
     countEl.textContent = `${rows.length} record(s)`;
 
     if (rows.length === 0) {
-        rowsEl.innerHTML = `<tr class="empty-row"><td colspan="6">No overtime for this date.</td></tr>`;
+        const label = filterStatus.value ? filterStatus.value.toLowerCase() : "";
+        rowsEl.innerHTML = `<tr class="empty-row"><td colspan="9">No ${escapeHtml(label)} overtime requests${filterDate.value ? " for this date" : ""}.</td></tr>`;
         return;
     }
 
-    rowsEl.innerHTML = rows.map((r) => `
+    rowsEl.innerHTML = rows.map((r) => {
+        const canDecide = r.status === "Pending";
+        const decidedBy = r.approved_by_name
+            ? `<div style="font-size:11px;color:var(--muted);">by ${escapeHtml(r.approved_by_name)}</div>`
+            : "";
+        const actions = canDecide
+            ? `<button class="btn btn-restore" data-approve="${r.ot_id}">Approve</button>
+               <button class="btn btn-delete" data-reject="${r.ot_id}">Reject</button>`
+            : `<span style="color:var(--muted);font-size:12px;">&mdash;</span>`;
+
+        return `
         <tr>
-            <td>${escapeHtml(r.employee_name)}<br><span style="color:#888;font-size:11px;">${escapeHtml(r.employee_number)}</span></td>
-            <td>${escapeHtml(r.department_name ?? "—")}</td>
-            <td class="col-center">${escapeHtml(r.ot_type)}</td>
-            <td style="text-align:right;">${Number(r.hours).toFixed(2)}</td>
-            <td style="text-align:right;">${Number(r.rate_multiplier).toFixed(2)}×</td>
-            <td class="col-center">
-                <button class="btn btn-edit" data-edit="${r.ot_id}">Edit</button>
-                <button class="btn btn-delete" data-delete="${r.ot_id}">Delete</button>
-            </td>
-        </tr>
-    `).join("");
+            <td>${escapeHtml(r.employee_name)}<br><span style="color:var(--muted);font-size:11px;">${escapeHtml(r.employee_number)}</span></td>
+            <td class="col-center">${escapeHtml(r.ot_date)}</td>
+            <td class="col-center">${escapeHtml(r.ot_type)}<br><span style="color:var(--muted);font-size:11px;">${Number(r.rate_multiplier).toFixed(2)}x</span></td>
+            <td class="col-center">${formatDateTime(r.requested_at)}</td>
+            <td class="col-center">${formatTime(r.time_in)}</td>
+            <td class="col-center">${formatTime(r.time_out)}</td>
+            <td style="text-align:right;">${hoursCell(r)}</td>
+            <td class="col-center">${statusBadge(r.status)}${decidedBy}</td>
+            <td class="col-center">${actions}</td>
+        </tr>`;
+    }).join("");
 
-    rowsEl.querySelectorAll("[data-edit]").forEach((btn) => {
-        btn.addEventListener("click", () => startEdit(rows.find((r) => r.ot_id == btn.dataset.edit)));
+    rowsEl.querySelectorAll("[data-approve]").forEach((btn) => {
+        btn.addEventListener("click", () => decide(btn.dataset.approve, "approve"));
     });
-    rowsEl.querySelectorAll("[data-delete]").forEach((btn) => {
-        btn.addEventListener("click", () => deleteRow(btn.dataset.delete));
+    rowsEl.querySelectorAll("[data-reject]").forEach((btn) => {
+        btn.addEventListener("click", () => decide(btn.dataset.reject, "reject"));
     });
 }
 
-function startEdit(row) {
-    if (!row) return;
-    editId = row.ot_id;
-    document.getElementById("ot_id").value       = row.ot_id;
-    document.getElementById("employee_id").value  = row.employee_id;
-    document.getElementById("ot_date").value      = row.ot_date ?? "";
-    document.getElementById("hours").value        = row.hours;
+async function loadRows() {
+    const params = {};
+    if (filterStatus.value) params.status = filterStatus.value;
+    if (filterDate.value) params.date = filterDate.value;
+    if (!filterStatus.value && !filterDate.value) params.all = 1;
 
-    let found = false;
-    for (const opt of typeSelect.options) {
-        if (opt.value === row.ot_type) { typeSelect.value = row.ot_type; found = true; break; }
-    }
-    if (!found) {
-        const opt = document.createElement("option");
-        opt.value = row.ot_type;
-        opt.textContent = row.ot_type;
-        opt.dataset.mult = row.rate_multiplier;
-        typeSelect.appendChild(opt);
-        typeSelect.value = row.ot_type;
-    }
-
-    multiplierEl.value = row.rate_multiplier;
-
-    formTitle.textContent = "Edit Overtime";
-    submitBtn.textContent = "Save Changes";
-    cancelBtn.classList.remove("hidden");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-}
-
-function resetForm() {
-    editId = null;
-    form.reset();
-    document.getElementById("ot_id").value = "";
-    document.getElementById("ot_date").value = filterDate.value || todayISO();
-    typeSelect.selectedIndex = 0;
-    multiplierEl.value = "1.25";
-    formTitle.textContent = "Log Overtime";
-    submitBtn.textContent = "Log Overtime";
-    cancelBtn.classList.add("hidden");
-}
-
-cancelBtn.addEventListener("click", resetForm);
-
-// Auto-fill multiplier when type changes
-typeSelect.addEventListener("change", () => {
-    const opt = typeSelect.options[typeSelect.selectedIndex];
-    if (opt.dataset.mult) {
-        multiplierEl.value = opt.dataset.mult;
-    }
-});
-
-form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    const empId    = document.getElementById("employee_id").value;
-    const date     = document.getElementById("ot_date").value;
-    const hours    = document.getElementById("hours").value;
-    const type     = typeSelect.value;
-    const mult     = multiplierEl.value;
-    const empLabel = getEmployeeLabel();
-
-    if (!empId || !date || !hours || !type || !mult) return;
-
-    if (!editId) {
-        if (!await confirmDialog(
-            `Log ${hours} hour(s) of ${type} overtime for ${empLabel} on ${date} at ${mult}× rate?`,
-            { title: "Confirm Overtime", icon: "question", confirmText: "Log Overtime" }
-        )) return;
-    }
-
-    const payload = {
-        employee_id:     empId,
-        ot_date:         date,
-        hours:           hours,
-        ot_type:         type,
-        rate_multiplier: mult,
-    };
-
-    submitBtn.disabled = true;
+    rowsEl.innerHTML = `<tr class="loading-row"><td colspan="9">Loading...</td></tr>`;
     try {
-        if (editId) {
-            payload.ot_id = editId;
-            const { data } = await api.put("overtime_records.php", payload);
-            showToast(data.message, "success");
-        } else {
-            const { data } = await api.post("overtime_records.php", payload);
-            showToast(data.message, "success");
-        }
-        resetForm();
-        await loadRows();
+        const { data } = await api.get("overtime_records.php", { params });
+        currentRows = data.data || [];
+        renderRows(currentRows);
     } catch (err) {
-        showToast(apiErrorMessage(err), "error");
-    } finally {
-        submitBtn.disabled = false;
+        rowsEl.innerHTML = `<tr class="empty-row"><td colspan="9">Failed to load: ${escapeHtml(apiErrorMessage(err))}</td></tr>`;
     }
-});
+}
 
-async function deleteRow(id) {
+async function loadPendingCount() {
+    try {
+        const { data } = await api.get("overtime_records.php", { params: { status: "Pending" } });
+        pendingEl.textContent = String((data.data || []).length);
+    } catch (err) {
+        pendingEl.textContent = "?";
+    }
+}
+
+async function decide(id, action) {
+    const row = currentRows.find((r) => String(r.ot_id) === String(id));
+    if (!row) return;
+
+    const verb = action === "approve" ? "Approve" : "Reject";
+    const detail = action === "approve"
+        ? "The employee will then be able to start and end the overtime with their QR code."
+        : "It stays visible as Rejected and is excluded from payroll. The employee can file a new request.";
+
     if (!await confirmDialog(
-        "Delete this overtime record? This cannot be undone.",
-        { title: "Confirm Delete", icon: "warning", confirmText: "Delete" }
+        `${verb} ${row.employee_name}'s overtime request for ${row.ot_date}?\n\n${detail}`,
+        { title: `${verb} Overtime Request`, icon: "question", confirmText: verb }
     )) return;
 
     try {
-        const { data } = await api.delete("overtime_records.php", { params: { id } });
+        const { data } = await api.patch("overtime_records.php", { ot_id: row.ot_id, action });
         showToast(data.message, "success");
-        await loadRows();
+        await Promise.all([loadRows(), loadPendingCount()]);
     } catch (err) {
         showToast(apiErrorMessage(err), "error");
     }
 }
 
-filterDate.addEventListener("change", loadRows);
+filterStatus.addEventListener("change", loadRows);
+filterDate.addEventListener("change", () => {
+    clearDateBtn.classList.toggle("hidden", !filterDate.value);
+    loadRows();
+});
+clearDateBtn.addEventListener("click", () => {
+    filterDate.value = "";
+    clearDateBtn.classList.add("hidden");
+    loadRows();
+});
 
 document.addEventListener("DOMContentLoaded", () => {
-    filterDate.value = todayISO();
-    document.getElementById("ot_date").value = todayISO();
-    loadEmployeeOptions();
+    loadPendingCount();
     loadRows();
 });

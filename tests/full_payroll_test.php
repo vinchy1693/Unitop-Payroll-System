@@ -72,12 +72,43 @@ try {
     eq('POST loan -> 200', $r['code'], 200);
 
     // ---- overtime: 4 hours at 1.25x on the first working day ----
+    // Overtime is now requested after clock-out, approved by an admin, then
+    // started and ended by the employee; the clock-out computes the hours.
+    $qr = 'DSH-PAY-QR-' . getmypid();
+    $GLOBALS['pdo']->prepare(
+        "INSERT INTO qr_codes (employee_id, code_value, issued_date, status) VALUES (?, ?, CURDATE(), 'Active')"
+    )->execute([$empId, $qr]);
+    $scan = function (string $time) use ($qr, $lateDay, $jar) {
+        return req('POST', 'scan_attendance.php', [
+            'code_value' => $qr,
+            'demo_mode'  => true,
+            'demo_date'  => $lateDay,
+            'demo_time'  => $time,
+        ], $jar);
+    };
+
+    $r = $scan('17:30:00');
+    eq('overtime request after clock-out -> 200', $r['code'], 200);
+    eq('overtime request action = ot_request', $r['json']['data']['action'] ?? null, 'ot_request');
+    $otId = (int) ($r['json']['data']['ot_id'] ?? 0);
+    is_true('overtime request id returned', $otId > 0, 'no ot_id');
+
+    // A second open request for the same day is refused.
     $r = req('POST', 'overtime_records.php', ['employee_id' => $empId, 'ot_date' => $lateDay,
-                                              'hours' => 4, 'ot_type' => 'DSH OT', 'rate_multiplier' => 1.25], $jar);
-    eq('POST overtime -> 200', $r['code'], 200);
-    $r = req('POST', 'overtime_records.php', ['employee_id' => $empId, 'ot_date' => $lateDay,
-                                              'hours' => 2, 'ot_type' => 'DSH OT', 'rate_multiplier' => 1.25], $jar);
-    eq('duplicate OT for same employee/date/type -> 409', $r['code'], 409);
+                                              'ot_type' => 'DSH OT', 'rate_multiplier' => 1.25], $jar);
+    eq('duplicate open overtime request -> 409', $r['code'], 409);
+
+    $r = req('PATCH', 'overtime_records.php', ['ot_id' => $otId, 'action' => 'approve'], $jar);
+    eq('approve overtime request -> 200', $r['code'], 200);
+
+    $r = $scan('18:00:00');
+    eq('overtime clock-in -> 200', $r['code'], 200);
+    eq('overtime clock-in action = ot_in', $r['json']['data']['action'] ?? null, 'ot_in');
+
+    $r = $scan('22:00:00');
+    eq('overtime clock-out -> 200', $r['code'], 200);
+    eq('overtime clock-out action = ot_out', $r['json']['data']['action'] ?? null, 'ot_out');
+    eq('overtime clock-out computes 4.00 hours', $r['json']['data']['hours'] ?? null, 4.00);
 
     // =================================================================
     section('1. Payroll run with overtime, late and a loan');

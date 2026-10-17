@@ -126,10 +126,17 @@ if ($method === "POST") {
              VALUES (?, ?, ?)"
         );
 
+        // Only overtime that was approved (or completed) AND actually clocked
+        // in and out is payable. A Pending/Rejected request, or an approved
+        // request the employee never started, contributes nothing. `hours` is
+        // written by the overtime clock-out, never by hand.
         $otStmt = $pdo->prepare(
             "SELECT hours, rate_multiplier
              FROM overtime_records
-             WHERE employee_id = ? AND ot_date BETWEEN ? AND ?"
+             WHERE employee_id = ? AND ot_date BETWEEN ? AND ?
+               AND status IN ('Approved','Completed')
+               AND hours IS NOT NULL AND hours > 0
+               AND time_in IS NOT NULL AND time_out IS NOT NULL"
         );
 
         // Loan amortization divisor — Semi-monthly = 2, 13th month = n/a

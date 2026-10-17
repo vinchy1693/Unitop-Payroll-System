@@ -269,6 +269,9 @@ $stmt = $pdo->prepare(
     "SELECT ot_date, hours, rate_multiplier, ot_type
      FROM overtime_records
      WHERE employee_id = ? AND ot_date BETWEEN ? AND ?
+       AND status IN ('Approved','Completed')
+       AND hours IS NOT NULL AND hours > 0
+       AND time_in IS NOT NULL AND time_out IS NOT NULL
      ORDER BY ot_date"
 );
 $stmt->execute([EMPLOYEE_ID, PERIOD_START, PERIOD_END]);

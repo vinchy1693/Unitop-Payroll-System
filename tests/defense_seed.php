@@ -62,8 +62,10 @@ const LATE_DAYS = [
 
 const OT_TYPE = 'Regular OT';
 const OT_RECORDS = [
-    ['ot_date' => '2026-11-20', 'hours' => 3.00, 'rate_multiplier' => 1.25, 'ot_type' => OT_TYPE],
-    ['ot_date' => '2026-11-25', 'hours' => 2.00, 'rate_multiplier' => 1.30, 'ot_type' => OT_TYPE],
+    ['ot_date' => '2026-11-20', 'hours' => 3.00, 'rate_multiplier' => 1.25, 'ot_type' => OT_TYPE,
+     'time_in' => '18:00:00', 'time_out' => '21:00:00'],
+    ['ot_date' => '2026-11-25', 'hours' => 2.00, 'rate_multiplier' => 1.30, 'ot_type' => OT_TYPE,
+     'time_in' => '18:00:00', 'time_out' => '20:00:00'],
 ];
 
 // ---------------------------------------------------------------------
@@ -434,11 +436,17 @@ try {
     // 5. Overtime: 2 records on two different present days
     // -----------------------------------------------------------------
     $insOt = $pdo->prepare(
-        "INSERT INTO overtime_records (employee_id, ot_date, hours, ot_type, rate_multiplier)
-         VALUES (?, ?, ?, ?, ?)"
+        "INSERT INTO overtime_records
+         (employee_id, ot_date, hours, ot_type, rate_multiplier, status,
+          time_in, time_out, requested_at, approved_at)
+         VALUES (?, ?, ?, ?, ?, 'Completed', ?, ?, ?, ?)"
     );
     foreach (OT_RECORDS as $ot) {
-        $insOt->execute([EMPLOYEE_ID, $ot['ot_date'], $ot['hours'], $ot['ot_type'], $ot['rate_multiplier']]);
+        $insOt->execute([
+            EMPLOYEE_ID, $ot['ot_date'], $ot['hours'], $ot['ot_type'], $ot['rate_multiplier'],
+            $ot['time_in'], $ot['time_out'],
+            $ot['ot_date'] . ' 17:00:00', $ot['ot_date'] . ' 17:30:00',
+        ]);
     }
 
     $pdo->commit();

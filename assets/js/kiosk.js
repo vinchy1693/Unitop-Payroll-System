@@ -6,7 +6,11 @@
 // the operator signs out.
 //
 // It posts to the same endpoint the admin scanner uses (scan_attendance.php),
-// which already decides clock-in vs clock-out and returns the employee name.
+// which decides between clock-in, clock-out and the overtime states:
+//   in  / out              normal shift
+//   ot_request             employee asked for overtime (waiting for approval)
+//   ot_rejected            last request was rejected; a new one was filed
+//   ot_in / ot_out         approved overtime started / ended (hours computed)
 // =====================================================================
 (function () {
     "use strict";
@@ -62,7 +66,7 @@
     function showResult(kind, title, detail) {
         if (resetTimer) clearTimeout(resetTimer);
         el.result.className = "kiosk-result " + kind;
-        el.rIcon.textContent = kind === "error" ? "X" : (kind === "out" ? "" : "OK");
+        el.rIcon.textContent = kind === "error" ? "X" : "OK";
         el.rTitle.textContent = title;
         el.rDetail.textContent = detail || "";
         resetTimer = setTimeout(function () {
@@ -103,16 +107,31 @@
                 } else if (d.action === "out") {
                     showResult("out", "Goodbye, " + d.employee_name + "!",
                         "Clocked OUT at " + d.time + "  " + d.hours_worked + " hrs");
+                } else if (d.action === "ot_request") {
+                    showResult("in", "Overtime request submitted",
+                        "Waiting for approval. You have not started overtime yet.");
+                } else if (d.action === "ot_rejected") {
+                    showResult("in", "New overtime request submitted",
+                        "Your last request was not approved. Waiting for approval.");
+                } else if (d.action === "ot_in") {
+                    showResult("in", "Overtime started",
+                        "Started at " + d.time + ". Scan again when your overtime ends.");
+                } else if (d.action === "ot_out") {
+                    showResult("out", "Overtime ended",
+                        Number(d.hours).toFixed(2) + " hour(s) recorded.");
                 } else {
                     showResult("in", d.employee_name || "Recorded", res.data.message || "");
                 }
                 el.code.value = "";
             })
             .catch(function (err) {
-                var msg = (err.response && err.response.data && err.response.data.message)
-                    ? err.response.data.message
+                var payload = (err.response && err.response.data) ? err.response.data : null;
+                var msg = payload && payload.message
+                    ? payload.message
                     : "Could not record attendance. Please ask HR.";
-                showResult("error", "Not recorded", msg);
+                var act = payload && payload.data ? payload.data.action : null;
+                var title = act === "ot_pending" ? "Still awaiting approval" : "Not recorded";
+                showResult("error", title, msg);
             })
             .then(function () {
                 busy = false;
