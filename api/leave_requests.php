@@ -59,19 +59,36 @@ if ($method === "POST") {
     if ($start > $end) {
         respond(false, "End date must be on or after start date.", null, 422);
     }
-    if (countBusinessDays($start, $end) === 0) {
+    // A single-day request is allowed even when that day is not a working day:
+    // birthday leave in particular often lands on a Saturday or Sunday, and
+    // refusing it made a 1-day type impossible to file. Multi-day ranges still
+    // need at least one working day.
+    $isSingleDay = ($start === $end);
+    if (!$isSingleDay && countBusinessDays($start, $end) === 0) {
         respond(false, "The selected range has no working days (Mon–Fri).", null, 422);
     }
 
-    // No overlapping pending/approved requests
+    // No overlapping pending/approved requests. Report WHICH leave conflicts, so
+    // "already has a pending leave" is never mistaken for a leave of the type
+    // being filed (a birthday leave overlapping an approved sick leave, say).
     $stmt = $pdo->prepare(
-        "SELECT leave_id FROM leave_requests
-         WHERE employee_id = ? AND status IN ('Pending','Approved')
-           AND NOT (end_date < ? OR start_date > ?)"
+        "SELECT lr.leave_id, lr.start_date, lr.end_date, lr.status,
+                COALESCE(lt.name, 'Leave') AS type_name
+         FROM leave_requests lr
+         LEFT JOIN leave_types lt ON lt.leave_type_id = lr.leave_type_id
+         WHERE lr.employee_id = ? AND lr.status IN ('Pending','Approved')
+           AND NOT (lr.end_date < ? OR lr.start_date > ?)
+         ORDER BY lr.start_date
+         LIMIT 1"
     );
     $stmt->execute([$empId, $start, $end]);
-    if ($stmt->fetchColumn()) {
-        respond(false, "This employee already has a pending or approved leave overlapping those dates.", null, 409);
+    $conflict = $stmt->fetch();
+    if ($conflict) {
+        respond(false,
+            "This employee already has an overlapping leave: {$conflict['type_name']} "
+            . "({$conflict['status']}) from {$conflict['start_date']} to {$conflict['end_date']} "
+            . "- request #{$conflict['leave_id']}. Cancel that leave, or pick dates outside it.",
+            ["conflicts_with" => $conflict], 409);
     }
 
     $stmt = $pdo->prepare(
@@ -149,7 +166,11 @@ if ($method === "PATCH") {
             respond(false, "Only Pending requests can change status.", null, 409);
         }
 
-        $days  = countBusinessDays($lr["start_date"], $lr["end_date"]);
+        // A single-day request always consumes exactly one day, even if that
+        // day is a weekend (see the POST validation above).
+        $days  = ($lr["start_date"] === $lr["end_date"])
+            ? 1
+            : countBusinessDays($lr["start_date"], $lr["end_date"]);
         $year  = (int) (new DateTime($lr["start_date"]))->format("Y");
         $empId = (int) $lr["employee_id"];
         $typeId = (int) $lr["leave_type_id"];

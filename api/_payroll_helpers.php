@@ -205,11 +205,51 @@ function computeAttendanceDeductions(
     $presentDays = (int) $att["days"];
     $lateMinutes = (int) $att["late_total"];
 
+    // Approved PAID leave excuses an absence. Without this, an employee on
+    // approved leave has no attendance row for those days and is docked for
+    // them, which is wrong. Only working days inside this period count, and a
+    // day that already has an attendance row is "present", not "on leave".
+    $leaveStmt = $pdo->prepare(
+        "SELECT lr.start_date, lr.end_date
+         FROM leave_requests lr
+         JOIN leave_types lt ON lt.leave_type_id = lr.leave_type_id
+         WHERE lr.employee_id = ? AND lr.status = 'Approved' AND lt.is_paid = 1
+           AND NOT (lr.end_date < ? OR lr.start_date > ?)"
+    );
+    $leaveStmt->execute([$employeeId, $startDate, $endDate]);
+
+    $leaveDates = [];
+    foreach ($leaveStmt->fetchAll() as $lr) {
+        $c = new DateTime($lr["start_date"]);
+        $e = (new DateTime($lr["end_date"]))->modify("+1 day");
+        while ($c < $e) {
+            $d = $c->format("Y-m-d");
+            if ($d >= $startDate && $d <= $endDate && isWorkingDay($c)) {
+                $leaveDates[$d] = true;
+            }
+            $c->modify("+1 day");
+        }
+    }
+
+    if ($leaveDates) {
+        $attDates = $pdo->prepare(
+            "SELECT work_date FROM attendance
+             WHERE employee_id = ? AND work_date BETWEEN ? AND ?
+               AND " . workDaySql('work_date')
+        );
+        $attDates->execute([$employeeId, $startDate, $endDate]);
+        foreach ($attDates->fetchAll(PDO::FETCH_COLUMN) as $workedDate) {
+            unset($leaveDates[$workedDate]);
+        }
+    }
+    $leaveDays = count($leaveDates);
+
     // If HR logged nothing for this employee, assume perfect attendance
     if ($presentDays === 0) {
         return [
             "expected_days"     => $expectedDays,
             "present_days"      => 0,
+            "leave_days"        => $leaveDays,
             "absent_days"       => 0,
             "late_minutes"      => 0,
             "daily_rate"        => round($dailyRate, 2),
@@ -218,12 +258,14 @@ function computeAttendanceDeductions(
         ];
     }
 
-    $absentDays = max(0, $expectedDays - $presentDays);
+    // A day is present, excused (approved paid leave), or absent.
+    $absentDays = max(0, $expectedDays - $presentDays - $leaveDays);
     $perMinute  = $dailyRate / 480.0;
 
     return [
         "expected_days"     => $expectedDays,
         "present_days"      => $presentDays,
+        "leave_days"        => $leaveDays,
         "absent_days"       => $absentDays,
         "late_minutes"      => $lateMinutes,
         "daily_rate"        => round($dailyRate, 2),
