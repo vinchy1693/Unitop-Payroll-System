@@ -1,6 +1,11 @@
 <?php
 require __DIR__ . "/_bootstrap.php";
 
+// The dashboard exposes company-wide payroll figures, so only payroll staff
+// may read it. The kiosk does not call this endpoint (it uses auth.php and
+// scan_attendance.php), so kiosk mode is unaffected.
+requireRole(PAYROLL_ROLES);
+
 if ($_SERVER["REQUEST_METHOD"] !== "GET") {
     respond(false, "Method not allowed.", null, 405);
 }

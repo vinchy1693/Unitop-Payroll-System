@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>(function(){try{var t=localStorage.getItem('unitop-theme');if(!t){t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';}document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audit Log - UNITOP Payroll System</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<nav class="sidebar">
+    <div class="sidebar-brand">
+        <div class="brand-logo">U</div>
+        <div class="brand-text">
+            <strong>UNITOP</strong>
+            <small>Payroll System</small>
+        </div>
+    </div>
+
+    <div class="sidebar-links">
+        <a href="index.html" data-page="index.html">Dashboard</a>
+
+        <div class="nav-section">Setup</div>
+        <a href="departments.html" data-page="departments.html">Departments</a>
+        <a href="positions.html" data-page="positions.html">Positions</a>
+        <a href="employees.html" data-page="employees.html">Employees</a>
+        <a href="users.html" data-page="users.html">Users</a>
+
+        <div class="nav-section">Daily Logs</div>
+        <a href="attendance.html" data-page="attendance.html">Attendance</a>
+        <a href="leave.html" data-page="leave.html">Leave</a>
+        <a href="overtime.html" data-page="overtime.html">Overtime</a>
+        <a href="loans.html" data-page="loans.html">Loans</a>
+
+        <div class="nav-section">Payroll</div>
+        <a href="payroll_periods.html" data-page="payroll_periods.html">Payroll</a>
+
+        <div class="nav-section">Outputs</div>
+        <a href="ledger.html" data-page="ledger.html">Ledger</a>
+        <a href="reports.html" data-page="reports.html">Reports</a>
+
+        <div class="nav-section">Administration</div>
+        <a href="audit.html" data-page="audit.html">Audit Log</a>
+
+        <button type="button" class="theme-toggle" data-theme-toggle>Dark</button>
+    </div>
+</nav>
+<div class="container">
+
+    <h1>Audit Log</h1>
+    <p class="subtitle">Read-only trail of every mutating request (POST, PUT, PATCH, DELETE). Passwords and tokens are redacted.</p>
+
+    <div id="msg" class="msg hidden"></div>
+
+    <div class="card">
+        <h3>Filters</h3>
+        <form id="audit-filter-form">
+            <div class="form-grid">
+                <div>
+                    <label for="filter-action">Action</label>
+                    <input type="text" id="filter-action" placeholder="e.g. departments.php">
+                </div>
+                <div>
+                    <label for="filter-username">Username</label>
+                    <input type="text" id="filter-username" placeholder="e.g. admin">
+                </div>
+                <div>
+                    <label for="filter-success">Result</label>
+                    <select id="filter-success">
+                        <option value="">All</option>
+                        <option value="1">Success</option>
+                        <option value="0">Failed</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="filter-from">From date</label>
+                    <input type="date" id="filter-from">
+                </div>
+                <div>
+                    <label for="filter-to">To date</label>
+                    <input type="date" id="filter-to">
+                </div>
+            </div>
+            <button class="btn btn-primary" type="submit" id="apply-filters">Apply Filters</button>
+            <button class="btn btn-plain" type="button" id="reset-filters">Reset</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="toolbar">
+            <strong id="record-count">0 record(s)</strong>
+            <span class="filter-toggle" id="page-info"></span>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>User</th>
+                    <th>Role</th>
+                    <th>Action</th>
+                    <th>Method</th>
+                    <th class="col-center">Status</th>
+                    <th class="col-center">Result</th>
+                    <th>Target</th>
+                    <th>Details</th>
+                </tr>
+            </thead>
+            <tbody id="rows">
+                <tr class="loading-row"><td colspan="9">Loading...</td></tr>
+            </tbody>
+        </table>
+        <div class="toolbar" style="margin-top:16px;margin-bottom:0;">
+            <button class="btn btn-plain" type="button" id="prev-page">Previous</button>
+            <button class="btn btn-plain" type="button" id="next-page">Next</button>
+        </div>
+    </div>
+
+</div>
+
+<script src="assets/js/axios.min.js"></script>
+<script src="assets/js/sweetalert2.min.js"></script>
+<script src="assets/js/dialogs.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/audit.js"></script>
+<script src="assets/js/theme.js"></script>
+</body>
+</html>

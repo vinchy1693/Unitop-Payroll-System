@@ -16,19 +16,38 @@ function formatMoneyShort(n) {
     return "₱" + v.toFixed(2);
 }
 
+// Replace every dashboard panel with one short notice. Used when the session
+// is not allowed to read payroll-wide figures (for example an Employee).
+function renderDashboardNotice(message) {
+    const tile = `
+        <div class="kpi-tile" style="grid-column: 1 / -1;">
+            <div class="kpi-label">Dashboard unavailable</div>
+            <div class="kpi-note">${escapeHtml(message)}</div>
+        </div>`;
+    const kpi = document.getElementById("kpi-grid");
+    if (kpi) kpi.innerHTML = tile;
+
+    const notice = `<div class="empty-state">${escapeHtml(message)}</div>`;
+    ["workflow-grid", "attendance-snapshot", "recent-runs"].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = notice;
+    });
+
+    showMessage(message, "error");
+}
+
 async function loadDashboard() {
     try {
         const { data: body } = await api.get("dashboard.php");
         if (!body.success) throw new Error(body.message || "Dashboard request failed.");
         render(body.data);
     } catch (err) {
-        document.getElementById("kpi-grid").innerHTML = `
-            <div class="kpi-tile" style="grid-column: 1 / -1; border-left-color: var(--red);">
-                <div class="kpi-label">Failed to load dashboard</div>
-                <div class="kpi-value" style="font-size:14px;color:var(--red);font-weight:500;">
-                    ${escapeHtml(apiErrorMessage(err))}
-                </div>
-            </div>`;
+        const status = err?.response?.status;
+        if (status === 403 || status === 401) {
+            renderDashboardNotice("You do not have access to the payroll dashboard.");
+            return;
+        }
+        renderDashboardNotice("Failed to load dashboard: " + apiErrorMessage(err));
     }
 }
 
