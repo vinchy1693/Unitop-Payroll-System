@@ -81,7 +81,12 @@ function computeWithholdingTax(float $semiMonthlyTaxable): float {
 // reduce taxable compensation, so they MUST be removed before the withholding
 // tax is computed. Statutory contributions are based on the monthly salary and
 // are unaffected by attendance.
-function computePayslipDeductions(float $monthlySalary, float $semiBasic, float $preTaxDeductions = 0.0): array {
+function computePayslipDeductions(
+    float $monthlySalary,
+    float $semiBasic,
+    float $preTaxDeductions = 0.0,
+    float $additionalTaxable = 0.0
+): array {
     $sss = computeSSS($monthlySalary);
     $ph  = computePhilHealth($monthlySalary);
     $pi  = computePagIbig($monthlySalary);
@@ -93,7 +98,11 @@ function computePayslipDeductions(float $monthlySalary, float $semiBasic, float 
     $piEE  = round($pi["ee"]  / 2, 2);
     $piER  = round($pi["er"]  / 2, 2);
 
-    $semiTaxable = round($semiBasic - $preTaxDeductions - $sssEE - $phEE - $piEE, 2);
+    // Taxable compensation is the WHOLE taxable pay for the period, not just the
+    // basic: BIR taxes overtime and allowances too, net of attendance deductions
+    // and the mandatory contributions. Omitting overtime under-withheld tax on
+    // every payslip that had any.
+    $semiTaxable = round($semiBasic + $additionalTaxable - $preTaxDeductions - $sssEE - $phEE - $piEE, 2);
     if ($semiTaxable < 0) $semiTaxable = 0;
 
     $tax = computeWithholdingTax($semiTaxable);

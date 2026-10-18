@@ -363,7 +363,7 @@ if ($method === "POST") {
 
             // Statutory contributions (based on monthly salary) plus withholding
             // tax computed on the reduced taxable base.
-            $calc      = computePayslipDeductions($monthly, $basic, $attendanceDeduction);
+            $calc      = computePayslipDeductions($monthly, $basic, $attendanceDeduction, $otPay);
             $statutory = $calc["total_deductions"];
 
             // Never dock more than the employee actually earned: cap attendance
