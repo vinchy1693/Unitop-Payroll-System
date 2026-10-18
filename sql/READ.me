@@ -11,6 +11,7 @@ Each file is run **exactly once**. Do not re-run old files.
 | 004_employee_contact_fields.sql | Employee self-service contact fields: mobile_number, email, address, emergency contacts | ✅ Applied |
 | 005_payroll_approval_workflow.sql | Segregation of duties: payroll_runs status (Submitted/Approved/Returned/Released), submitter/approver/return/release columns + remarks | ✅ Applied |
 | 006_employee_bank_fields.sql | Employee payment details for the bank file export: bank_name, bank_account_name, bank_account_number | Applied |
+| 007_attendance_corrections.sql | Attendance correction requests: the queue an employee files into and the maker approves, so a wrong or missing record can be fixed | Applied |
 
 ## Payroll approval workflow (005)
 
@@ -94,3 +95,156 @@ Guard and refusals:
 `tests/bank_file_test.php` covers the three formats, the missing-bank-details
 refusal, the Returned guard, the role guards, the CSV escaping and the audit
 rows, and restores every fixture it creates.
+
+## Attendance corrections (007)
+
+Before this step an employee had no recourse: `api/attendance.php` is
+MAKER-writable only, the kiosk endpoint never edits a stored time, so a
+forgotten scan-out was simply lost. `attendance_corrections` is the request
+queue that closes that gap:
+
+| Column | Meaning |
+|--------|---------|
+| `employee_id` | who is asking (always the portal session's employee) |
+| `attendance_id` | the attendance row being fixed, NULL while none exists |
+| `work_date` | the day the correction is about |
+| `correction_type` | `clock_in`, `clock_out` or `both` |
+| `requested_time_in` / `requested_time_out` | the times being asked for |
+| `reason` | the employee's explanation (10-500 characters) |
+| `status` | `Pending` -> `Approved` or `Rejected` |
+| `requested_at`, `reviewed_by`, `reviewed_at`, `review_remarks` | who decided what, when, and why |
+
+Indexes: `(status)`, `(employee_id, work_date)`, `(attendance_id)`. The
+`attendance_id` foreign key is `ON DELETE SET NULL`: deleting an attendance row
+is never blocked by an old request, and the request keeps its own work date and
+requested times.
+
+### Portal: `employee_portal/api/me_attendance_corrections.php`
+
+```
+GET  -> { rows: [ own requests + the attendance row's current times ], total }
+POST -> { correction_id, status: "Pending", work_date, correction_type, ... }
+```
+
+* Session-scoped: the session employee is always the subject; an
+  `employee_id` in the body is ignored (never read).
+* `work_date` must be today or earlier and no older than 90 days -> 422.
+* `reason` is required, at least 10 characters and at most 500 -> 422.
+* `correction_type` must be one of the three; the time(s) that type needs are
+  required, and the resolved time out must be after the time in -> 422.
+* A second `Pending` request for the same employee + work date -> 409.
+* A work date inside an `Approved` / `Released` payroll run -> 409, and the
+  message says a formal payroll adjustment is required instead.
+* A `clock_out` correction with no recorded clock-in -> 422 (file `both`).
+* The portal has no central audit hook (only the admin's `respond()` has one),
+  so this endpoint writes its own `audit_log` row for every filing, exactly
+  like `me_profile.php`.
+
+The portal UI is a "Request a correction" section on `attendance.html`: a
+form (date, type, time in/out, reason) and a table of the employee's own
+requests with status and the reviewer's remarks.
+
+### Admin: `api/attendance_corrections.php`
+
+```
+GET   ?status= &employee_id= &from= &to= &limit= &offset=
+      -> { rows, total, limit, offset }                  PAYROLL_ROLES
+PATCH { correction_id, action: "approve" | "reject", remarks? }   MAKER_ROLES
+```
+
+* `GET` returns employee name/number, the current attendance times, the
+  requested times, the reason, the status, the requester (`requested_at`) and
+  the reviewer (`reviewed_by_name`, `reviewed_at`, `review_remarks`).
+  Pending rows sort first, then the newest work date. `limit` defaults to 100
+  and is clamped to 500, like `api/audit_log.php`.
+* `PATCH` is the maker's: attendance is the Payroll Officer's domain, so the
+  Approver can read the queue but never decide it (403).
+* Rejecting requires `remarks` -> 422 without them.
+* Anything that is not `Pending` -> 409, so approving twice can never apply a
+  second edit.
+
+### What "approve" does
+
+One transaction:
+
+1. the request is re-read `FOR UPDATE`; not `Pending` -> 409;
+2. the work date is checked with `assertAttendanceDateUnlocked()`
+   (`api/_payroll_helpers.php`) -> 409 on a locked date;
+3. the attendance row for that employee + date is created when it does not
+   exist (`scan_device_id = 'Correction'`), otherwise `time_in` / `time_out`
+   are set per `correction_type`;
+4. `hours_worked`, `minutes_late` and `status` are recomputed with the SAME
+   arithmetic `api/scan_attendance.php` uses (below);
+5. the request becomes `Approved` with `reviewed_by`, `reviewed_at` and the
+   new `attendance_id`.
+
+### The payroll lock for a date
+
+The existing lock helpers are addressed by `run_id` / `payslip_id`; a
+correction is addressed by employee + date, so `api/_payroll_helpers.php` gained
+`attendanceDateLock()`, `attendanceDateLockedMessage()` and
+`assertAttendanceDateUnlocked()`. A date is locked when ANY run whose
+`payroll_periods` window covers it has status `Approved` or `Released`
+(`PAYROLL_LOCKED_RUN_STATUSES`). `Submitted` and `Returned` runs stay editable
+and a date with no run at all is always editable. The portal refuses to file
+and the admin refuses to approve; both answer 409 and say a formal adjustment
+is required. The portal cannot include the admin's helper file, so it has a
+small copy of the same query in `me_attendance_corrections.php`
+(`attendance_date_lock()`) - if the rule changes, both must change.
+
+### Hour / late recomputation rule (shared with the kiosk)
+
+`api/scan_attendance.php` clock-in:
+
+```php
+$workStart   = new DateTime("08:00:00");
+$actualTime  = new DateTime($nowTime);
+$minutesLate = 0;
+if ($actualTime > $workStart) {
+    $diff = $workStart->diff($actualTime);
+    $minutesLate = ($diff->h * 60) + $diff->i;
+}
+```
+
+`api/scan_attendance.php` clock-out:
+
+```php
+$diff         = $timeIn->diff($timeOut);
+$totalMinutes = ($diff->h * 60) + $diff->i;
+$netMinutes   = $totalMinutes > 300 ? $totalMinutes - 60 : $totalMinutes;
+$hoursWorked  = round($netMinutes / 60, 2);
+```
+
+So `minutes_late` is the whole number of minutes past 08:00 (0 at or before
+08:00), and `hours_worked` loses one 60-minute lunch only when the in/out span
+is LONGER than 300 minutes (exactly 300 keeps 5.00 hours). Seconds are ignored
+in both, as they are at the kiosk. `attendance_corrections.php` implements this
+as `scanMinutesLate()` / `scanHoursWorked()` and the status follows the kiosk:
+`Late` when late, else `Present` for a completed day or `Clocked In` for a
+time-in only.
+
+### UI
+
+`attendance_corrections.html` + `assets/js/attendance_corrections.js` is the
+approval queue: pending count, status / employee / work-date filters, before
+and after times, the reason, and Approve / Reject (reject asks for remarks).
+The action buttons are only rendered for the maker, and the API refuses
+everyone else anyway.
+
+`assets/js/nav.js` is the shared role-aware navigation: one `data-page` keyed
+table hides the links the current role cannot open (and shows a clear
+"You do not have access to this page" card when a page is opened by URL
+directly). `tests/nav_matrix_test.php` proves the table covers every
+`data-page` value in the HTML and matches the API guard page by page.
+
+### Tests
+
+`tests/attendance_correction_test.php` covers the whole round trip: filing,
+the validation refusals (future date, short reason, 90-day window), the
+duplicate 409, the locked-date 409, the ignored client `employee_id`, the
+portal's own-only listing, approve applying (create and update) with an
+independent recomputation of the hours / late minutes including the 300-minute
+boundary, reject requiring remarks and leaving attendance unchanged, the
+double-approve 409, the role guards, the queue filters and pagination, and one
+`audit_log` row per mutation. It restores every attendance row it touches and
+prints a PASS/FAIL summary.

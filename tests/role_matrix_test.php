@@ -9,7 +9,8 @@
 //   dashboard.php / reports.php              403     200     200     403
 //   employees/salary_rates/positions/
 //     departments/qr_codes                   403     200     200     403
-//   attendance / overtime_records            403     200     200     403
+//   attendance / overtime_records /
+//     attendance_corrections                 403     200     200     403
 //   leave_types / leave_balances /
 //     leave_requests                         403     200     200     403
 //   allowances / deductions / ledger /
@@ -106,6 +107,7 @@ try {
         'departments.php'                        => [403, 200, 200, 403],
         'qr_codes.php'                           => [403, 200, 200, 403],
         'attendance.php?date=2027-01-04'         => [403, 200, 200, 403],
+        'attendance_corrections.php'             => [403, 200, 200, 403],
         'overtime_records.php?all=1'             => [403, 200, 200, 403],
         'leave_types.php'                        => [403, 200, 200, 403],
         'leave_balances.php'                     => [403, 200, 200, 403],
@@ -173,6 +175,7 @@ try {
         ['POST',   'departments.php',     [],                                                                       [403, 422, 403, 403]],
         ['POST',   'qr_codes.php',        [],                                                                       [403, 422, 403, 403]],
         ['POST',   'attendance.php',      [],                                                                       [403, 422, 403, 403]],
+        ['PATCH',  'attendance_corrections.php', [],                                                                [403, 422, 403, 403]],
         ['POST',   'overtime_records.php',[],                                                                       [403, 422, 403, 403]],
         ['POST',   'leave_types.php',     [],                                                                       [403, 422, 403, 403]],
         ['POST',   'leave_balances.php',  ['year' => 1999],                                                         [403, 422, 403, 403]],

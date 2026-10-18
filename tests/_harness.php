@@ -80,6 +80,7 @@ function sweepTestData(): void {
         "DELETE FROM payroll_runs       WHERE period_id IN ($dshPeriod)",
         "DELETE FROM payroll_periods    WHERE period_id IN ($dshPeriod)",
         "DELETE FROM deductions         WHERE attendance_id IN (SELECT attendance_id FROM attendance WHERE employee_id IN ($dshEmp))",
+        "DELETE FROM attendance_corrections WHERE employee_id IN ($dshEmp)",
         "DELETE FROM attendance         WHERE employee_id IN ($dshEmp)",
         "DELETE FROM overtime_records   WHERE employee_id IN ($dshEmp)",
         "DELETE FROM loans              WHERE employee_id IN ($dshEmp)",

@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
-<nav class="sidebar">
+<nav class="sidebar nav-locked">
     <div class="sidebar-brand">
         <div class="brand-logo">U</div>
         <div class="brand-text">
@@ -30,7 +30,9 @@
         <a href="attendance.html" data-page="attendance.html">Attendance</a>
         <a href="leave.html" data-page="leave.html">Leave</a>
         <a href="overtime.html" data-page="overtime.html">Overtime</a>
+        <a href="attendance_corrections.html" data-page="attendance_corrections.html">Attendance Corrections</a>
         <a href="loans.html" data-page="loans.html">Loans</a>
+        <a href="kiosk.html" data-page="kiosk.html">Kiosk</a>
 
         <div class="nav-section">Payroll</div>
         <a href="payroll_periods.html" data-page="payroll_periods.html">Payroll</a>
@@ -115,6 +117,7 @@
 <script src="assets/js/sweetalert2.min.js"></script>
 <script src="assets/js/dialogs.js"></script>
 <script src="assets/js/api.js"></script>
+<script src="assets/js/nav.js" onerror="var nl=document.querySelectorAll('nav.sidebar');for(var i=0;i<nl.length;i++)nl[i].classList.remove('nav-locked');"></script>
 <script src="assets/js/users.js"></script>
 <script src="assets/js/theme.js"></script>
 </body>

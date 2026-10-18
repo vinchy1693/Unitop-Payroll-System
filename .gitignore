@@ -21,6 +21,10 @@ backups/
 
 *.sql
 
+# ...but the numbered schema migrations are source, not dumps. Without this a
+# new migration stays invisible to git and can be lost.
+!sql/0*.sql
+
 # Executables and installers
 *.exe
 *.msi

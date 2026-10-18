@@ -347,6 +347,61 @@ function assertLoanPaymentUnlocked(PDO $pdo, int $paymentId, string $what = "Thi
     assertPayslipUnlocked($pdo, (int) $payslipId, $what);
 }
 
+// =====================================================================
+// Attendance-date lock (segregation of duties, step 5)
+//
+// The helpers above are addressed by run_id / payslip_id. An attendance
+// correction is addressed by employee + date, so the run it belongs to has to
+// be resolved through the payroll period window instead. Without this a
+// correction could silently rewrite the hours behind an approved payslip.
+//
+// Rule (identical to the rest of the payroll lock): a date is locked when ANY
+// run whose period covers it is Approved or Released. Submitted and Returned
+// runs are still editable, and a date with no run at all is always editable.
+// =====================================================================
+
+/**
+ * The locked run covering $date, or null when that date is still editable.
+ * Returns run_id / status / start_date / end_date so the caller can explain it.
+ */
+function attendanceDateLock(PDO $pdo, string $date): ?array {
+    $statuses = PAYROLL_LOCKED_RUN_STATUSES;
+    $stmt = $pdo->prepare(
+        "SELECT pr.run_id, pr.status, pp.start_date, pp.end_date
+         FROM payroll_runs pr
+         JOIN payroll_periods pp ON pp.period_id = pr.period_id
+         WHERE ? BETWEEN pp.start_date AND pp.end_date
+           AND pr.status IN (" . implode(", ", array_fill(0, count($statuses), "?")) . ")
+         ORDER BY pr.run_id DESC
+         LIMIT 1"
+    );
+    $stmt->execute(array_merge([$date], $statuses));
+    $row = $stmt->fetch();
+    return $row ?: null;
+}
+
+/** The 409 message shared by assertAttendanceDateUnlocked() and its callers. */
+function attendanceDateLockedMessage(array $lock, string $what): string {
+    return "Payroll run #{$lock['run_id']} ({$lock['start_date']} to {$lock['end_date']}) "
+        . "is {$lock['status']} and locked. $what cannot be changed. "
+        . "A formal adjustment is required.";
+}
+
+/**
+ * Refuse every write that targets attendance on a locked payroll date.
+ * respond() exits, so this function never returns on a locked date.
+ */
+function assertAttendanceDateUnlocked(
+    PDO $pdo,
+    string $date,
+    string $what = "Attendance for this date"
+): void {
+    $lock = attendanceDateLock($pdo, $date);
+    if ($lock !== null) {
+        respond(false, attendanceDateLockedMessage($lock, $what), $lock, 409);
+    }
+}
+
 // ---- 13th Month Pay (reads basic_salary from employees) ----
 function compute13thMonthPay(PDO $pdo, int $employeeId, int $year): array {
     $stmt = $pdo->prepare("SELECT basic_salary, date_hired FROM employees WHERE employee_id = ?");

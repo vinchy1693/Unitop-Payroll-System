@@ -307,6 +307,23 @@ nav.sidebar::-webkit-scrollbar-thumb {
     transform: translateY(-50%) rotate(45deg);
 }
 
+/* ---- Role-aware navigation (assets/js/nav.js) ----
+   The nav loads with class="nav-locked", so every link starts invisible: a
+   role must never see (or click) a link it cannot use before nav.js has
+   filtered them. nav.js removes the lock once it knows what to hide, and the
+   nav.js script tag's onerror removes it if the file cannot be loaded. */
+nav.sidebar.nav-locked .sidebar-links a,
+nav.sidebar.nav-locked .nav-section {
+    visibility: hidden;
+}
+
+/* A link / section header the role may not use. Hidden, never removed, so the
+   DOM (and data-page contract) stays intact. */
+.sidebar-links a.nav-hidden,
+.sidebar-links .nav-section.nav-hidden {
+    display: none !important;
+}
+
 /* ---- User block ---- */
 nav.sidebar .nav-user {
     margin-top: auto;
