@@ -41,7 +41,8 @@ printf("start: employees=%d users=%d payslips=%d attendance=%d leave_types=%d\n"
 
 try {
     // ---- fixtures on the ADMIN side ----
-    mkUser('dsh_admin', 'Administrator');
+    // The maker (Payroll Officer) prepares the data since the split.
+    mkUser('dsh_admin', 'Payroll Officer');
     $jarAdmin = login('dsh_admin');
 
     $empA = mkEmployee('DSH-PORT-A', 'Portal', 'Alpha', 60000.00);

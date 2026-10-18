@@ -9,3 +9,37 @@ Each file is run **exactly once**. Do not re-run old files.
 | 002_overtime_approval_workflow.sql | Overtime approval columns: status, time_in/out, requested_at, approved_by/at | ✅ Applied |
 | 003_audit_log.sql | Audit trail table written centrally by respond() for every mutating request | ✅ Applied |
 | 004_employee_contact_fields.sql | Employee self-service contact fields: mobile_number, email, address, emergency contacts | ✅ Applied |
+| 005_payroll_approval_workflow.sql | Segregation of duties: payroll_runs status (Submitted/Approved/Returned/Released), submitter/approver/return/release columns + remarks | ✅ Applied |
+
+## Payroll approval workflow (005)
+
+`payroll_runs.status` moves through:
+
+```
+Submitted --approve--> Approved --release--> Released
+Submitted --return---> Returned  --resubmit-> Submitted
+Returned  --approve--> Approved
+```
+
+* `Submitted` — the Payroll Officer (maker) processed the period.
+* `Approved` / `Released` — locked: payslips, allowances, deductions, loan
+  payments and cash disbursements are refused with HTTP 409 and a formal
+  adjustment is required.
+* `Returned` — the Approver sent it back with remarks; the run is editable
+  again and the maker can resubmit it.
+
+`payroll_db_schema.sql` (structure only) and `payroll_db_recovery.sql`
+(structure + data, including the seeded `payroll` / `approver` / `admin`
+accounts) are regenerated from the live database after every migration.
+
+The three staff logins can be (re)created idempotently with:
+
+```
+C:\xampp\php\php.exe tests\seed_staff_accounts.php
+```
+
+| Account | Role | Password |
+|---------|------|----------|
+| payroll | Payroll Officer (maker) | test123 (never overwritten if it already exists) |
+| approver | Approver (checker) | test123 (never overwritten if it already exists) |
+| admin | Administrator (technical only) | unchanged |

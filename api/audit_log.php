@@ -18,7 +18,7 @@
 
 require __DIR__ . "/_bootstrap.php";
 
-requireRole("Administrator");   // audit trail is Administrator-only
+requireRole(ADMIN_ROLES);   // audit trail is Administrator-only
 
 if (($_SERVER["REQUEST_METHOD"] ?? "") !== "GET") {
     respond(false, "Method not allowed. The audit log is read-only.", null, 405);

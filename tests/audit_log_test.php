@@ -14,11 +14,13 @@
 require __DIR__ . '/_harness.php';
 
 const AUDIT_ADMIN = 'dsh_audit_admin';
+const AUDIT_MAKER = 'dsh_audit_maker';
 const AUDIT_EMP   = 'dsh_audit_emp';
 
 $auditBaseline = 0;
 $createdDeptId = 0;
 $adminId       = 0;
+$makerId       = 0;
 $empId         = 0;
 
 function auditMaxId(): int {
@@ -41,17 +43,21 @@ try {
     $auditBaseline = auditMaxId();
 
     // ---- fixtures ----------------------------------------------------
+    // The maker mutates master data (and thereby writes audit rows); the
+    // Administrator is the only role that may read the audit trail.
     $adminId = mkUser(AUDIT_ADMIN, 'Administrator');
+    $makerId = mkUser(AUDIT_MAKER, 'Payroll Officer');
     $empId   = mkUser(AUDIT_EMP, 'Employee');
 
     $jarAdmin = login(AUDIT_ADMIN);
+    $jarMaker = login(AUDIT_MAKER);
     $jarEmp   = login(AUDIT_EMP);
 
     // =================================================================
     section('1. GET requests are never audited');
     // =================================================================
     $before = auditMaxId();
-    $r = req('GET', 'departments.php', null, $jarAdmin);
+    $r = req('GET', 'departments.php', null, $jarMaker);
     eq('GET departments.php -> 200', $r['code'], 200);
     eq('GET created no audit row', count(auditRowsAfter($before)), 0);
 
@@ -64,7 +70,7 @@ try {
     // =================================================================
     $deptName = 'DSH Audit Dept ' . getmypid();
     $before = auditMaxId();
-    $r = req('POST', 'departments.php', ['department_name' => $deptName], $jarAdmin);
+    $r = req('POST', 'departments.php', ['department_name' => $deptName], $jarMaker);
     eq('POST departments.php -> 200', $r['code'], 200);
     $createdDeptId = (int) ($r['json']['data']['department_id'] ?? 0);
     is_true('department fixture created', $createdDeptId > 0, 'response: ' . substr($r['raw'], 0, 160));
@@ -77,9 +83,9 @@ try {
     $rows = auditRowsAfter($before);
     eq('exactly one audit row for one request', count($rows), 1);
     $row = $rows[0] ?? [];
-    eq('audit user_id matches the session', $row['user_id'] ?? null, $adminId);
-    eq('audit username matches the session', $row['username'] ?? null, AUDIT_ADMIN);
-    eq('audit role matches the session', $row['role'] ?? null, 'Administrator');
+    eq('audit user_id matches the session', $row['user_id'] ?? null, $makerId);
+    eq('audit username matches the session', $row['username'] ?? null, AUDIT_MAKER);
+    eq('audit role matches the session', $row['role'] ?? null, 'Payroll Officer');
     eq('audit action is the endpoint name', $row['action'] ?? null, 'departments.php');
     eq('audit method is POST', $row['method'] ?? null, 'POST');
     eq('audit http_status is 200', $row['http_status'] ?? null, 200);
@@ -94,7 +100,7 @@ try {
     section('3. Failed mutations are logged with success=0');
     // =================================================================
     $before = auditMaxId();
-    $r = req('POST', 'departments.php', ['department_name' => ''], $jarAdmin);
+    $r = req('POST', 'departments.php', ['department_name' => ''], $jarMaker);
     eq('empty department name -> 422', $r['code'], 422);
     $row = auditOneAfter($before);
     is_true('failed mutation produced one audit row', $row !== null, 'row count: ' . count(auditRowsAfter($before)));
@@ -108,11 +114,11 @@ try {
     // The fixture logins are themselves audit rows: a successful login must
     // already be attributed to the user the new session belongs to.
     $loginRow = dbRow("SELECT * FROM audit_log
-                       WHERE action = 'auth.php' AND username = '" . AUDIT_ADMIN . "'
+                       WHERE action = 'auth.php' AND username = '" . AUDIT_MAKER . "'
                        ORDER BY audit_id DESC LIMIT 1");
     is_true('successful login is attributed to the logged-in user', $loginRow !== false,
-        'no auth.php row for ' . AUDIT_ADMIN);
-    eq('successful login row records the Administrator role', $loginRow['role'] ?? null, 'Administrator');
+        'no auth.php row for ' . AUDIT_MAKER);
+    eq('successful login row records the Payroll Officer role', $loginRow['role'] ?? null, 'Payroll Officer');
     is_true('successful login row redacts the password',
         str_contains((string) ($loginRow['details'] ?? ''), '"password":"***"'),
         'details: ' . ($loginRow['details'] ?? 'NULL'));
@@ -120,7 +126,7 @@ try {
     $secret = 'AuditLeakProbe' . getmypid() . 'X';
     $badJar = sys_get_temp_dir() . '/dsh_audit_bad_' . getmypid() . '.txt';
     $before = auditMaxId();
-    $r = req('POST', 'auth.php?action=login', ['username' => AUDIT_ADMIN, 'password' => $secret], $badJar);
+    $r = req('POST', 'auth.php?action=login', ['username' => AUDIT_MAKER, 'password' => $secret], $badJar);
     eq('login with a wrong password -> 401', $r['code'], 401);
     if (file_exists($badJar)) unlink($badJar);
 
@@ -141,12 +147,12 @@ try {
     section('5. Actor + target on an update');
     // =================================================================
     $before = auditMaxId();
-    $r = req('PATCH', 'departments.php', ['department_id' => $createdDeptId, 'is_active' => 1], $jarAdmin);
+    $r = req('PATCH', 'departments.php', ['department_id' => $createdDeptId, 'is_active' => 1], $jarMaker);
     eq('PATCH departments.php -> 200', $r['code'], 200);
     $row = auditOneAfter($before);
     is_true('update produced one audit row', $row !== null, 'row count: ' . count(auditRowsAfter($before)));
-    eq('update row username matches the session', $row['username'] ?? null, AUDIT_ADMIN);
-    eq('update row role matches the session', $row['role'] ?? null, 'Administrator');
+    eq('update row username matches the session', $row['username'] ?? null, AUDIT_MAKER);
+    eq('update row role matches the session', $row['role'] ?? null, 'Payroll Officer');
     eq('update target is the affected record', $row['target'] ?? null, 'department_id=' . $createdDeptId);
 
     // =================================================================
@@ -165,10 +171,10 @@ try {
         && ($viewer[0]['action'] ?? null) === 'departments.php', json_encode($viewer[0] ?? null));
     eq('viewer GET creates no audit row', count(auditRowsAfter($before)), 0);
 
-    $r = req('GET', 'audit_log.php?action=departments.php&username=' . AUDIT_ADMIN . '&limit=500', null, $jarAdmin);
+    $r = req('GET', 'audit_log.php?action=departments.php&username=' . AUDIT_MAKER . '&limit=500', null, $jarAdmin);
     eq('username filter -> 200', $r['code'], 200);
     $allAdminRows = $r['json']['data']['rows'] ?? [];
-    $badUser = array_filter($allAdminRows, fn($x) => ($x['username'] ?? null) !== AUDIT_ADMIN);
+    $badUser = array_filter($allAdminRows, fn($x) => ($x['username'] ?? null) !== AUDIT_MAKER);
     eq('username filter returns only that user', count($badUser), 0);
     is_true('username filter finds the department activity', count($allAdminRows) >= 3,
         'rows: ' . count($allAdminRows));
@@ -210,6 +216,8 @@ try {
     $r = req('GET', 'audit_log.php', null, $jarEmp);
     eq('Employee reading the audit log -> 403', $r['code'], 403);
     is_true('Employee gets success=false', ($r['json']['success'] ?? null) === false, substr($r['raw'], 0, 160));
+    $r = req('GET', 'audit_log.php', null, $jarMaker);
+    eq('Payroll Officer reading the audit log -> 403', $r['code'], 403);
     $r = req('GET', 'audit_log.php', null, $jarAdmin);
     eq('Administrator reading the audit log -> 200', $r['code'], 200);
 
@@ -227,9 +235,13 @@ try {
     eq('Employee reading the dashboard -> 403', $r['code'], 403);
     is_true('Employee dashboard body is success=false', ($r['json']['success'] ?? null) === false,
         substr($r['raw'], 0, 160));
+    $r = req('GET', 'dashboard.php', null, $jarMaker);
+    eq('Payroll Officer reading the dashboard -> 200', $r['code'], 200);
+    is_true('Payroll Officer dashboard returns counts', isset($r['json']['data']['counts']),
+        substr($r['raw'], 0, 160));
     $r = req('GET', 'dashboard.php', null, $jarAdmin);
-    eq('Administrator reading the dashboard -> 200', $r['code'], 200);
-    is_true('Administrator dashboard returns counts', isset($r['json']['data']['counts']),
+    eq('Administrator reading the dashboard -> 403', $r['code'], 403);
+    is_true('Administrator dashboard body is success=false', ($r['json']['success'] ?? null) === false,
         substr($r['raw'], 0, 160));
 
     // =================================================================
@@ -256,18 +268,23 @@ try {
     // (username matches) and anything after the baseline (anonymous
     // failed-login rows included).
     $pdo->exec("DELETE FROM audit_log
-                WHERE username IN ('" . AUDIT_ADMIN . "', '" . AUDIT_EMP . "')
+                WHERE username IN ('" . AUDIT_ADMIN . "', '" . AUDIT_MAKER . "', '" . AUDIT_EMP . "')
                    OR audit_id > " . (int) $auditBaseline);
+
+    // Scope this check to THIS suite's fixture accounts: other suites also use
+    // dsh_* users, and their audit rows are theirs to clean up.
+    $ownAuditRows = dbCount('audit_log',
+        "username IN ('" . AUDIT_ADMIN . "', '" . AUDIT_MAKER . "', '" . AUDIT_EMP . "')");
 
     printf("\n=== cleanup verification ===\n");
     printf("  leftover test users:        %d\n", dbCount('users', "username LIKE 'dsh\\_%'"));
     printf("  leftover test departments:  %d\n", dbCount('departments', "department_name LIKE 'DSH%'"));
-    printf("  leftover test audit rows:   %d\n", dbCount('audit_log', "username LIKE 'dsh\\_%'"));
+    printf("  leftover test audit rows:   %d\n", $ownAuditRows);
     printf("  audit rows after baseline:  %d\n", dbCount('audit_log', "audit_id > " . (int) $auditBaseline));
     is_true('all test fixtures cleaned up',
         dbCount('users', "username LIKE 'dsh\\_%'") === 0
         && dbCount('departments', "department_name LIKE 'DSH%'") === 0
-        && dbCount('audit_log', "username LIKE 'dsh\\_%'") === 0
+        && $ownAuditRows === 0
         && dbCount('audit_log', "audit_id > " . (int) $auditBaseline) === 0,
         'a fixture row survived cleanup');
 }

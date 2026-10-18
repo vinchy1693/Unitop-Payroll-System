@@ -33,7 +33,7 @@ $START = [];
 foreach ($WATCH as $t) $START[$t] = dbCount($t);
 
 try {
-    mkUser('dsh_admin', 'Administrator');
+    mkUser('dsh_admin', 'Payroll Officer');
     $jarAdmin = login('dsh_admin');
 
     $empA = mkEmployee('DSH-QR-A', 'Manual', 'Alpha', 30000.00);

@@ -12,9 +12,19 @@ printf("start: employees=%d users=%d periods=%d attendance=%d leave_types=%d lea
     dbCount('employees'), dbCount('users'), dbCount('payroll_periods'),
     dbCount('attendance'), dbCount('leave_types'), dbCount('leave_balances'));
 
+// Snapshot every table this suite touches, so "restored" means exactly the
+// pre-test state instead of a hardcoded guess that goes stale after a reset.
+$CRUD_WATCH = ['employees','users','payroll_periods','attendance','leave_types','leave_balances',
+               'leave_requests','positions','departments','qr_codes','salary_rates','loans',
+               'overtime_records'];
+$CRUD_START = [];
+foreach ($CRUD_WATCH as $t) $CRUD_START[$t] = dbCount($t);
+
 try {
     // ---- fixtures ----
-    mkUser('dsh_admin', 'Administrator');
+    // Master data and attendance are written by the maker (Payroll Officer);
+    // the Administrator is technical only since the maker/checker split.
+    mkUser('dsh_admin', 'Payroll Officer');
     $jar = login('dsh_admin');
 
     $empId = mkEmployee('DSH-EMP-A', 'Probe', 'Employee', 20000.00);
@@ -44,7 +54,7 @@ try {
         $r = req($m, $p, $b, $jarEmp);
         is_true("Employee cannot $label (expect 403)", $r['code'] === 403, "HTTP {$r['code']} " . ($r['json']['message'] ?? ''));
         if ($r['code'] !== 403) {
-            finding("AUTHORIZATION GAP: an Employee session was allowed to $label ($m $p) -> HTTP {$r['code']}. Only users.php calls requireRole().");
+            finding("AUTHORIZATION GAP: an Employee session was allowed to $label ($m $p) -> HTTP {$r['code']}. Payroll endpoints should require MAKER_ROLES.");
         }
     }
     onCleanup(fn() => $GLOBALS['pdo']->exec("DELETE FROM departments WHERE department_name = 'DSH Unauthorized Dept'"));
@@ -285,12 +295,13 @@ try {
         dbCount('employees'), dbCount('users'), dbCount('payroll_periods'),
         dbCount('attendance'), dbCount('leave_types'), dbCount('leave_balances'),
         dbCount('leave_requests'), dbCount('positions'), dbCount('departments'));
-    $restored = dbCount('employees') === 1 && dbCount('users') === 2 && dbCount('payroll_periods') === 2
-             && dbCount('attendance') === 3 && dbCount('leave_types') === 0 && dbCount('leave_balances') === 0
-             && dbCount('leave_requests') === 0 && dbCount('positions') === 1 && dbCount('departments') === 1
-             && dbCount('qr_codes') === 1 && dbCount('salary_rates') === 0 && dbCount('loans') === 0
-             && dbCount('overtime_records') === 0;
-    is_true('database fully restored to its pre-test state', $restored, 'row counts differ from the starting state');
+    $restored = true;
+    $drift = [];
+    foreach ($CRUD_WATCH as $t) {
+        $now = dbCount($t);
+        if ($now !== $CRUD_START[$t]) { $drift[] = "$t {$CRUD_START[$t]}->$now"; $restored = false; }
+    }
+    is_true('database fully restored to its pre-test state', $restored, implode(', ', $drift));
 }
 
 summary();

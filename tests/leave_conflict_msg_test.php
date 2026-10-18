@@ -17,7 +17,7 @@ $inside = (new DateTime($busy['start_date']))->modify('+1 day')->format('Y-m-d')
 printf("existing approved leave: #%s %s (%s..%s)\n", $busy['leave_id'], $busy['name'], $busy['start_date'], $busy['end_date']);
 printf("birthday date to attempt: %s (inside it)\n\n", $inside);
 
-mkUser('dsh_admin', 'Administrator');
+mkUser('dsh_admin', 'Payroll Officer');
 $jar = login('dsh_admin');
 
 $createdId = 0;

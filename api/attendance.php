@@ -8,11 +8,10 @@ const WORK_START = "08:00:00";
 const LUNCH_THRESHOLD_MINUTES = 300;
 const LUNCH_DEDUCTION_MINUTES = 60;
 
-// Any signed-in user may VIEW attendance (the kiosk screen reads it); only
-// admin / payroll staff may create, edit or delete records.
-if ($method !== "GET") {
-    requireRole(PAYROLL_ROLES);
-}
+// Payroll staff may VIEW attendance; only the maker (Payroll Officer) may
+// create, edit or delete records. The kiosk does not call this endpoint - it
+// uses scan_attendance.php and auth.php, which stay open to every role.
+requireRole(PAYROLL_ROLES);
 
 function computeAttendanceStats(string $timeIn, string $timeOut): array {
     $in  = new DateTime($timeIn);
@@ -285,6 +284,8 @@ if ($method === "GET") {
 }
 
 // ---- POST (Time In only, or full log) ----
+requireRole(MAKER_ROLES);   // only the Payroll Officer may write attendance
+
 if ($method === "POST") {
     $in      = json_input();
     $empId   = (int)   ($in["employee_id"] ?? 0);

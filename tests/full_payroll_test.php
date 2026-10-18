@@ -32,7 +32,9 @@ printf("start: employees=%d users=%d periods=%d attendance=%d loans=%d overtime=
     dbCount('loans'), dbCount('overtime_records'), dbCount('payslips'));
 
 try {
-    mkUser('dsh_pay_admin', 'Administrator');
+    // The maker (Payroll Officer) processes payroll; the Approver decides it
+    // separately (see tests/payroll_approval_test.php).
+    mkUser('dsh_pay_admin', 'Payroll Officer');
     $jar = login('dsh_pay_admin');
 
     $salary = 60000.00;

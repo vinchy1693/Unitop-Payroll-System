@@ -1,7 +1,7 @@
 <?php
 require __DIR__ . "/_bootstrap.php";
 
-requireRole(PAYROLL_ROLES);   // admin / payroll staff only
+requireRole(PAYROLL_ROLES);   // maker + checker may read
 
 $method = $_SERVER["REQUEST_METHOD"];
 
@@ -64,6 +64,8 @@ if ($method === "GET") {
 }
 
 // ---- POST: initialize balances for the year ----
+requireRole(MAKER_ROLES);   // only the Payroll Officer may write balances
+
 if ($method === "POST") {
     $in   = json_input();
     $year = (int) ($in["year"] ?? date("Y"));

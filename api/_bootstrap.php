@@ -22,9 +22,24 @@ $GLOBALS["AUDIT_ACTOR"] = [
         ? (string) $_SESSION["role"] : null,
 ];
 
-// Roles permitted to manage master data and run payroll. Endpoints that are
-// admin-only call requireRole(PAYROLL_ROLES) straight after this include.
-const PAYROLL_ROLES = ["Administrator", "Payroll Officer"];
+// =====================================================================
+// Segregation of duties (maker / checker)
+//
+//   Employee        - portal self-service only
+//   Payroll Officer - the MAKER: prepares master data and payroll runs
+//   Approver        - the CHECKER: reads everything, decides payroll runs
+//   Administrator   - technical only: users + audit trail
+//
+// PAYROLL_ROLES is deliberately maker + checker: reading payroll data is
+// shared, deciding it is not. Administrator is NOT part of it.
+// =====================================================================
+const MAKER_ROLES   = ["Payroll Officer"];
+const CHECKER_ROLES = ["Approver"];
+const ADMIN_ROLES   = ["Administrator"];
+const PAYROLL_ROLES = ["Payroll Officer", "Approver"];   // maker + checker
+
+// Every role the users screen may assign.
+const ALL_ROLES = ["Employee", "Payroll Officer", "Approver", "Administrator"];
 
 header("Content-Type: application/json; charset=utf-8");
 

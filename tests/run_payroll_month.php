@@ -4,11 +4,11 @@ require __DIR__ . '/_harness.php';
 
 $pdo = $GLOBALS['pdo'];
 
-// Use the harness's proven login (temp Administrator, password TEST_PW), which
-// is also removed automatically by its cleanup hook.
-mkUser('dsh_run_admin', 'Administrator');
+// Use the harness's proven login (temp Payroll Officer, password TEST_PW),
+// which is the maker role allowed to process payroll.
+mkUser('dsh_run_admin', 'Payroll Officer');
 $jar = login('dsh_run_admin');
-printf("logged in as a temporary Administrator\n\n");
+printf("logged in as a temporary Payroll Officer\n\n");
 
 $periods = dbAll("SELECT period_id, start_date, end_date, status FROM payroll_periods ORDER BY start_date");
 foreach ($periods as $p) {

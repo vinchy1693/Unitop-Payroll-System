@@ -9,6 +9,7 @@
 
 const BASE = 'http://localhost/master_file_module_api/api/';
 const TMP_USER = 'dsh_smoke_user';
+const TMP_ADMIN = 'dsh_smoke_admin';
 const TMP_PW   = 'TestPass123';
 
 $bad = 0; $good = 0; $notes = [];
@@ -30,6 +31,7 @@ $pdo = new PDO('mysql:host=localhost;dbname=payroll_db;charset=utf8mb4', 'root',
 ]);
 $jarA = sys_get_temp_dir() . '/dsh_sa_' . getmypid() . '.txt';
 $jarE = sys_get_temp_dir() . '/dsh_se_' . getmypid() . '.txt';
+$jarSu = sys_get_temp_dir() . '/dsh_ss_' . getmypid() . '.txt';
 $usersBefore = (int) $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
 
 $checks = [
@@ -69,16 +71,23 @@ $expect404 = $runOneExists ? [] : [
 ];
 
 try {
-    $pdo->prepare("INSERT INTO users (username, employee_id, role, is_active, password_hash) VALUES (?, NULL, 'Administrator', 1, ?)")
+    // The maker (Payroll Officer) reads payroll data; the Administrator reads
+    // users.php and the audit trail.
+    $pdo->prepare("INSERT INTO users (username, employee_id, role, is_active, password_hash) VALUES (?, NULL, 'Payroll Officer', 1, ?)")
         ->execute([TMP_USER, password_hash(TMP_PW, PASSWORD_DEFAULT)]);
+    $pdo->prepare("INSERT INTO users (username, employee_id, role, is_active, password_hash) VALUES (?, NULL, 'Administrator', 1, ?)")
+        ->execute([TMP_ADMIN, password_hash(TMP_PW, PASSWORD_DEFAULT)]);
 
     $r = req('POST', 'auth.php?action=login', ['username' => TMP_USER, 'password' => TMP_PW], $jarA);
+    if ($r['code'] !== 200) throw new RuntimeException("maker login failed: HTTP {$r['code']}");
+    $r = req('POST', 'auth.php?action=login', ['username' => TMP_ADMIN, 'password' => TMP_PW], $jarSu);
     if ($r['code'] !== 200) throw new RuntimeException("admin login failed: HTTP {$r['code']}");
 
     printf("%-58s %s\n", 'ENDPOINT', 'RESULT');
     printf("%s\n", str_repeat('-', 74));
     foreach ($checks as $ep) {
-        $r = req('GET', $ep, null, $jarA);
+        $jar = $ep === 'users.php' ? $jarSu : $jarA;
+        $r = req('GET', $ep, null, $jar);
         $want = in_array($ep, $expect404, true) ? 404 : 200;
         $ok = $r['code'] === $want;
         $ok ? $good++ : $bad++;
@@ -109,8 +118,8 @@ try {
     $bad++;
     printf("harness error: %s\n", $e->getMessage());
 } finally {
-    $pdo->exec("DELETE FROM users WHERE username IN ('" . TMP_USER . "','dsh_smoke_emp')");
-    foreach ([$jarA, $jarE] as $j) { if (file_exists($j)) unlink($j); }
+    $pdo->exec("DELETE FROM users WHERE username IN ('" . TMP_USER . "','" . TMP_ADMIN . "','dsh_smoke_emp')");
+    foreach ([$jarA, $jarE, $jarSu] as $j) { if (file_exists($j)) unlink($j); }
 }
 
 printf("\n%s\n", str_repeat('=', 74));

@@ -8,7 +8,7 @@
 //   scan 2  -> clock out           (shift ends, time_out set)
 //   scan 3  -> overtime REQUEST    (Pending, time_in NULL, no attendance row)
 //   scan 4  -> refused while Pending (no duplicate, no clock-in)
-//   admin approves
+//   maker approves
 //   scan 5  -> overtime clock-in   (time_in set)
 //   scan 6  -> overtime clock-out  (time_out + hours, Completed)
 //   payroll -> hours x multiplier x (daily_rate / 8)
@@ -90,7 +90,9 @@ $periodId = 0;
 
 try {
     // ---- fixtures -----------------------------------------------------
-    $adminId = mkUser('dsh_ot_admin', 'Administrator');
+    // Since the maker/checker split, the Payroll Officer (maker) drives the
+    // overtime workflow; the Approver only reads it.
+    $adminId = mkUser('dsh_ot_admin', 'Payroll Officer');
     $jar     = login('dsh_ot_admin');
 
     $salary = 24000.00;   // semi-monthly basic = 12,000

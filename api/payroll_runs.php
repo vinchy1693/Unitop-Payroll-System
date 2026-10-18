@@ -1,25 +1,192 @@
 <?php
 require __DIR__ . "/_bootstrap.php";
 
-requireRole(PAYROLL_ROLES);   // admin / payroll staff only
+requireRole(PAYROLL_ROLES);   // maker + checker may read; mutations are guarded per action
 require __DIR__ . "/_payroll_helpers.php";
 
 $method = $_SERVER["REQUEST_METHOD"];
 
-// ---- GET ----
+/** One run, with every name the approval screen shows. */
+function payrollRunById(PDO $pdo, int $runId): ?array {
+    $stmt = $pdo->prepare(
+        "SELECT pr.run_id, pr.period_id, pr.run_date, pr.status,
+                pr.processed_by, pr.submitted_by, pr.submitted_at,
+                pr.approved_by, pr.approved_at,
+                pr.returned_by, pr.returned_at,
+                pr.release_approved_by, pr.release_approved_at,
+                pr.remarks,
+                pp.start_date, pp.end_date, pp.period_type,
+                (SELECT COUNT(*) FROM payslips ps WHERE ps.run_id = pr.run_id) AS payslip_count,
+                su.username AS submitted_by_name,
+                ap.username AS approved_by_name,
+                re.username AS returned_by_name,
+                rl.username AS release_approved_by_name
+         FROM payroll_runs pr
+         JOIN payroll_periods pp ON pp.period_id = pr.period_id
+         LEFT JOIN users su ON su.user_id = pr.submitted_by
+         LEFT JOIN users ap ON ap.user_id = pr.approved_by
+         LEFT JOIN users re ON re.user_id = pr.returned_by
+         LEFT JOIN users rl ON rl.user_id = pr.release_approved_by
+         WHERE pr.run_id = ?"
+    );
+    $stmt->execute([$runId]);
+    $row = $stmt->fetch();
+    return $row ?: null;
+}
+
+// ---- GET: list runs ----
 if ($method === "GET") {
     $sql = "SELECT pr.run_id, pr.period_id, pr.run_date, pr.status,
+                   pr.processed_by, pr.submitted_by, pr.submitted_at,
+                   pr.approved_by, pr.approved_at,
+                   pr.returned_by, pr.returned_at,
+                   pr.release_approved_by, pr.release_approved_at,
+                   pr.remarks,
                    pp.start_date, pp.end_date, pp.period_type,
-                   (SELECT COUNT(*) FROM payslips ps WHERE ps.run_id = pr.run_id) AS payslip_count
+                   (SELECT COUNT(*) FROM payslips ps WHERE ps.run_id = pr.run_id) AS payslip_count,
+                   su.username AS submitted_by_name,
+                   ap.username AS approved_by_name,
+                   re.username AS returned_by_name,
+                   rl.username AS release_approved_by_name
             FROM payroll_runs pr
             JOIN payroll_periods pp ON pp.period_id = pr.period_id
+            LEFT JOIN users su ON su.user_id = pr.submitted_by
+            LEFT JOIN users ap ON ap.user_id = pr.approved_by
+            LEFT JOIN users re ON re.user_id = pr.returned_by
+            LEFT JOIN users rl ON rl.user_id = pr.release_approved_by
             ORDER BY pr.run_id DESC";
     $rows = $pdo->query($sql)->fetchAll();
     respond(true, "", $rows);
 }
 
-// ---- POST: run ----
+// =====================================================================
+// PATCH: the approval state machine
+//
+//   Submitted --approve--> Approved --release--> Released
+//   Submitted --return---> Returned  --resubmit-> Submitted
+//   Returned  --approve--> Approved
+//
+// approve / return / release are CHECKER actions; resubmit is the MAKER's.
+// The submitter may never decide their own run, even with the Approver role.
+// =====================================================================
+if ($method === "PATCH") {
+    $in      = json_input();
+    $runId   = (int) ($in["run_id"] ?? 0);
+    $action  = strtolower(trim((string) ($in["action"] ?? "")));
+    $remarks = trim((string) ($in["remarks"] ?? ""));
+
+    if ($runId === 0) {
+        respond(false, "run_id is required.", null, 422);
+    }
+    if (!in_array($action, ["approve", "return", "release", "resubmit"], true)) {
+        respond(false, "action must be approve, return, release or resubmit.", null, 422);
+    }
+
+    if ($action === "resubmit") {
+        requireRole(MAKER_ROLES);    // the maker sends a returned run back
+    } else {
+        requireRole(CHECKER_ROLES);  // only the Approver decides
+    }
+
+    $user = currentUser();
+
+    $pdo->beginTransaction();
+    try {
+        $stmt = $pdo->prepare("SELECT * FROM payroll_runs WHERE run_id = ? FOR UPDATE");
+        $stmt->execute([$runId]);
+        $run = $stmt->fetch();
+        if (!$run) {
+            $pdo->rollBack();
+            respond(false, "Payroll run not found.", null, 404);
+        }
+
+        // Segregation of duties: the submitter can never approve their own
+        // work, even if they also hold the Approver role.
+        if ($action !== "resubmit"
+            && $run["submitted_by"] !== null
+            && (int) $run["submitted_by"] === (int) $user["user_id"]) {
+            $pdo->rollBack();
+            respond(
+                false,
+                "Segregation of duties: the user who submitted this run cannot approve, return or release it. A different Approver must decide.",
+                null,
+                403
+            );
+        }
+
+        $status = (string) $run["status"];
+
+        if ($action === "approve") {
+            if (!in_array($status, ["Submitted", "Returned"], true)) {
+                $pdo->rollBack();
+                respond(false, "Cannot approve a run that is $status. Only Submitted or Returned runs can be approved.", null, 409);
+            }
+            $pdo->prepare(
+                "UPDATE payroll_runs
+                 SET status = 'Approved', approved_by = ?, approved_at = NOW()
+                 WHERE run_id = ?"
+            )->execute([$user["user_id"], $runId]);
+            $message = "Payroll run approved.";
+
+        } elseif ($action === "return") {
+            if ($status !== "Submitted") {
+                $pdo->rollBack();
+                respond(false, "Cannot return a run that is $status. Only Submitted runs can be returned.", null, 409);
+            }
+            if ($remarks === "") {
+                $pdo->rollBack();
+                respond(false, "Remarks are required when returning a payroll run: explain what must be corrected.", null, 422);
+            }
+            if (strlen($remarks) > 500) {
+                $remarks = substr($remarks, 0, 500);
+            }
+            $pdo->prepare(
+                "UPDATE payroll_runs
+                 SET status = 'Returned', returned_by = ?, returned_at = NOW(), remarks = ?
+                 WHERE run_id = ?"
+            )->execute([$user["user_id"], $remarks, $runId]);
+            $message = "Payroll run returned to the maker for correction.";
+
+        } elseif ($action === "release") {
+            if ($status !== "Approved") {
+                $pdo->rollBack();
+                respond(false, "Cannot release a run that is $status. Only Approved runs can be released.", null, 409);
+            }
+            $pdo->prepare(
+                "UPDATE payroll_runs
+                 SET status = 'Released', release_approved_by = ?, release_approved_at = NOW()
+                 WHERE run_id = ?"
+            )->execute([$user["user_id"], $runId]);
+            $message = "Payment release authorised.";
+
+        } else { // resubmit
+            if ($status !== "Returned") {
+                $pdo->rollBack();
+                respond(false, "Cannot resubmit a run that is $status. Only Returned runs can be resubmitted.", null, 409);
+            }
+            $pdo->prepare(
+                "UPDATE payroll_runs
+                 SET status = 'Submitted', submitted_by = ?, submitted_at = NOW()
+                 WHERE run_id = ?"
+            )->execute([$user["user_id"], $runId]);
+            $message = "Payroll run resubmitted for approval.";
+        }
+
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        respond(false, "Payroll run action failed: " . $e->getMessage(), null, 500);
+    }
+
+    respond(true, $message, payrollRunById($pdo, $runId));
+}
+
+// =====================================================================
+// POST: process an Open period into a Submitted run (the maker's step)
+// =====================================================================
 if ($method === "POST") {
+    requireRole(MAKER_ROLES);
+
     $in       = json_input();
     $periodId = (int) ($in["period_id"] ?? 0);
 
@@ -36,6 +203,8 @@ if ($method === "POST") {
         respond(false, "Only Open periods can be processed. This one is {$period['status']}.", null, 409);
     }
 
+    $maker = currentUser();
+
     try {
         $pdo->beginTransaction();
 
@@ -44,9 +213,10 @@ if ($method === "POST") {
             $year = (int) (new DateTime($period["start_date"]))->format("Y");
 
             $pdo->prepare(
-                "INSERT INTO payroll_runs (period_id, processed_by, run_date, status)
-                 VALUES (?, NULL, CURDATE(), 'Completed')"
-            )->execute([$periodId]);
+                "INSERT INTO payroll_runs
+                 (period_id, processed_by, run_date, status, submitted_by, submitted_at)
+                 VALUES (?, ?, CURDATE(), 'Submitted', ?, NOW())"
+            )->execute([$periodId, $maker["user_id"], $maker["user_id"]]);
             $runId = (int) $pdo->lastInsertId();
 
             $employees = $pdo->query(
@@ -92,18 +262,19 @@ if ($method === "POST") {
                 ->execute([$periodId]);
 
             $pdo->commit();
-            respond(true, "13th Month run completed for $year. $generated payslip(s) generated, $skipped employee(s) skipped.",
-                ["run_id" => $runId, "generated" => $generated, "skipped" => $skipped]);
+            respond(true, "13th Month run submitted for approval. $generated payslip(s) generated, $skipped employee(s) skipped.",
+                ["run_id" => $runId, "status" => "Submitted", "generated" => $generated, "skipped" => $skipped]);
         }
 
         // Regular semi-monthly payroll
         $pdo->prepare(
-            "INSERT INTO payroll_runs (period_id, processed_by, run_date, status)
-             VALUES (?, NULL, CURDATE(), 'Completed')"
-        )->execute([$periodId]);
+            "INSERT INTO payroll_runs
+             (period_id, processed_by, run_date, status, submitted_by, submitted_at)
+             VALUES (?, ?, CURDATE(), 'Submitted', ?, NOW())"
+        )->execute([$periodId, $maker["user_id"], $maker["user_id"]]);
         $runId = (int) $pdo->lastInsertId();
 
-        // Employees now carry their own basic_salary — no rate lookup needed
+        // Employees now carry their own basic_salary - no rate lookup needed
         $employees = $pdo->query(
             "SELECT employee_id, basic_salary FROM employees WHERE is_active = 1 ORDER BY employee_id"
         )->fetchAll();
@@ -139,7 +310,7 @@ if ($method === "POST") {
                AND time_in IS NOT NULL AND time_out IS NOT NULL"
         );
 
-        // Loan amortization divisor — Semi-monthly = 2, 13th month = n/a
+        // Loan amortization divisor - Semi-monthly = 2, 13th month = n/a
         $loanDivisor = 2;
 
         $loanStmt = $pdo->prepare(
@@ -279,8 +450,8 @@ if ($method === "POST") {
             ->execute([$periodId]);
 
         $pdo->commit();
-        respond(true, "Payroll run completed. $generated payslip(s) generated, $skipped employee(s) skipped (no basic salary).",
-            ["run_id" => $runId, "generated" => $generated, "skipped" => $skipped]);
+        respond(true, "Payroll run submitted for approval. $generated payslip(s) generated, $skipped employee(s) skipped (no basic salary).",
+            ["run_id" => $runId, "status" => "Submitted", "generated" => $generated, "skipped" => $skipped]);
 
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();

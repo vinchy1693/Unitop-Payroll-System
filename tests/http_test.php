@@ -3,8 +3,9 @@
 // tests/http_test.php  —  end-to-end HTTP test against the running app
 // Run:  C:\xampp\php\php.exe tests\http_test.php
 //
-// Creates two temporary users (dsh_test_admin / dsh_test_emp) and one
-// temporary attendance row, then removes ALL of them in a finally block.
+// Creates three temporary users (dsh_test_admin = Payroll Officer maker,
+// dsh_test_super = Administrator, dsh_test_emp = Employee) and one temporary
+// attendance row, then removes ALL of them in a finally block.
 // =====================================================================
 
 const BASE = 'http://localhost/master_file_module_api/api/';
@@ -42,6 +43,7 @@ $pdo = new PDO('mysql:host=localhost;dbname=payroll_db;charset=utf8mb4', 'root',
 ]);
 
 $jarAdmin = sys_get_temp_dir() . '/dsh_admin_' . getmypid() . '.txt';
+$jarSuper = sys_get_temp_dir() . '/dsh_super_' . getmypid() . '.txt';
 $jarEmp   = sys_get_temp_dir() . '/dsh_emp_' . getmypid() . '.txt';
 $newAttId = null;
 
@@ -53,7 +55,9 @@ try {
     // ---- seed temporary users ----
     $ins = $pdo->prepare("INSERT INTO users (username, employee_id, role, is_active, password_hash) VALUES (?, ?, ?, 1, ?)");
     $hash = password_hash(TMP_PW, PASSWORD_DEFAULT);
-    $ins->execute(['dsh_test_admin', null, 'Administrator', $hash]);
+    // Master-data / payroll writes belong to the maker; users.php to the admin.
+    $ins->execute(['dsh_test_admin', null, 'Payroll Officer', $hash]);
+    $ins->execute(['dsh_test_super', null, 'Administrator', $hash]);
     $ins->execute(['dsh_test_emp', 3, 'Employee', $hash]);
 
     // =================================================================
@@ -80,7 +84,11 @@ try {
 
     $r = req('POST', 'auth.php?action=login', ['username' => 'dsh_test_admin', 'password' => TMP_PW], $jarAdmin);
     eq('login with correct password -> 200', $r['code'], 200);
-    eq('login returns Administrator role', $r['json']['data']['role'] ?? null, 'Administrator');
+    eq('login returns Payroll Officer role', $r['json']['data']['role'] ?? null, 'Payroll Officer');
+
+    $r = req('POST', 'auth.php?action=login', ['username' => 'dsh_test_super', 'password' => TMP_PW], $jarSuper);
+    eq('administrator login -> 200', $r['code'], 200);
+    eq('administrator session carries the Administrator role', $r['json']['data']['role'] ?? null, 'Administrator');
 
     $r = req('GET', 'auth.php?action=me', null, $jarAdmin);
     eq('session persists (action=me) -> 200', $r['code'], 200);
@@ -96,6 +104,8 @@ try {
     $r = req('GET', 'users.php', null, $jarEmp);
     eq('Employee role on users.php (admin-only) -> 403', $r['code'], 403);
     $r = req('GET', 'users.php', null, $jarAdmin);
+    eq('Payroll Officer role on users.php (admin-only) -> 403', $r['code'], 403);
+    $r = req('GET', 'users.php', null, $jarSuper);
     eq('Administrator role on users.php -> 200', $r['code'], 200);
     $leak = strpos((string) $r['raw'], 'password_hash') !== false;
     is_true('users.php never returns password_hash', !$leak, 'password_hash found in response payload');
@@ -248,10 +258,11 @@ try {
     printf("  (using run_id=%d, payslip_id=%d)\n", $runId, $slipId);
 
     foreach ($gets as $ep) {
-        $r = req('GET', $ep, null, $jarAdmin);
+        $jar = $ep === 'users.php' ? $jarSuper : $jarAdmin;
+        $r = req('GET', $ep, null, $jar);
         $flag = $r['code'] === 200 ? 'ok' : 'HTTP ' . $r['code'];
         printf("  %-52s -> %s\n", $ep, $flag);
-        if ($r['code'] !== 200) bad("$ep responds 200 for Administrator", "HTTP {$r['code']} " . substr((string)($r['json']['message'] ?? ''), 0, 90));
+        if ($r['code'] !== 200) bad("$ep responds 200 for its role", "HTTP {$r['code']} " . substr((string)($r['json']['message'] ?? ''), 0, 90));
         elseif (($r['json']['success'] ?? null) !== true) note("$ep returned HTTP 200 but success=false: " . ($r['json']['message'] ?? ''));
     }
 
@@ -286,8 +297,8 @@ try {
         req('DELETE', 'attendance.php?id=' . $newAttId, null, $jarEmp);
     }
     $pdo->exec("DELETE FROM attendance WHERE scan_device_id = 'QR Kiosk' AND work_date = '2026-12-25'");
-    $pdo->exec("DELETE FROM users WHERE username IN ('dsh_test_admin','dsh_test_emp')");
-    foreach ([$jarAdmin, $jarEmp] as $j) { if (file_exists($j)) unlink($j); }
+    $pdo->exec("DELETE FROM users WHERE username IN ('dsh_test_admin','dsh_test_super','dsh_test_emp')");
+    foreach ([$jarAdmin, $jarSuper, $jarEmp] as $j) { if (file_exists($j)) unlink($j); }
 
     $attAfter   = (int) $pdo->query("SELECT COUNT(*) FROM attendance")->fetchColumn();
     $usersAfter = (int) $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();

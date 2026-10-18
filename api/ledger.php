@@ -1,7 +1,7 @@
 <?php
 require __DIR__ . "/_bootstrap.php";
 
-requireRole(PAYROLL_ROLES);   // admin / payroll staff only
+requireRole(PAYROLL_ROLES);   // maker (read) + checker (read); Administrator has no access
 require __DIR__ . "/_payroll_helpers.php";
 
 $method = $_SERVER["REQUEST_METHOD"];

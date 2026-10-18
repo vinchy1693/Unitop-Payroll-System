@@ -50,7 +50,7 @@ $before = ['payroll_periods' => $count('payroll_periods'), 'payroll_runs' => $co
 $periodId = null; $runId = null;
 
 try {
-    $pdo->prepare("INSERT INTO users (username, employee_id, role, is_active, password_hash) VALUES (?, NULL, 'Administrator', 1, ?)")
+    $pdo->prepare("INSERT INTO users (username, employee_id, role, is_active, password_hash) VALUES (?, NULL, 'Payroll Officer', 1, ?)")
         ->execute([TMP_USER, password_hash(TMP_PW, PASSWORD_DEFAULT)]);
 
     $pdo->prepare("INSERT INTO payroll_periods (start_date, end_date, period_type, status) VALUES ('2026-10-16','2026-10-31','Semi-monthly','Open')")

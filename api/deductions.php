@@ -1,7 +1,7 @@
 <?php
 require __DIR__ . "/_bootstrap.php";
 
-requireRole(PAYROLL_ROLES);   // admin / payroll staff only
+requireRole(PAYROLL_ROLES);   // maker + checker may read
 require __DIR__ . "/_payroll_helpers.php";
 
 $method = $_SERVER["REQUEST_METHOD"];
@@ -21,6 +21,8 @@ if ($method === "GET") {
 }
 
 // ---- POST: add a deduction ----
+requireRole(MAKER_ROLES);   // only the Payroll Officer may change a payslip
+
 if ($method === "POST") {
     $in        = json_input();
     $payslipId = (int)   ($in["payslip_id"]      ?? 0);
@@ -30,6 +32,9 @@ if ($method === "POST") {
     if ($payslipId === 0 || $type === "" || $amount <= 0) {
         respond(false, "Payslip, type, and amount (>0) are required.", null, 422);
     }
+
+    // Approved / Released runs are immutable: a formal adjustment is required.
+    assertPayslipUnlocked($pdo, $payslipId, "Deductions on this payslip");
 
     try {
         $pdo->beginTransaction();
@@ -72,6 +77,8 @@ if ($method === "DELETE") {
             $pdo->rollBack();
             respond(false, "Deduction not found.", null, 404);
         }
+
+        assertPayslipUnlocked($pdo, $payslipId, "Deductions on this payslip");
 
         $pdo->prepare("DELETE FROM deductions WHERE deduction_id = ?")->execute([$id]);
 

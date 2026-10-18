@@ -274,6 +274,79 @@ function computeAttendanceDeductions(
     ];
 }
 
+// =====================================================================
+// Payroll run lock (segregation of duties, step 3)
+//
+// A run becomes immutable the moment a checker approves it. Every endpoint
+// that can change payslips, deductions, allowances, loan payments or cash
+// disbursements calls one of these helpers BEFORE writing, so a locked run
+// cannot be reached through a side door. Returned runs stay editable.
+// =====================================================================
+const PAYROLL_LOCKED_RUN_STATUSES = ["Approved", "Released"];
+
+function payrollRunIsLocked(?string $status): bool {
+    return in_array((string) $status, PAYROLL_LOCKED_RUN_STATUSES, true);
+}
+
+/**
+ * Refuse every write that targets a run that has been approved / released.
+ * respond() exits, so this function never returns on a locked run.
+ */
+function assertPayrollRunUnlocked(PDO $pdo, int $runId, string $what = "This payroll data"): void {
+    $stmt = $pdo->prepare("SELECT status FROM payroll_runs WHERE run_id = ?");
+    $stmt->execute([$runId]);
+    $status = $stmt->fetchColumn();
+    if ($status === false) {
+        respond(false, "Payroll run not found.", null, 404);
+    }
+    if (payrollRunIsLocked((string) $status)) {
+        respond(
+            false,
+            "Payroll run #$runId is {$status} and locked. $what cannot be changed. A formal adjustment is required.",
+            ["run_id" => $runId, "status" => $status],
+            409
+        );
+    }
+}
+
+/**
+ * Resolve a payslip's run and enforce the lock. Returns the run row
+ * (run_id + status) so callers can reuse it.
+ */
+function assertPayslipUnlocked(PDO $pdo, int $payslipId, string $what = "This payslip"): array {
+    $stmt = $pdo->prepare(
+        "SELECT ps.payslip_id, pr.run_id, pr.status
+         FROM payslips ps
+         JOIN payroll_runs pr ON pr.run_id = ps.run_id
+         WHERE ps.payslip_id = ?"
+    );
+    $stmt->execute([$payslipId]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        respond(false, "Payslip not found.", null, 404);
+    }
+    if (payrollRunIsLocked((string) $row["status"])) {
+        respond(
+            false,
+            "Payroll run #{$row['run_id']} is {$row['status']} and locked. $what cannot be changed. A formal adjustment is required.",
+            ["run_id" => (int) $row["run_id"], "status" => $row["status"]],
+            409
+        );
+    }
+    return $row;
+}
+
+/** Enforce the lock for a loan payment (row already exists). */
+function assertLoanPaymentUnlocked(PDO $pdo, int $paymentId, string $what = "This loan payment"): void {
+    $stmt = $pdo->prepare("SELECT payslip_id FROM loan_payments WHERE payment_id = ?");
+    $stmt->execute([$paymentId]);
+    $payslipId = $stmt->fetchColumn();
+    if ($payslipId === false) {
+        respond(false, "Loan payment not found.", null, 404);
+    }
+    assertPayslipUnlocked($pdo, (int) $payslipId, $what);
+}
+
 // ---- 13th Month Pay (reads basic_salary from employees) ----
 function compute13thMonthPay(PDO $pdo, int $employeeId, int $year): array {
     $stmt = $pdo->prepare("SELECT basic_salary, date_hired FROM employees WHERE employee_id = ?");

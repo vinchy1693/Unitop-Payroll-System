@@ -1,7 +1,7 @@
 <?php
 require __DIR__ . "/_bootstrap.php";
 
-requireRole("Administrator");
+requireRole(ADMIN_ROLES);   // user administration is technical-only
 
 $method = $_SERVER["REQUEST_METHOD"];
 
@@ -29,6 +29,9 @@ if ($method === "POST") {
 
     if ($username === "" || $role === "") {
         respond(false, "Username and Role are required.", null, 422);
+    }
+    if (!in_array($role, ALL_ROLES, true)) {
+        respond(false, "Unknown role. Use one of: " . implode(", ", ALL_ROLES) . ".", null, 422);
     }
     if ($role === "Employee" && $employeeId === null) {
         respond(false, "Employee role requires a linked employee record.", null, 422);
@@ -59,6 +62,9 @@ if ($method === "PUT") {
 
     if ($id === 0 || $username === "" || $role === "") {
         respond(false, "Username and Role are required.", null, 422);
+    }
+    if (!in_array($role, ALL_ROLES, true)) {
+        respond(false, "Unknown role. Use one of: " . implode(", ", ALL_ROLES) . ".", null, 422);
     }
     if ($role === "Employee" && $employeeId === null) {
         respond(false, "Employee role requires a linked employee record.", null, 422);

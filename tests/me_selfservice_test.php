@@ -116,7 +116,7 @@ try {
     // one through the normal period/run tables.
     $periodId = mkPeriod('2027-04-01', '2027-04-15');
     $GLOBALS['pdo']->prepare("INSERT INTO payroll_runs (period_id, run_date, status) VALUES (?,?,?)")
-        ->execute([$periodId, '2027-04-15', 'Finalized']);
+        ->execute([$periodId, '2027-04-15', 'Released']);
     $runId = (int) $GLOBALS['pdo']->lastInsertId();
     $GLOBALS['pdo']->prepare(
         "INSERT INTO payslips (run_id, employee_id, basic_pay, overtime_pay, gross_pay, total_deductions, net_pay)

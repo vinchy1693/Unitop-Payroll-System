@@ -374,7 +374,7 @@ out('    total_deductions = ' . money($statutory) . ' + ' . money($tax) . ' + ' 
 out('    net_pay          = ' . money($gross) . ' - ' . money($totalDeductions) . ' = ' . money($netPay));
 
 // =====================================================================
-// 2. Run payroll through the real endpoint as a temporary Administrator
+// 2. Run payroll through the real endpoint as a temporary Payroll Officer
 // =====================================================================
 section('2. Run the real payroll endpoint');
 
@@ -393,11 +393,11 @@ try {
         out('  (reset ' . $staleRuns . ' stale payroll run(s) left on the demo period)');
     }
 
-    // Temporary Administrator, exactly the fixture pattern in tests/_harness.php.
+    // Temporary Payroll Officer (the maker), same fixture pattern as tests/_harness.php.
     $pdo->prepare("DELETE FROM users WHERE username = ?")->execute([$tempUser]);
     $pdo->prepare(
         "INSERT INTO users (username, employee_id, role, is_active, password_hash)
-         VALUES (?, NULL, 'Administrator', 1, ?)"
+         VALUES (?, NULL, 'Payroll Officer', 1, ?)"
     )->execute([$tempUser, password_hash(TEST_PW, PASSWORD_DEFAULT)]);
 
     $login = httpReq('POST', 'auth.php?action=login', ['username' => $tempUser, 'password' => TEST_PW], $jar);
@@ -406,7 +406,7 @@ try {
             'login failed: HTTP ' . $login['code'] . ' ' . jumpMessage($login)
         );
     }
-    ok('logged in as a temporary Administrator');
+    ok('logged in as a temporary Payroll Officer');
 
     $run = httpReq('POST', 'payroll_runs.php', ['period_id' => $periodId], $jar);
     out('  response: HTTP ' . $run['code'] . '  ' . jumpMessage($run));
@@ -603,7 +603,7 @@ try {
 
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = ?");
     $stmt->execute([$tempUser]);
-    eqInt('temporary Administrator removed', (int) $stmt->fetchColumn(), 0);
+    eqInt('temporary Payroll Officer removed', (int) $stmt->fetchColumn(), 0);
 
     $stmt = $pdo->prepare("SELECT basic_salary FROM employees WHERE employee_id = ?");
     $stmt->execute([EMPLOYEE_ID]);

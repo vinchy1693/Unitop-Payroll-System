@@ -39,7 +39,7 @@ $satNext = $free[1];
 $sun     = (new DateTime($sat))->modify('+1 day')->format('Y-m-d');
 printf("test dates: free Sat=%s, second free Sat=%s, Sun=%s\n\n", $sat, $satNext, $sun);
 
-mkUser('dsh_admin', 'Administrator');
+mkUser('dsh_admin', 'Payroll Officer');
 $jar = login('dsh_admin');
 
 $created = [];
