@@ -1,0 +1,11 @@
+# Not part of the web application: deny all HTTP access.
+# This directory holds data that must never be served - database dumps (password
+# hashes, salaries, bank and government numbers), test scripts that execute, or
+# version-control metadata including config.php credentials.
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>

@@ -292,9 +292,13 @@ $tax     = round(max(0.0, $amount - 90000.0) * 0.20, 2); // :429  flat 20 %
 ```
 13th month per DOLE rule = (6 × 20 000 + 6 × 30 000) / 12 = 25 000.00
 code                     = 30 000.00 × 12 / 12            = 30 000.00   (overstated 5 000.00)
-tax                      = (30 000 − 90 000) → 0 … at higher amounts the flat 20 % also departs from
-                           the TRAIN marginal schedule the rest of the payroll uses
 ```
+
+The tax half of the same function is a flat 20 % of the excess over ₱90 000 (correctly 0.00 at
+25 000.00 or 30 000.00), while the TRAIN schedule used everywhere else would add the excess to
+annual taxable income and tax it at the marginal bracket. For a 150 000.00 amount this function
+withholds `(150 000 − 90 000) × 0.20 = 12 000.00`; depending on the employee's other income that
+over- or under-withholds, and it does not use `computeWithholdingTax()`.
 
 The same overstatement occurs when the year contains unpaid absences: they reduce `basic_pay` in every semi-monthly payslip but never reduce the 13th month. Note also that `employees.basic_salary` is the *only* salary source in the system — `salary_rates` (with `effective_date`) is written by `api/salary_rates.php` but read by no payroll code at all (see finding 15).
 
@@ -407,7 +411,7 @@ OT         15:00–19:00 → hours 4.00 × 1.25 × 288.46125 = 1 442.31 paid, of
 | `salary_rates` is write-only | `api/salary_rates.php` writes it; no payroll code reads it (`grep salary_rates` → only the CRUD endpoint and tests). Payroll uses `employees.basic_salary` (`payroll_runs.php:279,332`). | A Payroll Officer adding an effective-dated rate change sees nothing happen; the 13th month (finding 9) and any mid-period change are computed from the single current figure. |
 | `assertPayrollRunUnlocked()` never called | `_payroll_helpers.php:288`; no call site in `api/` | Dead safety helper — the run-level lock has no enforcement point, only the payslip-level one. |
 | `defaultPayDate()` never called | `payroll_periods.php:11-17` | `pay_date` is whatever the client sends, `NULL` when omitted; no run-time consequence today. |
-| No hire-date / termination proration | `payroll_runs.php:278-280` (`WHERE is_active = 1` only) | Live data: employee 8 was hired **2026-10-16** and employee 168 on **2026-10-18**, both *after* period 2026-10-01…15, yet payslips 3 and 4 were generated for them with 13 "absences" each and `net_pay 0.00`. The arithmetic is arithmetically equivalent to proration, but it produces zero-net payslips and a false 13-day absence record for people who were not yet employed. Filter `date_hired <= period.end_date` (and `NULL`/inactive handling) at `:278`. |
+| No hire-date / termination proration | `payroll_runs.php:278-280` (`WHERE is_active = 1` only) | Live data: employee 8 was hired **2026-10-16** and employee 168 on **2026-10-18**, both *after* period 2026-10-01…15, yet payslips 3 and 4 were generated for them with 13 "absences" each and `net_pay 0.00`. The arithmetic happens to equal true proration for basic pay, but it produces zero-net payslips and a false 13-day absence record for people who were not yet employed. Filter `date_hired <= period.end_date` (and `NULL`/inactive handling) at `:278`. |
 | Reports ignore run status | `reports.php:102-110` (remittance), `:178+` (department cost) | Sums every payslip in the date window regardless of `payroll_runs.status`, so a `Submitted` or `Returned` run is counted as incurred payroll cost. |
 
 ---

@@ -1,0 +1,17 @@
+# Deny direct download of files that are not application output.
+<FilesMatch "\.(sql|md|bak|log|ini|sh)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Deny the non-public directories outright (belt and braces with their own
+# .htaccess files, in case AllowOverride is limited for a subdirectory).
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(backups|tests|sql|reports|\.git)(/|$) - [F,L,NC]
+</IfModule>

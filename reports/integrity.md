@@ -245,7 +245,7 @@ or wrap each write in `try { ... } catch (PDOException $e) { if ($e->getCode()==
 
 **What is wrong.** No code path in either application ever sets `employees.supervisor_id` (grep across every `.php` and `.html`: only reads and comments). `employees.html` has no such field either.
 
-**What the user would see.** A Supervisor account always resolves to an empty team: `attendance.html`, `overtime.html`, `attendance_corrections.html`, `leave.html`, `loans.html` all render empty, and every decide/recommend action answers 403 — "Employee #N is not in your team". The role looks broken. `employees.js:180-182` even tells the admin that a Supervisor needs an employee link, which is necessary but not sufficient.
+**What the user would see.** A Supervisor account always resolves to an empty team: `attendance.html`, `overtime.html`, `attendance_corrections.html`, `leave.html`, `loans.html` all render empty, and every decide/recommend action answers 403 — "Employee #N is not in your team". The role looks broken. `users.js:175-182` even tells the admin that a Supervisor needs an employee link, which is necessary but not sufficient.
 
 **Minimal fix.** Add `supervisor_id` to `employees.php` `$fields` (with a `SELECT employee_id … WHERE employee_id = ?` check, or it becomes another I-08 500), a `<select id="supervisor_id">` in `employees.html`, and one line in `employees.js` `FIELDS`. `fk_employees_supervisor` is already `ON DELETE SET NULL`, so an orphan is not a risk.
 
