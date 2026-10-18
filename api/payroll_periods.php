@@ -60,6 +60,11 @@ if ($method === "POST") {
         "INSERT INTO payroll_periods (start_date, end_date, pay_date, period_type, status)
          VALUES (?, ?, ?, ?, 'Open')"
     );
+    // defaultPayDate() existed but was never called, so a blank Pay Date field
+    // wrote '' into a DATE column; with no STRICT_TRANS_TABLES that becomes
+    // 0000-00-00 and the periods table displays it as a real date.
+    if ($payDate === "") $payDate = defaultPayDate($end);
+
     $stmt->execute([$start, $end, $payDate, $type]);
 
     respond(true, "Payroll period created.", ["period_id" => (int) $pdo->lastInsertId()]);
@@ -94,6 +99,8 @@ if ($method === "PUT") {
          SET start_date = ?, end_date = ?, pay_date = ?, period_type = ?
          WHERE period_id = ?"
     );
+    if ($payDate === "") $payDate = defaultPayDate($end);
+
     $stmt->execute([$start, $end, $payDate, $type, $id]);
 
     respond(true, "Payroll period updated.");

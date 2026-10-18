@@ -203,7 +203,8 @@ if ($method === "PATCH") {
                     lt.days_per_year
              FROM leave_requests lr
              JOIN leave_types lt ON lt.leave_type_id = lr.leave_type_id
-             WHERE lr.leave_id = ?"
+             WHERE lr.leave_id = ?
+             FOR UPDATE"
         );
         $stmt->execute([$id]);
         $lr = $stmt->fetch();
