@@ -49,7 +49,9 @@ if ($method === "POST") {
     if ($start > $end) {
         respond(false, "End date must be on or after start date.", null, 422);
     }
-    if (countBusinessDays($start, $end) === 0) {
+    // A single-day request is always allowed (see api/leave_requests.php); only
+    // multi-day ranges must contain a working day.
+    if ($start !== $end && countBusinessDays($start, $end) === 0) {
         respond(false, "The selected range has no working days.", null, 422);
     }
 

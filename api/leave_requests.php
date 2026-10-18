@@ -22,7 +22,10 @@ function countBusinessDays(string $start, string $end): int {
     $days = 0;
     while ($cursor < $endEx) {
         $dow = (int) $cursor->format('N');
-        if ($dow <= 5) $days++;
+        // The payroll work week is Monday-Saturday (WORK_WEEK_LAST_ISO_DOW = 6),
+        // so a leave day must be charged on the same basis or the balance is
+        // under-charged for every Saturday the leave covers.
+        if ($dow <= 6) $days++;
         $cursor->modify('+1 day');
     }
     return $days;
