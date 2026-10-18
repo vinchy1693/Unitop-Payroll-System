@@ -22,7 +22,7 @@ async function loadEmployeeOptions() {
     const select = document.getElementById("employee_id");
     const currentVal = select.value;
     try {
-        const { data } = await api.get("employees.php", { params: { simple: 1 } });
+        const { data } = await api.get("employees_lookup.php");
         select.innerHTML = `<option value="">-- None --</option>` +
             data.data.map((e) => `<option value="${e.id}">${escapeHtml(e.label)}</option>`).join("");
         if (currentVal) select.value = currentVal;

@@ -1,0 +1,42 @@
+<?php
+// =====================================================================
+// GET employees_lookup.php
+//
+// A minimal employee list for screens that must reference an employee
+// without exposing their pay: the Users page needs to link an account to an
+// employee (especially a Supervisor, who leads no team until linked), but
+// Administrator is deliberately excluded from employees.php because that
+// endpoint returns salary and government numbers.
+//
+// Returns ONLY id, number, name and active flag. No salary, no TIN/SSS/
+// PhilHealth/Pag-IBIG, no bank details.
+// =====================================================================
+require __DIR__ . "/_bootstrap.php";
+
+// The technical admin needs this to assign roles; the payroll roles already
+// have the full employees.php.
+requireRole(array_merge(ADMIN_ROLES, PAYROLL_ROLES));
+
+if ($_SERVER["REQUEST_METHOD"] !== "GET") {
+    respond(false, "Method not allowed.", null, 405);
+}
+
+$rows = $pdo->query(
+    "SELECT employee_id, employee_number, first_name, last_name, is_active
+     FROM employees
+     ORDER BY last_name, first_name"
+)->fetchAll();
+
+$out = [];
+foreach ($rows as $r) {
+    $out[] = [
+        "employee_id"     => (int) $r["employee_id"],
+        "employee_number" => $r["employee_number"],
+        "first_name"      => $r["first_name"],
+        "last_name"       => $r["last_name"],
+        "name"            => trim($r["last_name"] . ", " . $r["first_name"]),
+        "is_active"       => (int) $r["is_active"],
+    ];
+}
+
+respond(true, "", $out);
