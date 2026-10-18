@@ -30,6 +30,10 @@ $rows = $pdo->query(
 $out = [];
 foreach ($rows as $r) {
     $out[] = [
+        // "id" and "label" keep the shape users.js already expects (it renders
+        // option value=e.id / text=e.label); the rest is for other callers.
+        "id"              => (int) $r["employee_id"],
+        "label"           => $r["employee_number"] . " - " . trim($r["last_name"] . ", " . $r["first_name"]),
         "employee_id"     => (int) $r["employee_id"],
         "employee_number" => $r["employee_number"],
         "first_name"      => $r["first_name"],
