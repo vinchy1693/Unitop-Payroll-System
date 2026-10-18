@@ -23,23 +23,35 @@ $GLOBALS["AUDIT_ACTOR"] = [
 ];
 
 // =====================================================================
-// Segregation of duties (maker / checker)
+// Segregation of duties (maker / checker / supervisor)
 //
 //   Employee        - portal self-service only
+//   Supervisor      - team lead: sees and decides ONLY their own team's
+//                     attendance, corrections, overtime and leave, and
+//                     RECOMMENDS (never approves) a team member's loan
 //   Payroll Officer - the MAKER: prepares master data and payroll runs
 //   Approver        - the CHECKER: reads everything, decides payroll runs
 //   Administrator   - technical only: users + audit trail
 //
 // PAYROLL_ROLES is deliberately maker + checker: reading payroll data is
-// shared, deciding it is not. Administrator is NOT part of it.
+// shared, deciding it is not. Administrator is NOT part of it, and neither is
+// Supervisor - PAYROLL_ROLES is exactly the key that opens salaries,
+// payslips, payroll periods / runs, reports and the dashboard.
+//
+// TEAM_QUEUE_ROLES is the three roles that reach the team queues
+// (attendance, overtime, leave, loans). Maker and checker keep the whole
+// queue; a Supervisor read is narrowed to their own team by
+// supervisorScopeIds(), and a Supervisor write is checked by assertSupervises().
 // =====================================================================
-const MAKER_ROLES   = ["Payroll Officer"];
-const CHECKER_ROLES = ["Approver"];
-const ADMIN_ROLES   = ["Administrator"];
-const PAYROLL_ROLES = ["Payroll Officer", "Approver"];   // maker + checker
+const MAKER_ROLES      = ["Payroll Officer"];
+const CHECKER_ROLES    = ["Approver"];
+const ADMIN_ROLES      = ["Administrator"];
+const SUPERVISOR_ROLE  = "Supervisor";
+const PAYROLL_ROLES    = ["Payroll Officer", "Approver"];               // maker + checker
+const TEAM_QUEUE_ROLES = ["Payroll Officer", "Approver", "Supervisor"]; // + team lead
 
 // Every role the users screen may assign.
-const ALL_ROLES = ["Employee", "Payroll Officer", "Approver", "Administrator"];
+const ALL_ROLES = ["Employee", "Payroll Officer", "Approver", "Supervisor", "Administrator"];
 
 header("Content-Type: application/json; charset=utf-8");
 
@@ -307,6 +319,160 @@ function requireRole($roles): void {
     $user    = currentUser();
     if (!in_array($user["role"], $allowed, true)) {
         respond(false, "You do not have permission to perform this action.", null, 403);
+    }
+}
+
+// =====================================================================
+// Supervisor team scope
+//
+// A team is defined structurally and only once: every employee whose
+// employees.supervisor_id points at this employee. There is no teams table
+// and no cached membership list, so the guard and the query can never
+// disagree about who is on a team.
+//
+// The four functions below are the ONLY place team scope is decided; every
+// supervisor-aware endpoint calls them rather than writing its own rule.
+//
+//   currentEmployeeId()                        -> ?int    acting user's employee
+//   supervisorTeamIds($pdo, $supervisorEmpId)  -> int[]   that employee's team
+//   supervisorScopeIds($pdo)                   -> ?int[]  read scope for a GET
+//                                                          (null = no scope)
+//   assertSupervises($pdo, $employeeId, $what) -> void    403 unless a
+//                                                          team-member request
+//   assertTeamReadScope($pdo, $employeeId, $what) -> void 403 for an
+//                                                          out-of-team read
+//
+// The own-request rule lives in assertSupervises(): the acting Supervisor's
+// own employee_id is never a member of their own team, so approving your own
+// request is refused BOTH by the explicit self check and by the team test.
+//
+// A Supervisor user with no employee_id supervises nobody: supervisorTeamIds()
+// returns [], supervisorScopeIds() returns [], and every guard answers 403
+// (never a PHP error, never a 500).
+// =====================================================================
+
+/** True when the acting user's role is Supervisor. */
+function isSupervisor(): bool {
+    $user = currentUser();
+    return $user !== null && (string) $user["role"] === SUPERVISOR_ROLE;
+}
+
+/**
+ * The acting user's employee_id, or null for a staff account that is not
+ * linked to an employee record (payroll, approver, admin and a Supervisor
+ * created without a link).
+ */
+function currentEmployeeId(): ?int {
+    $user = currentUser();
+    if ($user === null) return null;
+    return $user["employee_id"] !== null ? (int) $user["employee_id"] : null;
+}
+
+/**
+ * Employee ids whose supervisor_id is $supervisorEmployeeId (the team that
+ * employee leads). Never includes the supervisor themselves. A non-positive
+ * id - the shape a NULL employee link takes - yields an empty team.
+ */
+function supervisorTeamIds(PDO $pdo, int $supervisorEmployeeId): array {
+    if ($supervisorEmployeeId <= 0) return [];
+    $stmt = $pdo->prepare(
+        "SELECT employee_id FROM employees WHERE supervisor_id = ? ORDER BY employee_id"
+    );
+    $stmt->execute([$supervisorEmployeeId]);
+    return array_map("intval", $stmt->fetchAll(PDO::FETCH_COLUMN));
+}
+
+/**
+ * The employee ids a GET list must be filtered to.
+ *
+ *   null  - the caller is not a Supervisor: no scope, keep the full queue
+ *   []    - the caller is a Supervisor who supervises nobody (no employee
+ *           link, or an empty team): the list must come back empty
+ *   int[] - the caller's team
+ *
+ * Callers splice the ids into an `employee_id IN (...)` condition; they never
+ * build one themselves, so a new endpoint cannot forget the scope.
+ */
+function supervisorScopeIds(PDO $pdo): ?array {
+    if (!isSupervisor()) return null;
+    $self = currentEmployeeId();
+    if ($self === null) return [];
+    return supervisorTeamIds($pdo, $self);
+}
+
+/**
+ * Authorise a Supervisor to decide a team member's request.
+ *
+ * 403 unless ALL of these hold:
+ *   - the acting user is a Supervisor
+ *   - their account is linked to an employee (otherwise they lead no team)
+ *   - the target employee is not the Supervisor themselves (own-request rule)
+ *   - the target employee's supervisor_id is that Supervisor (same team)
+ *
+ * respond() exits, so this never returns when it refuses. $what is a verb
+ * phrase such as "approve or reject this attendance correction".
+ */
+function assertSupervises(PDO $pdo, int $employeeId, string $what): void {
+    if (!isSupervisor()) {
+        respond(false, "Only a Supervisor may $what.", null, 403);
+    }
+
+    $self = currentEmployeeId();
+    if ($self === null) {
+        respond(
+            false,
+            "This Supervisor account is not linked to an employee record, so it leads no team "
+            . "and cannot $what.",
+            null,
+            403
+        );
+    }
+
+    // Own-request rule, stated in the message because it is the one refusal a
+    // Supervisor is most likely to hit by accident.
+    if ($employeeId === $self) {
+        respond(
+            false,
+            "You cannot $what because it is your own request. A Supervisor may never approve, "
+            . "reject or recommend their own request - another reviewer must decide it.",
+            null,
+            403
+        );
+    }
+
+    if (!in_array($employeeId, supervisorTeamIds($pdo, $self), true)) {
+        respond(
+            false,
+            "Employee #$employeeId is not in your team, so you cannot $what. "
+            . "A Supervisor may only decide their own team's requests.",
+            null,
+            403
+        );
+    }
+}
+
+/**
+ * Restrict a single-record READ to the acting Supervisor's team.
+ *
+ * A no-op for every other role, so the maker and the checker keep the full
+ * view and a read branch can call it unconditionally. 403 for a Supervisor
+ * asking about an employee outside their team (an explicit `?employee_id=`
+ * or `?id=` lookup is answered, not silently emptied, so the caller is told
+ * why). respond() exits, so this never returns when it refuses.
+ */
+function assertTeamReadScope(PDO $pdo, int $employeeId, string $what): void {
+    if (!isSupervisor()) return;
+
+    $self = currentEmployeeId();
+    $team = $self !== null ? supervisorTeamIds($pdo, $self) : [];
+    if (!in_array($employeeId, $team, true)) {
+        respond(
+            false,
+            "A Supervisor may only $what for their own team. "
+            . "Employee #$employeeId is not in your team.",
+            null,
+            403
+        );
     }
 }
 

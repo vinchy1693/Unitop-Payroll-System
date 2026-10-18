@@ -1,7 +1,17 @@
 <?php
+// =====================================================================
+// api/leave_requests.php
+//
+// Roles:
+//   GET   TEAM_QUEUE_ROLES  (maker + checker see every request; a Supervisor
+//                            sees only their own team's rows - a filter)
+//   POST / PUT / DELETE     MAKER_ROLES only
+//   PATCH                   MAKER_ROLES, plus a Supervisor for a TEAM MEMBER's
+//                           request only (assertSupervises(), api/_bootstrap.php)
+// =====================================================================
 require __DIR__ . "/_bootstrap.php";
 
-requireRole(PAYROLL_ROLES);   // maker + checker may read
+requireRole(TEAM_QUEUE_ROLES);   // maker + checker + supervisor may read
 
 $method = $_SERVER["REQUEST_METHOD"];
 
@@ -34,10 +44,25 @@ if ($method === "GET") {
             LEFT JOIN departments d ON d.department_id = e.department_id";
 
     $params = [];
+    $where  = [];
     if ($status !== "" && in_array($status, ["Pending","Approved","Rejected"], true)) {
-        $sql .= " WHERE lr.status = ?";
+        $where[] = "lr.status = ?";
         $params[] = $status;
     }
+
+    // Team scope. A Supervisor only ever sees their own team's leave; the
+    // maker and the checker keep every request. A Supervisor who supervises
+    // nobody gets an empty list (200), never an error.
+    $scope = supervisorScopeIds($pdo);
+    if ($scope !== null) {
+        if (!$scope) {
+            respond(true, "", []);
+        }
+        $where[] = "lr.employee_id IN (" . implode(",", array_fill(0, count($scope), "?")) . ")";
+        $params  = array_merge($params, $scope);
+    }
+
+    if ($where) $sql .= " WHERE " . implode(" AND ", $where);
     $sql .= " ORDER BY lr.leave_id DESC";
 
     $stmt = $pdo->prepare($sql);
@@ -46,7 +71,13 @@ if ($method === "GET") {
 }
 
 // ---- POST: file ----
-requireRole(MAKER_ROLES);   // only the Payroll Officer may file / decide leave
+// Filing, editing and deleting stay the Payroll Officer's alone. PATCH also
+// admits a Supervisor, for a team member's request only (checked below).
+if ($method === "PATCH") {
+    requireRole(array_merge(MAKER_ROLES, [SUPERVISOR_ROLE]));
+} else {
+    requireRole(MAKER_ROLES);   // only the Payroll Officer may file / edit / delete leave
+}
 
 if ($method === "POST") {
     $in     = json_input();
@@ -144,6 +175,20 @@ if ($method === "PATCH") {
 
     if ($id === 0 || !in_array($status, ["Approved","Rejected"], true)) {
         respond(false, "Valid leave_id and status (Approved or Rejected) required.", null, 422);
+    }
+
+    // Team scope, decided BEFORE the transaction opens so a refusal cannot
+    // leave one half-written. Only a Supervisor is checked: the maker keeps
+    // the whole queue. The team test and the own-request rule both live in
+    // assertSupervises(); the request is re-read inside the transaction.
+    if (isSupervisor()) {
+        $owner = $pdo->prepare("SELECT employee_id FROM leave_requests WHERE leave_id = ?");
+        $owner->execute([$id]);
+        $ownerEmployeeId = $owner->fetchColumn();
+        if ($ownerEmployeeId === false) {
+            respond(false, "Leave request not found.", null, 404);
+        }
+        assertSupervises($pdo, (int) $ownerEmployeeId, "approve or reject this leave request");
     }
 
     try {

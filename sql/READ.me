@@ -12,6 +12,7 @@ Each file is run **exactly once**. Do not re-run old files.
 | 005_payroll_approval_workflow.sql | Segregation of duties: payroll_runs status (Submitted/Approved/Returned/Released), submitter/approver/return/release columns + remarks | ✅ Applied |
 | 006_employee_bank_fields.sql | Employee payment details for the bank file export: bank_name, bank_account_name, bank_account_number | Applied |
 | 007_attendance_corrections.sql | Attendance correction requests: the queue an employee files into and the maker approves, so a wrong or missing record can be fixed | Applied |
+| 008_supervisor_teams.sql | The Supervisor role: `employees.supervisor_id` (team membership) + `loans.recommended_by/at/recommendation_remarks` (advice only, status untouched) | Applied |
 
 ## Payroll approval workflow (005)
 
@@ -248,3 +249,123 @@ boundary, reject requiring remarks and leaving attendance unchanged, the
 double-approve 409, the role guards, the queue filters and pagination, and one
 `audit_log` row per mutation. It restores every attendance row it touches and
 prints a PASS/FAIL summary.
+
+## Supervisor teams (008)
+
+`Supervisor` is a **team lead**, not a third payroll role. A team is defined
+structurally and only once - every employee whose `employees.supervisor_id`
+points at that employee - so there is no teams table to fall out of step with
+the guard:
+
+| Column | Type | Meaning |
+|--------|------|---------|
+| `employees.supervisor_id` | `BIGINT NULL` | the employee's team lead. Self-referencing FK to `employees.employee_id`, `ON DELETE SET NULL`, indexed (`idx_employees_supervisor`). Deleting a supervisor releases their team members instead of failing. |
+| `loans.recommended_by` | `BIGINT NULL` | `users.user_id` of the Supervisor who recommended the loan (no FK, exactly like `attendance_corrections.reviewed_by` / `overtime_records.approved_by`) |
+| `loans.recommended_at` | `DATETIME NULL` | when the recommendation was recorded |
+| `loans.recommendation_remarks` | `VARCHAR(500) NULL` | the Supervisor's advice, shown to the Approver |
+
+The role set in `api/_bootstrap.php` is now:
+
+```php
+const MAKER_ROLES      = ["Payroll Officer"];
+const CHECKER_ROLES    = ["Approver"];
+const ADMIN_ROLES      = ["Administrator"];
+const SUPERVISOR_ROLE  = "Supervisor";
+const PAYROLL_ROLES    = ["Payroll Officer", "Approver"];               // maker + checker
+const TEAM_QUEUE_ROLES = ["Payroll Officer", "Approver", "Supervisor"]; // + team lead
+const ALL_ROLES        = ["Employee", "Payroll Officer", "Approver", "Supervisor", "Administrator"];
+```
+
+`PAYROLL_ROLES` is deliberately **unchanged**: it is the key that opens
+salaries, payslips, payroll periods / runs, reports, the ledger and the
+dashboard, so a Supervisor is refused with 403 on all of them. Adding
+`Supervisor` to `ALL_ROLES` only makes the role assignable on the Users screen
+(`users.html` dropdown + the `assets/js/users.js` role hint).
+
+### The central team-scope helpers (`api/_bootstrap.php`)
+
+| Function | Signature | Behaviour |
+|----------|-----------|-----------|
+| `isSupervisor` | `(): bool` | true when the acting user's role is `Supervisor` |
+| `currentEmployeeId` | `(): ?int` | the acting user's `employee_id`, `NULL` for a staff account with no employee link |
+| `supervisorTeamIds` | `(PDO $pdo, int $supervisorEmployeeId): array` | employee ids whose `supervisor_id` is that employee. Never includes the supervisor. A non-positive id yields `[]` |
+| `supervisorScopeIds` | `(PDO $pdo): ?array` | the GET filter: `null` = not a Supervisor (full queue), `[]` = a Supervisor who leads nobody (empty list), `int[]` = their team |
+| `assertSupervises` | `(PDO $pdo, int $employeeId, string $what): void` | 403 unless the actor is a Supervisor **and** their account has an employee link **and** the target is not themselves **and** the target's `supervisor_id` is that Supervisor |
+| `assertTeamReadScope` | `(PDO $pdo, int $employeeId, string $what): void` | the read-side twin: a no-op for the maker / checker, 403 for a Supervisor asking about an employee outside their team |
+
+Refusal messages are explicit, because these are the three mistakes a team lead
+actually makes:
+
+* own request -> `You cannot <what> because it is your own request. A
+  Supervisor may never approve, reject or recommend their own request -
+  another reviewer must decide it.`
+* another team -> `Employee #N is not in your team, so you cannot <what>.
+  A Supervisor may only decide their own team's requests.`
+* no employee link -> `This Supervisor account is not linked to an employee
+  record, so it leads no team and cannot <what>.`
+
+A Supervisor user with **no** `employee_id` therefore supervises nobody: every
+guard answers 403 (never a PHP error or a 500), and every list comes back empty
+with `success: true`.
+
+### Per-endpoint behaviour
+
+| Endpoint | Maker / Checker | Supervisor |
+|----------|-----------------|------------|
+| `GET attendance.php` | full view | **200**, team only. `?date=` / `?summary=` filtered; `?id=` / `?employee_detail=` for a non-team employee -> 403 |
+| `POST/PUT/PATCH/DELETE attendance.php` | maker only | **403** (mutations stay maker-only) |
+| `GET attendance_corrections.php` | full queue | **200**, team only (a filter, not a 403) |
+| `PATCH attendance_corrections.php` | maker decides | **200** for a team member; 403 for another team / own request / no employee link |
+| `GET overtime_records.php` | full queue | **200**, team only (all five query shapes) |
+| `PATCH overtime_records.php` | maker decides | **200** for a team member; 403 otherwise |
+| `POST/PUT/DELETE overtime_records.php` | maker only | **403** |
+| `GET leave_requests.php` | every request | **200**, team only |
+| `PATCH leave_requests.php` | maker decides | **200** for a team member; 403 otherwise |
+| `POST/PUT/DELETE leave_requests.php` | maker only | **403** |
+| `GET loans.php` | every loan | **200**, team only (carries `recommended_by` / `has_recommendation`) |
+| `PATCH loans.php action=recommend` | **403** (no recommendation step) | **200** for a team member. Records `recommended_by` / `recommended_at` / `recommendation_remarks` and **never** changes `loans.status` |
+| `PATCH loans.php action=approve` | Approver only | **403** - a Supervisor can never decide a loan |
+| `POST/PUT/DELETE loans.php`, `PATCH loans.php status` | maker only | **403** |
+| `employees` / `salary_rates` / `dashboard` / `reports` / `payslips` / `payroll_runs` / `payroll_periods` / `ledger` / `allowances` / `deductions` / `cash_disbursements` / `departments` / `positions` / `qr_codes` / `leave_types` / `leave_balances` | unchanged | **403** - no salaries, no payroll editing |
+| `users.php` / `audit_log.php` | Administrator | **403** |
+| `auth.php`, `scan_attendance.php` | open | **open** |
+
+`auth.php?action=verify` (kiosk exit) was **not** extended: it is a technical
+operation this file has always kept to Administrator plus the two payroll
+roles, and changing authentication was out of scope for this step. A Supervisor
+can still use the kiosk itself, but authorising a kiosk exit answers 403.
+
+### Nav (`assets/js/nav.js`)
+
+The `NAV_ACCESS` rows that gained `Supervisor` are exactly the team screens:
+
+```
+attendance.html              ["Payroll Officer", "Approver", "Supervisor"]
+leave.html                   ["Payroll Officer", "Approver", "Supervisor"]
+overtime.html                ["Payroll Officer", "Approver", "Supervisor"]
+attendance_corrections.html  ["Payroll Officer", "Approver", "Supervisor"]
+loans.html                   ["Payroll Officer", "Approver", "Supervisor"]
+kiosk.html                   ["Employee", "Payroll Officer", "Approver", "Supervisor", "Administrator"]
+```
+
+Dashboard, Employees, Salary Rates, Payroll Periods / Runs, Payslips, Reports,
+Users and Audit Log are untouched, so a Supervisor does not see them at all.
+The default-hidden `nav-locked` behaviour and every `data-page` value are
+unchanged. `assets/js/attendance_corrections.js` and `assets/js/loans.js` render
+their decision buttons for a Supervisor too (the API is still the real guard),
+and `assets/js/loans.js` hides the add-loan form from them.
+
+### Tests
+
+`tests/supervisor_scope_test.php` proves the whole role on real fixtures (two
+teams, a Supervisor with no employee link, a maker and a checker): team-scoped
+GET lists, team decisions returning 200, another team's request -> 403, the
+own-request rule -> 403, the unlinked Supervisor -> 403 everywhere, a loan
+recommendation that leaves `status` untouched, a refused loan approval, the
+closed salary / payroll screens, the maker regression, and one `audit_log` row
+per decision. It removes every fixture it creates and asserts employees 4, 5
+and 8 are unchanged.
+
+`tests/role_matrix_test.php` and `tests/nav_matrix_test.php` carry the
+`Supervisor` column / row for every page and endpoint they cover.
+

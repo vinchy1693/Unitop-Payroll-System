@@ -65,10 +65,12 @@
                         <option>Employee</option>
                         <option>Payroll Officer</option>
                         <option>Approver</option>
+                        <option>Supervisor</option>
                         <option>Administrator</option>
                     </select>
                     <small style="display:block;font-size:11.5px;color:var(--muted);margin-top:4px;">
-                        Payroll Officer = maker, Approver = checker, Administrator = technical only.
+                        Payroll Officer = maker, Approver = checker, Supervisor = team lead
+                        (own team only), Administrator = technical only.
                     </small>
                 </div>
                 <div>
@@ -76,7 +78,7 @@
                     <input type="password" id="password" required>
                 </div>
                 <div>
-                    <label>Linked Employee <span style="color:#888;font-weight:400;">(required for Employee role)</span></label>
+                    <label>Linked Employee <span id="employee-link-hint" style="color:#888;font-weight:400;">(required for Employee role)</span></label>
                     <select id="employee_id">
                         <option value="">-- None --</option>
                     </select>

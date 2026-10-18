@@ -4,21 +4,27 @@
 //
 // Drives real HTTP calls for each role and asserts the permission matrix:
 //
-//   endpoint group                         Employee  Maker  Checker  Admin
-//   auth.php / scan_attendance.php           200     200     200     200
-//   dashboard.php / reports.php              403     200     200     403
+//   endpoint group                         Employee  Maker  Checker  Supervisor  Admin
+//   auth.php / scan_attendance.php           200     200     200      200        200
+//   dashboard.php / reports.php              403     200     200      403        403
 //   employees/salary_rates/positions/
-//     departments/qr_codes                   403     200     200     403
+//     departments/qr_codes                   403     200     200      403        403
 //   attendance / overtime_records /
-//     attendance_corrections                 403     200     200     403
-//   leave_types / leave_balances /
-//     leave_requests                         403     200     200     403
+//     attendance_corrections                 403     200     200      200        403
+//   leave_types / leave_balances             403     200     200      403        403
+//   leave_requests                           403     200     200      200        403
 //   allowances / deductions / ledger /
-//     cash_disbursements                     403     200     200     403
-//   loans.php                                403     200     200     403
+//     cash_disbursements                     403     200     200      403        403
+//   loans.php                                403     200     200      200        403
 //   payroll_periods / payroll_runs /
-//     payslips                               403     200     200     403
-//   users.php / audit_log.php                403     403     403     200
+//     payslips                               403     200     200      403        403
+//   users.php / audit_log.php                403     403     403      403        200
+//
+// The Supervisor column is the same 200 for the four team queues their nav
+// shows, and 403 everywhere a salary, payslip or payroll run is reachable.
+// Their reads are team-scoped, so a Supervisor account with no employee link
+// (the fixture created here) gets an empty 200 list - tests/supervisor_scope_test.php
+// proves the filtering itself on real teams.
 //
 // Mutations use a deliberately invalid payload: the maker must reach the
 // handler (422 / 409 / 405), everyone else must be stopped by the guard (403).
@@ -29,7 +35,7 @@
 
 require __DIR__ . '/_harness.php';
 
-const ROLE_ORDER = ['Employee', 'Payroll Officer', 'Approver', 'Administrator'];
+const ROLE_ORDER = ['Employee', 'Payroll Officer', 'Approver', 'Supervisor', 'Administrator'];
 
 $jars  = [];
 $users = [];
@@ -40,7 +46,7 @@ $AUDIT_MAX = (int) (dbRow("SELECT COALESCE(MAX(audit_id), 0) AS m FROM audit_log
 
 /**
  * Assert one exact status per role, in ROLE_ORDER.
- * $expect = [Employee, Payroll Officer, Approver, Administrator]
+ * $expect = [Employee, Payroll Officer, Approver, Supervisor, Administrator]
  */
 function expectRole(array $expect, callable $call, string $label): array {
     global $jars;
@@ -59,16 +65,17 @@ $fixturePeriod  = 0;
 $fixtureLoan    = 0;
 
 try {
-    // ---- four role accounts ------------------------------------------
+    // ---- five role accounts ------------------------------------------
     $users['Employee']        = mkUser('dsh_matrix_emp',   'Employee');
     $users['Payroll Officer'] = mkUser('dsh_matrix_maker', 'Payroll Officer');
     $users['Approver']        = mkUser('dsh_matrix_check', 'Approver');
+    $users['Supervisor']      = mkUser('dsh_matrix_sup',   'Supervisor');
     $users['Administrator']   = mkUser('dsh_matrix_admin', 'Administrator');
 
     foreach (ROLE_ORDER as $role) {
         $jars[$role] = login('dsh_matrix_' . [
             'Employee' => 'emp', 'Payroll Officer' => 'maker',
-            'Approver' => 'check', 'Administrator' => 'admin',
+            'Approver' => 'check', 'Supervisor' => 'sup', 'Administrator' => 'admin',
         ][$role]);
     }
 
@@ -98,31 +105,31 @@ try {
     section('1. Reads: 200 for the roles the matrix allows, 403 otherwise');
     // =================================================================
     $reads = [
-        'dashboard.php'                          => [403, 200, 200, 403],
-        'reports.php?report=payroll_register&run_id=1' => [403, 200, 200, 403],
-        'employees.php'                          => [403, 200, 200, 403],
-        'employees.php?simple=1'                 => [403, 200, 200, 403],
-        'salary_rates.php'                       => [403, 200, 200, 403],
-        'positions.php'                          => [403, 200, 200, 403],
-        'departments.php'                        => [403, 200, 200, 403],
-        'qr_codes.php'                           => [403, 200, 200, 403],
-        'attendance.php?date=2027-01-04'         => [403, 200, 200, 403],
-        'attendance_corrections.php'             => [403, 200, 200, 403],
-        'overtime_records.php?all=1'             => [403, 200, 200, 403],
-        'leave_types.php'                        => [403, 200, 200, 403],
-        'leave_balances.php'                     => [403, 200, 200, 403],
-        'leave_requests.php'                     => [403, 200, 200, 403],
-        "allowances.php?payslip_id=$realPayslip" => [403, 200, 200, 403],
-        "deductions.php?payslip_id=$realPayslip" => [403, 200, 200, 403],
-        "cash_disbursements.php?payslip_id=$realPayslip" => [403, 200, 200, 403],
-        'ledger.php?employee_id=4&from=2027-01-01&to=2027-01-31' => [403, 200, 200, 403],
-        'loans.php'                              => [403, 200, 200, 403],
-        'payroll_periods.php'                    => [403, 200, 200, 403],
-        'payroll_runs.php'                       => [403, 200, 200, 403],
-        'payslips.php?run_id=1'                  => [403, 200, 200, 403],
-        'users.php'                              => [403, 403, 403, 200],
-        'audit_log.php'                          => [403, 403, 403, 200],
-        'auth.php?action=me'                     => [200, 200, 200, 200],
+        'dashboard.php'                          => [403, 200, 200, 403, 403],
+        'reports.php?report=payroll_register&run_id=1' => [403, 200, 200, 403, 403],
+        'employees.php'                          => [403, 200, 200, 403, 403],
+        'employees.php?simple=1'                 => [403, 200, 200, 403, 403],
+        'salary_rates.php'                       => [403, 200, 200, 403, 403],
+        'positions.php'                          => [403, 200, 200, 403, 403],
+        'departments.php'                        => [403, 200, 200, 403, 403],
+        'qr_codes.php'                           => [403, 200, 200, 403, 403],
+        'attendance.php?date=2027-01-04'         => [403, 200, 200, 200, 403],
+        'attendance_corrections.php'             => [403, 200, 200, 200, 403],
+        'overtime_records.php?all=1'             => [403, 200, 200, 200, 403],
+        'leave_types.php'                        => [403, 200, 200, 403, 403],
+        'leave_balances.php'                     => [403, 200, 200, 403, 403],
+        'leave_requests.php'                     => [403, 200, 200, 200, 403],
+        "allowances.php?payslip_id=$realPayslip" => [403, 200, 200, 403, 403],
+        "deductions.php?payslip_id=$realPayslip" => [403, 200, 200, 403, 403],
+        "cash_disbursements.php?payslip_id=$realPayslip" => [403, 200, 200, 403, 403],
+        'ledger.php?employee_id=4&from=2027-01-01&to=2027-01-31' => [403, 200, 200, 403, 403],
+        'loans.php'                              => [403, 200, 200, 200, 403],
+        'payroll_periods.php'                    => [403, 200, 200, 403, 403],
+        'payroll_runs.php'                       => [403, 200, 200, 403, 403],
+        'payslips.php?run_id=1'                  => [403, 200, 200, 403, 403],
+        'users.php'                              => [403, 403, 403, 403, 200],
+        'audit_log.php'                          => [403, 403, 403, 403, 200],
+        'auth.php?action=me'                     => [200, 200, 200, 200, 200],
     ];
     foreach ($reads as $path => $expect) {
         expectRole($expect, fn($jar) => req('GET', $path, null, $jar), "GET $path");
@@ -149,6 +156,11 @@ try {
     $r = req('POST', 'auth.php?action=verify',
         ['username' => 'dsh_matrix_admin', 'password' => TEST_PW], $jars['Administrator']);
     eq('Administrator can authorise kiosk exit -> 200', $r['code'], 200);
+    // Deliberately unchanged: exiting kiosk mode is a technical operation, so
+    // Supervisor was NOT added to it (see sql/READ.me, step 6).
+    $r = req('POST', 'auth.php?action=verify',
+        ['username' => 'dsh_matrix_sup', 'password' => TEST_PW], $jars['Supervisor']);
+    eq('Supervisor cannot authorise kiosk exit -> 403', $r['code'], 403);
 
     // =================================================================
     section('3. scan_attendance.php works for every role');
@@ -169,29 +181,33 @@ try {
     // The payload is invalid on purpose, so a 422 (or 409/405) proves the
     // role guard let the maker through and the handler validated the input.
     $writes = [
-        ['POST',   'employees.php',       [],                                                                       [403, 422, 403, 403]],
-        ['POST',   'salary_rates.php',    [],                                                                       [403, 422, 403, 403]],
-        ['POST',   'positions.php',       [],                                                                       [403, 422, 403, 403]],
-        ['POST',   'departments.php',     [],                                                                       [403, 422, 403, 403]],
-        ['POST',   'qr_codes.php',        [],                                                                       [403, 422, 403, 403]],
-        ['POST',   'attendance.php',      [],                                                                       [403, 422, 403, 403]],
-        ['PATCH',  'attendance_corrections.php', [],                                                                [403, 422, 403, 403]],
-        ['POST',   'overtime_records.php',[],                                                                       [403, 422, 403, 403]],
-        ['POST',   'leave_types.php',     [],                                                                       [403, 422, 403, 403]],
-        ['POST',   'leave_balances.php',  ['year' => 1999],                                                         [403, 422, 403, 403]],
-        ['POST',   'leave_requests.php',  [],                                                                       [403, 422, 403, 403]],
-        ['POST',   'allowances.php',      [],                                                                       [403, 422, 403, 403]],
-        ['POST',   'deductions.php',      [],                                                                       [403, 422, 403, 403]],
-        ['POST',   'cash_disbursements.php', [],                                                                    [403, 422, 403, 403]],
-        ['POST',   'loans.php',           [],                                                                       [403, 422, 403, 403]],
-        ['PUT',    'payslips.php',        [],                                                                       [403, 422, 403, 403]],
-        ['POST',   'payroll_periods.php', [],                                                                       [403, 422, 403, 403]],
-        ['POST',   'payroll_runs.php',    [],                                                                       [403, 422, 403, 403]],
-        ['PATCH',  'payroll_runs.php',    ['run_id' => 1, 'action' => 'approve'],                                   [403, 403, 409, 403]],
-        ['PATCH',  'payroll_runs.php',    ['run_id' => 1, 'action' => 'resubmit'],                                  [403, 409, 403, 403]],
-        ['PATCH',  'loans.php',           ['action' => 'approve', 'loan_id' => 0],                                  [403, 403, 422, 403]],
-        ['POST',   'users.php',           [],                                                                       [403, 403, 403, 422]],
-        ['POST',   'audit_log.php',       [],                                                                       [403, 403, 403, 405]],
+        ['POST',   'employees.php',       [],                                                                       [403, 422, 403, 403, 403]],
+        ['POST',   'salary_rates.php',    [],                                                                       [403, 422, 403, 403, 403]],
+        ['POST',   'positions.php',       [],                                                                       [403, 422, 403, 403, 403]],
+        ['POST',   'departments.php',     [],                                                                       [403, 422, 403, 403, 403]],
+        ['POST',   'qr_codes.php',        [],                                                                       [403, 422, 403, 403, 403]],
+        ['POST',   'attendance.php',      [],                                                                       [403, 422, 403, 403, 403]],
+        ['PATCH',  'attendance_corrections.php', [],                                                                [403, 422, 403, 422, 403]],
+        ['POST',   'overtime_records.php',[],                                                                       [403, 422, 403, 403, 403]],
+        ['PATCH',  'overtime_records.php',[],                                                                       [403, 422, 403, 422, 403]],
+        ['PUT',    'overtime_records.php',[],                                                                       [403, 422, 403, 403, 403]],
+        ['POST',   'leave_types.php',     [],                                                                       [403, 422, 403, 403, 403]],
+        ['POST',   'leave_balances.php',  ['year' => 1999],                                                         [403, 422, 403, 403, 403]],
+        ['POST',   'leave_requests.php',  [],                                                                       [403, 422, 403, 403, 403]],
+        ['PATCH',  'leave_requests.php',  [],                                                                       [403, 422, 403, 422, 403]],
+        ['POST',   'allowances.php',      [],                                                                       [403, 422, 403, 403, 403]],
+        ['POST',   'deductions.php',      [],                                                                       [403, 422, 403, 403, 403]],
+        ['POST',   'cash_disbursements.php', [],                                                                    [403, 422, 403, 403, 403]],
+        ['POST',   'loans.php',           [],                                                                       [403, 422, 403, 403, 403]],
+        ['PUT',    'payslips.php',        [],                                                                       [403, 422, 403, 403, 403]],
+        ['POST',   'payroll_periods.php', [],                                                                       [403, 422, 403, 403, 403]],
+        ['POST',   'payroll_runs.php',    [],                                                                       [403, 422, 403, 403, 403]],
+        ['PATCH',  'payroll_runs.php',    ['run_id' => 1, 'action' => 'approve'],                                   [403, 403, 409, 403, 403]],
+        ['PATCH',  'payroll_runs.php',    ['run_id' => 1, 'action' => 'resubmit'],                                  [403, 409, 403, 403, 403]],
+        ['PATCH',  'loans.php',           ['action' => 'approve', 'loan_id' => 0],                                  [403, 403, 422, 403, 403]],
+        ['PATCH',  'loans.php',           ['action' => 'recommend', 'loan_id' => 0],                                [403, 403, 403, 422, 403]],
+        ['POST',   'users.php',           [],                                                                       [403, 403, 403, 403, 422]],
+        ['POST',   'audit_log.php',       [],                                                                       [403, 403, 403, 403, 405]],
     ];
     foreach ($writes as [$method, $path, $body, $expect]) {
         expectRole($expect, fn($jar) => req($method, $path, $body, $jar), "$method $path");
@@ -286,6 +302,85 @@ try {
     eq('Administrator cannot create master data -> 403', $r['code'], 403);
     $r = req('GET', 'users.php', null, $jars['Administrator']);
     eq('Administrator can manage users -> 200', $r['code'], 200);
+
+    // =================================================================
+    section('8. Supervisor: team queues yes, salaries and payroll no');
+    // =================================================================
+    // This fixture Supervisor has NO employee link, so it leads no team: every
+    // read is a successful EMPTY list, not an error, and every decision is 403.
+    // tests/supervisor_scope_test.php proves the filtering on real teams.
+    $supJar = $jars['Supervisor'];
+    $teamQueues = [
+        'attendance.php?date=2027-01-04'     => null,     // a bare list
+        'attendance_corrections.php'         => 'rows',   // {rows,total,...}
+        'overtime_records.php?all=1'         => null,
+        'leave_requests.php'                 => null,
+        'loans.php'                          => null,
+    ];
+    foreach ($teamQueues as $path => $nested) {
+        $r = req('GET', $path, null, $supJar);
+        eq("Supervisor GET $path -> 200", $r['code'], 200);
+        eq("Supervisor GET $path is a successful response", $r['json']['success'] ?? null, true);
+        $rows = $nested === null
+            ? ($r['json']['data'] ?? [])
+            : ($r['json']['data'][$nested] ?? []);
+        eq("Supervisor with no team sees no rows on $path", count($rows), 0);
+    }
+
+    // Their own team's queues are readable, but a salary screen is not.
+    foreach (['dashboard.php', 'employees.php', 'employees.php?simple=1', 'salary_rates.php',
+              'payroll_periods.php', 'payroll_runs.php', 'payslips.php?run_id=1',
+              'reports.php?report=payroll_register&run_id=1', 'ledger.php?employee_id=4',
+              'departments.php', 'positions.php', 'qr_codes.php', 'leave_types.php',
+              'leave_balances.php', 'users.php', 'audit_log.php'] as $path) {
+        $r = req('GET', $path, null, $supJar);
+        eq("Supervisor GET $path -> 403", $r['code'], 403);
+    }
+
+    // A recommendation needs a team: an unlinked Supervisor is refused, and the
+    // loan keeps its status. The maker creates and removes the fixture loan.
+    $r = req('POST', 'loans.php', [
+        'employee_id' => $empId, 'loan_type' => 'DSH Supervisor Loan',
+        'principal_amount' => 5000, 'monthly_amortization' => 500, 'status' => 'Pending',
+    ], $makerJar);
+    eq('the maker can still propose a Pending loan -> 200', $r['code'], 200);
+    $supLoan = (int) ($r['json']['data']['loan_id'] ?? 0);
+
+    $r = req('PATCH', 'loans.php', ['loan_id' => $supLoan, 'action' => 'recommend'], $supJar);
+    eq('a Supervisor with no team cannot recommend a loan -> 403', $r['code'], 403);
+    eq('the loan is still Pending',
+        dbRow("SELECT status FROM loans WHERE loan_id = $supLoan")['status'] ?? null, 'Pending');
+
+    $r = req('PATCH', 'loans.php', ['loan_id' => $supLoan, 'action' => 'approve'], $supJar);
+    eq('a Supervisor cannot approve a loan -> 403', $r['code'], 403);
+    eq('the loan is still Pending after the refused approval',
+        dbRow("SELECT status FROM loans WHERE loan_id = $supLoan")['status'] ?? null, 'Pending');
+
+    $r = req('PATCH', 'loans.php', ['loan_id' => $supLoan, 'status' => 'Active'], $supJar);
+    eq('a Supervisor cannot force a loan status -> 403', $r['code'], 403);
+
+    // The Approver still owns the loan decision.
+    $r = req('PATCH', 'loans.php', ['loan_id' => $supLoan, 'action' => 'approve'], $checkerJar);
+    eq('the Approver still approves a proposed loan -> 200', $r['code'], 200);
+    eq('the loan is now Active',
+        dbRow("SELECT status FROM loans WHERE loan_id = $supLoan")['status'] ?? null, 'Active');
+
+    $r = req('DELETE', "loans.php?id=$supLoan", null, $makerJar);
+    eq('the maker can still delete the fixture loan -> 200', $r['code'], 200);
+
+    // Every refused Supervisor loan write is in the audit trail. The login and
+    // kiosk POSTs are audited too, so only loans.php is inspected here.
+    $supLogs = dbAll("SELECT * FROM audit_log
+                      WHERE audit_id > $AUDIT_MAX AND username = 'dsh_matrix_sup'
+                        AND action = 'loans.php'");
+    is_true('the refused Supervisor writes are audited', count($supLogs) >= 3,
+        'rows: ' . count($supLogs));
+    eq('they are all attributed to the Supervisor role',
+        count(array_filter($supLogs, fn($x) => ($x['role'] ?? null) !== 'Supervisor')), 0);
+    eq('none of them is recorded as a success',
+        count(array_filter($supLogs, fn($x) => (int) $x['success'] !== 0)), 0);
+    eq('all of them are refusals (403, or 422 where the guard let it validate)',
+        count(array_filter($supLogs, fn($x) => (int) $x['http_status'] < 400)), 0);
 
 } catch (Throwable $e) {
     bad('harness ran without exception', $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());

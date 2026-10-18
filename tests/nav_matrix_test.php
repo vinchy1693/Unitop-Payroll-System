@@ -20,7 +20,9 @@
 require __DIR__ . '/_harness.php';
 
 const ROOT_DIR = __DIR__ . '/..';
-const ROLE_ORDER = ['Employee', 'Payroll Officer', 'Approver', 'Administrator'];
+// Order matters: after the matrix is checked, the kiosk row is compared to
+// this list verbatim, so it must stay in step with NAV_ACCESS["kiosk.html"].
+const ROLE_ORDER = ['Employee', 'Payroll Officer', 'Approver', 'Supervisor', 'Administrator'];
 
 // Frozen contract: the data-page values the navigation links use today. A
 // rename or a dropped link shows up here as a mismatch instead of silently
@@ -198,7 +200,8 @@ try {
     section('3. The table matches the API guard, page by page');
     // =================================================================
     $jars = [];
-    $map = ['Employee' => 'emp', 'Payroll Officer' => 'maker', 'Approver' => 'check', 'Administrator' => 'admin'];
+    $map = ['Employee' => 'emp', 'Payroll Officer' => 'maker', 'Approver' => 'check',
+            'Supervisor' => 'sup', 'Administrator' => 'admin'];
     foreach (ROLE_ORDER as $role) {
         mkUser('dsh_nav_' . $map[$role], $role);
         $jars[$role] = login('dsh_nav_' . $map[$role]);

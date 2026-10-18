@@ -1,15 +1,49 @@
 <?php
+// =====================================================================
+// api/loans.php
+//
+// Roles:
+//   GET   TEAM_QUEUE_ROLES  (maker + checker see every loan; a Supervisor
+//                            sees only their own team's loans - a filter)
+//   PATCH action=approve    CHECKER_ROLES only (the Approver decides)
+//   PATCH action=recommend  SUPERVISOR_ROLE only, own team, ADVICE ONLY:
+//                           it records recommended_by / recommended_at /
+//                           recommendation_remarks and NEVER changes
+//                           loans.status - the Approver still decides.
+//   POST / PUT / PATCH status / DELETE   MAKER_ROLES only
+//
+// A Supervisor therefore has exactly one write here and it cannot decide
+// anything: the approve action is checked against CHECKER_ROLES before the
+// supervisor branch is even considered, and loans.status is untouched by a
+// recommendation.
+// =====================================================================
 require __DIR__ . "/_bootstrap.php";
 
-requireRole(PAYROLL_ROLES);   // maker + checker may read
+requireRole(TEAM_QUEUE_ROLES);   // maker + checker + supervisor may read
 require __DIR__ . "/_payroll_helpers.php";
 
 $method = $_SERVER["REQUEST_METHOD"];
 
 // ---- GET: list loans with computed balance ----
 if ($method === "GET") {
+    // Team scope. A Supervisor only ever sees their own team's loans; the
+    // maker and the checker keep every row. A Supervisor who supervises
+    // nobody gets an empty list (200), never an error.
+    $scope  = supervisorScopeIds($pdo);
+    $params = [];
+    $scopeSql = "";
+    if ($scope !== null) {
+        if (!$scope) {
+            respond(true, "", []);
+        }
+        $scopeSql = " WHERE l.employee_id IN (" . implode(",", array_fill(0, count($scope), "?")) . ")";
+        $params   = $scope;
+    }
+
     $sql = "SELECT l.loan_id, l.employee_id, l.loan_type,
                    l.principal_amount, l.monthly_amortization, l.status,
+                   l.recommended_by, l.recommended_at, l.recommendation_remarks,
+                   rv.username AS recommended_by_name,
                    e.employee_number,
                    CONCAT(e.last_name, ', ', e.first_name) AS employee_name,
                    d.department_name,
@@ -20,13 +54,19 @@ if ($method === "GET") {
             FROM loans l
             JOIN employees e ON e.employee_id = l.employee_id
             LEFT JOIN departments d ON d.department_id = e.department_id
-            ORDER BY l.status ASC, l.loan_id DESC";
+            LEFT JOIN users rv ON rv.user_id = l.recommended_by"
+            . $scopeSql
+            . " ORDER BY l.status ASC, l.loan_id DESC";
 
-    $rows = $pdo->query($sql)->fetchAll();
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll();
 
     // Attach computed remaining balance
     foreach ($rows as &$r) {
         $r["remaining_balance"] = round((float) $r["principal_amount"] - (float) $r["total_paid"], 2);
+        $r["recommended_by"]    = $r["recommended_by"] !== null ? (int) $r["recommended_by"] : null;
+        $r["has_recommendation"] = $r["recommended_at"] !== null;
     }
     unset($r);
 
@@ -34,12 +74,62 @@ if ($method === "GET") {
 }
 
 // ---------------------------------------------------------------------
+// Supervisor-only action: RECOMMEND a team member's loan.
+//
+// This is advice, not a decision. It records who recommended what and when,
+// and deliberately leaves loans.status alone: the Approver below is still the
+// only role that can turn a Pending loan into an Active one.
+//
+// Handled before the maker guard so a Supervisor can reach this one action,
+// and before the checker branch (checked below) so a Supervisor sending
+// action=approve is refused by the CHECKER_ROLES guard rather than here.
+// ---------------------------------------------------------------------
+$early       = json_input();
+$earlyAction = strtolower(trim((string) ($early["action"] ?? "")));
+
+if ($method === "PATCH" && $earlyAction === "recommend") {
+    requireRole([SUPERVISOR_ROLE]);   // maker and checker have no recommendation step
+
+    $id = (int) ($early["loan_id"] ?? 0);
+    if ($id === 0) respond(false, "loan_id is required.", null, 422);
+
+    $remarks = trim((string) ($early["remarks"] ?? ""));
+    $remarkLength = function_exists("mb_strlen") ? mb_strlen($remarks, "UTF-8") : strlen($remarks);
+    if ($remarkLength > 500) {
+        respond(false, "Recommendation remarks must be at most 500 characters.", null, 422);
+    }
+
+    $stmt = $pdo->prepare("SELECT loan_id, employee_id, status FROM loans WHERE loan_id = ?");
+    $stmt->execute([$id]);
+    $loan = $stmt->fetch();
+    if (!$loan) respond(false, "Loan not found.", null, 404);
+
+    // Own-request rule + team test, both inside assertSupervises().
+    assertSupervises($pdo, (int) $loan["employee_id"], "recommend this loan request");
+
+    $user = currentUser();
+    $pdo->prepare(
+        "UPDATE loans
+         SET recommended_by = ?, recommended_at = NOW(), recommendation_remarks = ?
+         WHERE loan_id = ?"
+    )->execute([$user["user_id"], $remarks !== "" ? $remarks : null, $id]);
+
+    respond(true, "Loan recommendation recorded. The Approver still decides this request.", [
+        "loan_id"                => $id,
+        "status"                 => $loan["status"],   // unchanged: advice only
+        "recommended_by"         => (int) $user["user_id"],
+        "recommended_by_name"    => $user["username"],
+        "recommendation_remarks" => $remarks !== "" ? $remarks : null,
+    ]);
+}
+
+// ---------------------------------------------------------------------
 // Checker-only action: approve a proposed (Pending) loan.
 // The maker prepares loans; the Approver authorises them. Decided before
 // the maker guard below so the checker can reach this one action.
+// A Supervisor is NOT a checker, so this answers 403 for them.
 // ---------------------------------------------------------------------
-$early = json_input();
-if ($method === "PATCH" && strtolower(trim((string) ($early["action"] ?? ""))) === "approve") {
+if ($method === "PATCH" && $earlyAction === "approve") {
     requireRole(CHECKER_ROLES);
 
     $id = (int) ($early["loan_id"] ?? 0);

@@ -1,7 +1,17 @@
 <?php
+// =====================================================================
+// api/overtime_records.php
+//
+// Roles:
+//   GET   TEAM_QUEUE_ROLES  (maker + checker see the whole queue; a Supervisor
+//                            sees only their own team's rows - a filter)
+//   POST / PUT / DELETE     MAKER_ROLES only
+//   PATCH                   MAKER_ROLES, plus a Supervisor for a TEAM MEMBER's
+//                           request only (assertSupervises(), api/_bootstrap.php)
+// =====================================================================
 require __DIR__ . "/_bootstrap.php";
 
-requireRole(PAYROLL_ROLES);   // maker + checker may read
+requireRole(TEAM_QUEUE_ROLES);   // maker + checker + supervisor may read
 
 $method = $_SERVER["REQUEST_METHOD"];
 
@@ -87,11 +97,23 @@ function statusSql(array $statuses, array &$params): string {
 if ($method === "GET") {
     $statuses = statusFilter();
 
+    // Team scope. A Supervisor only ever sees overtime filed by their own
+    // team; the maker and the checker keep the full queue. A Supervisor who
+    // supervises nobody gets an empty list (200), never an error.
+    $scope = supervisorScopeIds($pdo);
+    if ($scope === []) {
+        respond(true, "", []);
+    }
+    $scopeSql    = $scope !== null
+        ? " AND ot.employee_id IN (" . implode(",", array_fill(0, count($scope), "?")) . ")"
+        : "";
+    $scopeParams = $scope ?? [];
+
     // ?id=N - single record
     if (isset($_GET["id"])) {
         $id = (int) $_GET["id"];
-        $stmt = $pdo->prepare(overtimeSelect() . " WHERE ot.ot_id = ?");
-        $stmt->execute([$id]);
+        $stmt = $pdo->prepare(overtimeSelect() . " WHERE ot.ot_id = ?" . $scopeSql);
+        $stmt->execute(array_merge([$id], $scopeParams));
         $row = $stmt->fetch();
         if (!$row) respond(false, "OT record not found.", null, 404);
         respond(true, "", decorateOvertimeRow($row));
@@ -102,9 +124,10 @@ if ($method === "GET") {
         $date   = trim($_GET["date"]);
         $params = [$date];
         $sql    = overtimeSelect() . " WHERE ot.ot_date = ?" . statusSql($statuses, $params)
+                . $scopeSql
                 . " ORDER BY e.last_name, e.first_name, ot.ot_id";
         $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
+        $stmt->execute(array_merge($params, $scopeParams));
         respond(true, "", array_map("decorateOvertimeRow", $stmt->fetchAll()));
     }
 
@@ -116,9 +139,10 @@ if ($method === "GET") {
         $params = [$empId, $from, $to];
         $sql    = overtimeSelect() . " WHERE ot.employee_id = ? AND ot.ot_date BETWEEN ? AND ?"
                 . statusSql($statuses, $params)
+                . $scopeSql
                 . " ORDER BY ot.ot_date DESC, ot.ot_id DESC";
         $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
+        $stmt->execute(array_merge($params, $scopeParams));
         respond(true, "", array_map("decorateOvertimeRow", $stmt->fetchAll()));
     }
 
@@ -126,24 +150,34 @@ if ($method === "GET") {
     if ($statuses) {
         $params = [];
         $sql    = overtimeSelect() . " WHERE 1=1" . statusSql($statuses, $params)
+                . $scopeSql
                 . " ORDER BY ot.ot_date DESC, ot.ot_id DESC LIMIT 500";
         $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
+        $stmt->execute(array_merge($params, $scopeParams));
         respond(true, "", array_map("decorateOvertimeRow", $stmt->fetchAll()));
     }
 
     // ?all=1 - every request (queue with "All statuses" and no date)
     if (!empty($_GET["all"])) {
-        $sql = overtimeSelect() . " ORDER BY ot.ot_date DESC, ot.ot_id DESC LIMIT 500";
-        $rows = $pdo->query($sql)->fetchAll();
-        respond(true, "", array_map("decorateOvertimeRow", $rows));
+        $sql = overtimeSelect() . " WHERE 1=1" . $scopeSql
+             . " ORDER BY ot.ot_date DESC, ot.ot_id DESC LIMIT 500";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($scopeParams);
+        respond(true, "", array_map("decorateOvertimeRow", $stmt->fetchAll()));
     }
 
     respond(false, "Missing query parameter (id, date, employee_id, status, or all).", null, 422);
 }
 
 // ---- POST: file a request (never a completed entry) ----
-requireRole(MAKER_ROLES);   // only the Payroll Officer drives the OT workflow
+// PATCH is the one write a Supervisor may also make, for their own team only;
+// that is decided inside the PATCH branch below. Every other method stays the
+// Payroll Officer's alone.
+if ($method === "PATCH") {
+    requireRole(array_merge(MAKER_ROLES, [SUPERVISOR_ROLE]));
+} else {
+    requireRole(MAKER_ROLES);   // only the Payroll Officer drives the OT workflow
+}
 
 if ($method === "POST") {
     $in         = json_input();
@@ -229,10 +263,17 @@ if ($method === "PATCH") {
         respond(false, "action must be 'approve' or 'reject'.", null, 422);
     }
 
-    $stmt = $pdo->prepare("SELECT ot_id, status FROM overtime_records WHERE ot_id = ?");
+    $stmt = $pdo->prepare("SELECT ot_id, employee_id, status FROM overtime_records WHERE ot_id = ?");
     $stmt->execute([$id]);
     $row = $stmt->fetch();
     if (!$row) respond(false, "OT record not found.", null, 404);
+
+    // Team scope before the state check, so an out-of-team request always
+    // answers 403 and never leaks whether it is still Pending.
+    if (isSupervisor()) {
+        assertSupervises($pdo, (int) $row["employee_id"], "approve or reject this overtime request");
+    }
+
     if ($row["status"] !== "Pending") {
         respond(false, "Only Pending requests can be approved or rejected. This one is {$row['status']}.", null, 409);
     }

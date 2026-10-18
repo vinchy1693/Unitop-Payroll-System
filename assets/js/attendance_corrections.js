@@ -8,8 +8,10 @@
 // the attendance row - the API does that inside a transaction and recomputes
 // hours_worked / minutes_late the same way the kiosk does.
 //
-// Action buttons are only rendered for the maker. The API enforces the same
-// rule (MAKER_ROLES on PATCH), so hiding a button is never the only guard.
+// Action buttons are only rendered for the maker, and for a Supervisor (who
+// decides their own team's queue only). The API enforces the same rule
+// (MAKER_ROLES + SUPERVISOR_ROLE on PATCH, team-scoped), so hiding a button is
+// never the only guard.
 // =====================================================================
 
 const rowsEl       = document.getElementById("rows");
@@ -30,8 +32,9 @@ let lastTotal   = 0;
 // ---------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------
-function isMaker()   { return !!currentUser && currentUser.role === "Payroll Officer"; }
-function canDecide() { return isMaker(); }
+function isMaker()      { return !!currentUser && currentUser.role === "Payroll Officer"; }
+function isSupervisor() { return !!currentUser && currentUser.role === "Supervisor"; }
+function canDecide()    { return isMaker() || isSupervisor(); }
 
 function formatTime(value) {
     if (!value) return "&mdash;";

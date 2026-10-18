@@ -1,8 +1,16 @@
 // =====================================================================
 // assets/js/loans.js
+//
+// The maker (Payroll Officer) adds / edits / cancels a loan. A Supervisor
+// gets ONE action here: "Recommend" on a team member's Pending request. That
+// is advice only - it records who recommended it and never changes the
+// status, because the Approver still decides. The API enforces exactly the
+// same rule (SUPERVISOR_ROLE on action=recommend, CHECKER_ROLES on
+// action=approve, MAKER_ROLES everywhere else).
 // =====================================================================
 
 let editId = null;
+let currentUser = null;
 
 const form      = document.getElementById("loan-form");
 const submitBtn = document.getElementById("submit-btn");
@@ -14,6 +22,8 @@ const countEl   = document.getElementById("record-count");
 function formatMoney(n) {
     return "₱" + Number(n || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+
+function isSupervisor() { return !!currentUser && currentUser.role === "Supervisor"; }
 
 function getEmployeeLabel() {
     const sel = document.getElementById("employee_id");
@@ -73,9 +83,17 @@ function renderRows(rows) {
             `;
         } else if (r.status === "Cancelled") {
             actions = `<button class="btn btn-restore" data-restore="${r.loan_id}">Reactivate</button>`;
+        } else if (r.status === "Pending" && isSupervisor()) {
+            // Advice only: the Approver still decides.
+            actions = `<button class="btn btn-edit" data-recommend="${r.loan_id}">Recommend</button>`;
         } else {
             actions = `<span style="color:#888;font-size:12px;">Closed</span>`;
         }
+
+        const recommendation = r.has_recommendation
+            ? `<div style="font-size:11px;color:var(--muted);margin-top:4px;">`
+              + `recommended by ${escapeHtml(r.recommended_by_name || "Supervisor")}</div>`
+            : "";
 
         return `
             <tr class="${isActive ? "" : "inactive-row"}">
@@ -85,7 +103,7 @@ function renderRows(rows) {
                 <td style="text-align:right;">${formatMoney(r.total_paid)}</td>
                 <td style="text-align:right;font-weight:600;">${formatMoney(r.remaining_balance)}</td>
                 <td style="text-align:right;">${formatMoney(r.monthly_amortization)}</td>
-                <td class="col-center">${statusBadge(r.status)}</td>
+                <td class="col-center">${statusBadge(r.status)}${recommendation}</td>
                 <td class="col-center">${actions}</td>
             </tr>
         `;
@@ -99,6 +117,9 @@ function renderRows(rows) {
     });
     rowsEl.querySelectorAll("[data-restore]").forEach((btn) => {
         btn.addEventListener("click", () => setStatus(btn.dataset.restore, "Active"));
+    });
+    rowsEl.querySelectorAll("[data-recommend]").forEach((btn) => {
+        btn.addEventListener("click", () => recommendLoan(Number(btn.dataset.recommend)));
     });
 }
 
@@ -171,6 +192,46 @@ form.addEventListener("submit", async (e) => {
     }
 });
 
+// ---------------------------------------------------------------------
+// Supervisor: recommend a team member's Pending loan.
+//
+// Records the advice and reloads. The loan keeps its status - the recommendation
+// is advisory and the Approver still decides - which the toast says explicitly
+// so nobody mistakes it for an approval.
+// ---------------------------------------------------------------------
+async function recommendLoan(loanId) {
+    const row = (await api.get("loans.php")).data.data.find((r) => Number(r.loan_id) === loanId);
+    const who = row ? `${row.employee_name} (${row.loan_type}, ${formatMoney(row.principal_amount)})` : "this loan";
+
+    const result = await Swal.fire({
+        title: "Recommend this loan",
+        html: `<div style="font-size:13px;text-align:left;margin-bottom:10px;">
+                 Recommend <strong>${escapeHtml(who)}</strong> to the Approver.
+                 This does <strong>not</strong> approve it - the Approver still decides.
+               </div>`,
+        input: "textarea",
+        inputPlaceholder: "Why do you recommend it? (optional, the Approver will see this)",
+        inputAttributes: { maxlength: 500, rows: 3 },
+        showCancelButton: true,
+        confirmButtonText: "Recommend",
+        cancelButtonText: "Cancel",
+        reverseButtons: true,
+    });
+    if (!result.isConfirmed) return;
+
+    try {
+        const { data } = await api.patch("loans.php", {
+            loan_id: loanId,
+            action: "recommend",
+            remarks: String(result.value || "").trim(),
+        });
+        showToast(data.message, "success");
+        await loadRows();
+    } catch (err) {
+        showToast(apiErrorMessage(err), "error");
+    }
+}
+
 async function setStatus(id, status) {
     const isCancel = status === "Cancelled";
     const verb = isCancel ? "Cancel" : "Reactivate";
@@ -195,7 +256,24 @@ async function setStatus(id, status) {
     }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-    loadEmployeeOptions();
-    loadRows();
+document.addEventListener("DOMContentLoaded", async () => {
+    // nav.js already asked auth.php?action=me; reuse that one request.
+    try {
+        currentUser = (typeof dshCurrentUser === "function")
+            ? await dshCurrentUser()
+            : (await api.get("auth.php?action=me")).data.data;
+    } catch (err) {
+        currentUser = null;
+    }
+
+    if (isSupervisor()) {
+        // A Supervisor cannot create or edit loans, and employees.php is
+        // closed to them, so the add form and its employee lookup are hidden.
+        const addCard = formTitle ? formTitle.closest(".card") : null;
+        if (addCard) addCard.classList.add("hidden");
+    } else {
+        loadEmployeeOptions();
+    }
+
+    await loadRows();
 });

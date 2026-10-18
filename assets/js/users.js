@@ -162,7 +162,31 @@ toggleLink.addEventListener("click", (e) => {
     loadRows();
 });
 
+// ---------------------------------------------------------------------
+// Role-dependent hint.
+//
+// A Supervisor leads the team of the employee their account is linked to, so
+// an unlinked Supervisor account supervises nobody and every team guard
+// answers 403. Point that out where the role is chosen instead of letting it
+// surprise them on the attendance queue.
+// ---------------------------------------------------------------------
+const roleSelect       = document.getElementById("role");
+const employeeLinkHint = document.getElementById("employee-link-hint");
+const EMPLOYEE_LINKED_ROLES = ["Employee", "Supervisor"];
+
+function applyRoleHint() {
+    if (!roleSelect || !employeeLinkHint) return;
+    const role = roleSelect.value;
+    employeeLinkHint.textContent = EMPLOYEE_LINKED_ROLES.indexOf(role) !== -1
+        ? "(required for the " + role + " role)"
+        : "(optional)";
+}
+
+if (roleSelect) roleSelect.addEventListener("change", applyRoleHint);
+applyRoleHint();
+
 document.addEventListener("DOMContentLoaded", () => {
     loadEmployeeOptions();
     loadRows();
+    applyRoleHint();
 });

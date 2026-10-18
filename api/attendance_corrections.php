@@ -12,9 +12,14 @@
 //   PATCH       - {correction_id, action: "approve"|"reject", remarks?}
 //
 // Roles:
-//   GET   PAYROLL_ROLES   (maker + checker may read the queue)
-//   PATCH MAKER_ROLES     (attendance is the maker's domain - the checker
-//                          never writes payroll data)
+//   GET   TEAM_QUEUE_ROLES  (maker + checker see the whole queue; a Supervisor
+//                            sees only their own team's rows - a filter, not a
+//                            403, so the queue screen loads for them)
+//   PATCH MAKER_ROLES       (attendance is the maker's domain - the checker
+//                            never writes payroll data)
+//   PATCH + Supervisor      for a TEAM MEMBER's request only. The own-request
+//                           rule and the team test both live in
+//                           assertSupervises() (api/_bootstrap.php).
 //
 // Approving APPLIES the correction to the attendance table inside a
 // transaction: the row is created when it does not exist yet, otherwise its
@@ -177,7 +182,7 @@ function correctionFilterDate(string $value): ?string {
 // GET: the queue
 // =====================================================================
 if ($method === "GET") {
-    requireRole(PAYROLL_ROLES);   // maker + checker may read
+    requireRole(TEAM_QUEUE_ROLES);   // maker + checker + supervisor may read
 
     $limit = isset($_GET["limit"]) && $_GET["limit"] !== "" ? (int) $_GET["limit"] : 100;
     if ($limit < 1)   $limit = 100;
@@ -188,6 +193,18 @@ if ($method === "GET") {
 
     $where  = [];
     $params = [];
+
+    // Team scope. A Supervisor only ever sees corrections filed by their own
+    // team; the maker and the checker keep the whole queue. A Supervisor who
+    // supervises nobody gets an empty queue (200), never an error.
+    $scope = supervisorScopeIds($pdo);
+    if ($scope !== null) {
+        if (!$scope) {
+            respond(true, "", ["rows" => [], "total" => 0, "limit" => $limit, "offset" => $offset]);
+        }
+        $where[] = "c.employee_id IN (" . implode(",", array_fill(0, count($scope), "?")) . ")";
+        $params  = array_merge($params, $scope);
+    }
 
     // ?status=Pending | Pending,Approved | all
     $rawStatus = trim((string) ($_GET["status"] ?? ""));
@@ -261,8 +278,9 @@ if ($method === "GET") {
     ]);
 }
 
-// Everything below writes: attendance is the MAKER's domain.
-requireRole(MAKER_ROLES);
+// Everything below writes: attendance is the MAKER's domain, plus a
+// Supervisor for their own team only (checked below).
+requireRole(array_merge(MAKER_ROLES, [SUPERVISOR_ROLE]));
 
 if ($method !== "PATCH") {
     respond(false, "Method not allowed.", null, 405);
@@ -297,6 +315,21 @@ if ($action === "reject" && $remarks === "") {
 }
 
 $user = currentUser();
+
+// Team scope, decided BEFORE the transaction opens so a refusal cannot leave
+// one half-written. Only a Supervisor is checked here: the maker keeps the
+// whole queue. The team test and the own-request rule are both inside
+// assertSupervises(), and the row is re-read FOR UPDATE inside the
+// transaction, so a correction cannot be moved between employees mid-flight.
+if (isSupervisor()) {
+    $owner = $pdo->prepare("SELECT employee_id FROM attendance_corrections WHERE correction_id = ?");
+    $owner->execute([$id]);
+    $ownerEmployeeId = $owner->fetchColumn();
+    if ($ownerEmployeeId === false) {
+        respond(false, "Attendance correction not found.", null, 404);
+    }
+    assertSupervises($pdo, (int) $ownerEmployeeId, "approve or reject this attendance correction");
+}
 
 $pdo->beginTransaction();
 try {

@@ -9,9 +9,12 @@ const LUNCH_THRESHOLD_MINUTES = 300;
 const LUNCH_DEDUCTION_MINUTES = 60;
 
 // Payroll staff may VIEW attendance; only the maker (Payroll Officer) may
-// create, edit or delete records. The kiosk does not call this endpoint - it
-// uses scan_attendance.php and auth.php, which stay open to every role.
-requireRole(PAYROLL_ROLES);
+// create, edit or delete records. A Supervisor may also view, but ONLY their
+// own team's rows - see the scope applied inside the GET branches below.
+// Every mutation still hits requireRole(MAKER_ROLES) further down, so a
+// Supervisor can never write attendance. The kiosk does not call this endpoint
+// - it uses scan_attendance.php and auth.php, which stay open to every role.
+requireRole(TEAM_QUEUE_ROLES);
 
 function computeAttendanceStats(string $timeIn, string $timeOut): array {
     $in  = new DateTime($timeIn);
@@ -64,6 +67,10 @@ if ($method === "GET") {
         if ($from > $to) {
             respond(false, "The 'from' date must be on or before the 'to' date.", null, 422);
         }
+
+        // A Supervisor may only open a team member's detail. The maker and the
+        // checker are unaffected (assertTeamReadScope is a no-op for them).
+        assertTeamReadScope($pdo, $empId, "read this employee's attendance");
 
         $stmt = $pdo->prepare(
             "SELECT e.employee_id, e.employee_number,
@@ -186,6 +193,17 @@ if ($method === "GET") {
 
         $expectedDays = countWorkingDays($from, $to);
 
+        // Team scope: a Supervisor's summary lists only their own team. The
+        // maker and the checker keep every active employee. A Supervisor with
+        // an empty team matches nobody (`AND 1=0`) instead of erroring.
+        $scope         = supervisorScopeIds($pdo);
+        $employeeScope = $scope === null
+            ? ""
+            : ($scope
+                ? " AND e.employee_id IN (" . implode(",", array_fill(0, count($scope), "?")) . ")"
+                : " AND 1=0");
+        $scopeParams   = $scope ?? [];
+
         // Only working-day attendance (Mon-Sat) counts; Sunday scans are ignored
         $sql = "SELECT
                     e.employee_id,
@@ -202,12 +220,12 @@ if ($method === "GET") {
                  AND a.work_date BETWEEN ? AND ?
                  AND " . workDaySql('a.work_date') . "
                 LEFT JOIN departments d ON d.department_id = e.department_id
-                WHERE e.is_active = 1
+                WHERE e.is_active = 1" . $employeeScope . "
                 GROUP BY e.employee_id, e.employee_number, e.last_name, e.first_name, d.department_name
                 ORDER BY e.last_name, e.first_name";
 
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([$from, $to]);
+        $stmt->execute(array_merge([$from, $to], $scopeParams));
         $rows = $stmt->fetchAll();
 
         $totals = [
@@ -260,23 +278,34 @@ if ($method === "GET") {
         $stmt->execute([$id]);
         $row = $stmt->fetch();
         if (!$row) respond(false, "Attendance record not found.", null, 404);
+        assertTeamReadScope($pdo, (int) $row["employee_id"], "read this attendance record");
         respond(true, "", $row);
     }
 
     // Daily view
     if (isset($_GET["date"])) {
         $date = trim($_GET["date"]);
-        $stmt = $pdo->prepare(
-            "SELECT a.*, e.employee_number,
-                    CONCAT(e.last_name, ', ', e.first_name) AS employee_name,
-                    d.department_name
-             FROM attendance a
-             JOIN employees e ON e.employee_id = a.employee_id
-             LEFT JOIN departments d ON d.department_id = e.department_id
-             WHERE a.work_date = ?
-             ORDER BY e.last_name, e.first_name"
-        );
-        $stmt->execute([$date]);
+
+        // Team scope: a Supervisor's day view lists only their own team.
+        $scope  = supervisorScopeIds($pdo);
+        $params = [$date];
+        $sql    = "SELECT a.*, e.employee_number,
+                          CONCAT(e.last_name, ', ', e.first_name) AS employee_name,
+                          d.department_name
+                   FROM attendance a
+                   JOIN employees e ON e.employee_id = a.employee_id
+                   LEFT JOIN departments d ON d.department_id = e.department_id
+                   WHERE a.work_date = ?";
+        if ($scope !== null) {
+            $sql .= $scope
+                ? " AND a.employee_id IN (" . implode(",", array_fill(0, count($scope), "?")) . ")"
+                : " AND 1=0";
+            $params = array_merge($params, $scope);
+        }
+        $sql .= " ORDER BY e.last_name, e.first_name";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
         respond(true, "", $stmt->fetchAll());
     }
 
