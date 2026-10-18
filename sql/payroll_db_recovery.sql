@@ -38,7 +38,7 @@ CREATE TABLE `allowances` (
   PRIMARY KEY (`allowance_id`),
   KEY `fk_allowances_payslip` (`payslip_id`),
   CONSTRAINT `fk_allowances_payslip` FOREIGN KEY (`payslip_id`) REFERENCES `payslips` (`payslip_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -73,7 +73,7 @@ CREATE TABLE `attendance` (
   KEY `fk_attendance_qr_code` (`qr_code_id`),
   CONSTRAINT `fk_attendance_employee` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`employee_id`),
   CONSTRAINT `fk_attendance_qr_code` FOREIGN KEY (`qr_code_id`) REFERENCES `qr_codes` (`qr_code_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=34 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=61 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -110,7 +110,7 @@ CREATE TABLE `audit_log` (
   KEY `idx_audit_created_at` (`created_at`),
   KEY `idx_audit_action` (`action`),
   KEY `idx_audit_username` (`username`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=60 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -119,6 +119,7 @@ CREATE TABLE `audit_log` (
 
 LOCK TABLES `audit_log` WRITE;
 /*!40000 ALTER TABLE `audit_log` DISABLE KEYS */;
+INSERT INTO `audit_log` VALUES (10,68,'dsh_ot_admin','Administrator','auth.php','POST',200,1,'Welcome, dsh_ot_admin.',NULL,'{\"username\":\"dsh_ot_admin\",\"password\":\"***\"}','::1','2026-10-18 12:21:11'),(11,68,'dsh_ot_admin','Administrator','scan_attendance.php','POST',200,1,'Tester, Overtime clocked in at 08:00 AM',NULL,'{\"code_value\":\"DSH-OT-QR-26260-39803518\",\"demo_mode\":true,\"demo_date\":\"2027-04-01\",\"demo_time\":\"08:00:00\"}','::1','2026-10-18 12:21:11'),(12,68,'dsh_ot_admin','Administrator','scan_attendance.php','POST',200,1,'Tester, Overtime clocked out at 05:00 PM',NULL,'{\"code_value\":\"DSH-OT-QR-26260-39803518\",\"demo_mode\":true,\"demo_date\":\"2027-04-01\",\"demo_time\":\"17:00:00\"}','::1','2026-10-18 12:21:11'),(13,68,'dsh_ot_admin','Administrator','scan_attendance.php','POST',200,1,'Overtime request submitted - waiting for approval.',NULL,'{\"code_value\":\"DSH-OT-QR-26260-39803518\",\"demo_mode\":true,\"demo_date\":\"2027-04-01\",\"demo_time\":\"17:30:00\"}','::1','2026-10-18 12:21:11'),(14,68,'dsh_ot_admin','Administrator','scan_attendance.php','POST',409,0,'Your overtime request is still awaiting approval.',NULL,'{\"code_value\":\"DSH-OT-QR-26260-39803518\",\"demo_mode\":true,\"demo_date\":\"2027-04-01\",\"demo_time\":\"17:31:00\"}','::1','2026-10-18 12:21:11'),(15,68,'dsh_ot_admin','Administrator','payroll_runs.php','POST',200,1,'Payroll run completed. 4 payslip(s) generated, 0 employee(s) skipped (no basic salary).',NULL,'{\"period_id\":11}','::1','2026-10-18 12:21:11'),(16,68,'dsh_ot_admin','Administrator','overtime_records.php','PATCH',200,1,'Overtime request approved.','ot_id=18','{\"ot_id\":18,\"action\":\"approve\"}','::1','2026-10-18 12:21:11'),(17,69,'dsh_ot_emp','Employee','auth.php','POST',200,1,'Welcome, dsh_ot_emp.',NULL,'{\"username\":\"dsh_ot_emp\",\"password\":\"***\"}','::1','2026-10-18 12:21:11'),(18,69,'dsh_ot_emp','Employee','overtime_records.php','PATCH',403,0,'You do not have permission to perform this action.','ot_id=18','{\"ot_id\":18,\"action\":\"reject\"}','::1','2026-10-18 12:21:11'),(19,68,'dsh_ot_admin','Administrator','scan_attendance.php','POST',200,1,'Overtime started at 18:00.',NULL,'{\"code_value\":\"DSH-OT-QR-26260-39803518\",\"demo_mode\":true,\"demo_date\":\"2027-04-01\",\"demo_time\":\"18:00:00\"}','::1','2026-10-18 12:21:11'),(20,68,'dsh_ot_admin','Administrator','scan_attendance.php','POST',200,1,'Overtime clock-out: 2.50 hour(s).',NULL,'{\"code_value\":\"DSH-OT-QR-26260-39803518\",\"demo_mode\":true,\"demo_date\":\"2027-04-01\",\"demo_time\":\"20:30:00\"}','::1','2026-10-18 12:21:11'),(21,68,'dsh_ot_admin','Administrator','payroll_runs.php','POST',200,1,'Payroll run completed. 4 payslip(s) generated, 0 employee(s) skipped (no basic salary).',NULL,'{\"period_id\":11}','::1','2026-10-18 12:21:11'),(22,68,'dsh_ot_admin','Administrator','scan_attendance.php','POST',200,1,'Overtime request submitted - waiting for approval.',NULL,'{\"code_value\":\"DSH-OT-QR-26260-39803518\",\"demo_mode\":true,\"demo_date\":\"2027-04-01\",\"demo_time\":\"21:00:00\"}','::1','2026-10-18 12:21:11'),(23,68,'dsh_ot_admin','Administrator','overtime_records.php','PATCH',200,1,'Overtime request rejected.','ot_id=19','{\"ot_id\":19,\"action\":\"reject\"}','::1','2026-10-18 12:21:12'),(24,68,'dsh_ot_admin','Administrator','scan_attendance.php','POST',200,1,'Your overtime request was not approved. A new request has been submitted - waiting for approval.',NULL,'{\"code_value\":\"DSH-OT-QR-26260-39803518\",\"demo_mode\":true,\"demo_date\":\"2027-04-01\",\"demo_time\":\"21:30:00\"}','::1','2026-10-18 12:21:12'),(25,68,'dsh_ot_admin','Administrator','scan_attendance.php','POST',409,0,'Your overtime request is still awaiting approval.',NULL,'{\"code_value\":\"DSH-OT-QR-26260-39803518\",\"demo_mode\":true,\"demo_date\":\"2027-04-01\",\"demo_time\":\"21:31:00\"}','::1','2026-10-18 12:21:12'),(26,68,'dsh_ot_admin','Administrator','payroll_runs.php','POST',200,1,'Payroll run completed. 4 payslip(s) generated, 0 employee(s) skipped (no basic salary).',NULL,'{\"period_id\":11}','::1','2026-10-18 12:21:12'),(27,70,'dsh_pay_admin','Administrator','auth.php','POST',200,1,'Welcome, dsh_pay_admin.',NULL,'{\"username\":\"dsh_pay_admin\",\"password\":\"***\"}','::1','2026-10-18 12:21:12'),(28,70,'dsh_pay_admin','Administrator','loans.php','POST',200,1,'Loan added.',NULL,'{\"employee_id\":20,\"loan_type\":\"DSH Loan\",\"principal_amount\":400,\"monthly_amortization\":1000}','::1','2026-10-18 12:21:12'),(29,70,'dsh_pay_admin','Administrator','scan_attendance.php','POST',200,1,'Overtime request submitted - waiting for approval.',NULL,'{\"code_value\":\"DSH-PAY-QR-30780\",\"demo_mode\":true,\"demo_date\":\"2027-03-01\",\"demo_time\":\"17:30:00\"}','::1','2026-10-18 12:21:12'),(30,70,'dsh_pay_admin','Administrator','overtime_records.php','POST',409,0,'This employee already has an open overtime request for that date.',NULL,'{\"employee_id\":20,\"ot_date\":\"2027-03-01\",\"ot_type\":\"DSH OT\",\"rate_multiplier\":1.25}','::1','2026-10-18 12:21:12'),(31,70,'dsh_pay_admin','Administrator','overtime_records.php','PATCH',200,1,'Overtime request approved.','ot_id=22','{\"ot_id\":22,\"action\":\"approve\"}','::1','2026-10-18 12:21:13'),(32,70,'dsh_pay_admin','Administrator','scan_attendance.php','POST',200,1,'Overtime started at 18:00.',NULL,'{\"code_value\":\"DSH-PAY-QR-30780\",\"demo_mode\":true,\"demo_date\":\"2027-03-01\",\"demo_time\":\"18:00:00\"}','::1','2026-10-18 12:21:13'),(33,70,'dsh_pay_admin','Administrator','scan_attendance.php','POST',200,1,'Overtime clock-out: 4.00 hour(s).',NULL,'{\"code_value\":\"DSH-PAY-QR-30780\",\"demo_mode\":true,\"demo_date\":\"2027-03-01\",\"demo_time\":\"22:00:00\"}','::1','2026-10-18 12:21:13'),(34,70,'dsh_pay_admin','Administrator','payroll_runs.php','POST',200,1,'Payroll run completed. 4 payslip(s) generated, 0 employee(s) skipped (no basic salary).',NULL,'{\"period_id\":12}','::1','2026-10-18 12:21:13'),(35,70,'dsh_pay_admin','Administrator','loans.php','DELETE',409,0,'Cannot delete: payments already recorded. Mark as Cancelled instead.',NULL,NULL,'::1','2026-10-18 12:21:13'),(36,70,'dsh_pay_admin','Administrator','payroll_runs.php','POST',200,1,'13th Month run completed for 2026. 4 payslip(s) generated, 0 employee(s) skipped.',NULL,'{\"period_id\":13}','::1','2026-10-18 12:21:13'),(37,4,'admin','Administrator','auth.php','POST',200,1,'Welcome, admin.',NULL,'{\"username\":\"admin\",\"password\":\"***\"}','::1','2026-10-18 12:34:48');
 /*!40000 ALTER TABLE `audit_log` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -171,7 +172,7 @@ CREATE TABLE `deductions` (
   KEY `fk_deductions_attendance` (`attendance_id`),
   CONSTRAINT `fk_deductions_attendance` FOREIGN KEY (`attendance_id`) REFERENCES `attendance` (`attendance_id`),
   CONSTRAINT `fk_deductions_payslip` FOREIGN KEY (`payslip_id`) REFERENCES `payslips` (`payslip_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=22 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -198,7 +199,7 @@ CREATE TABLE `departments` (
   PRIMARY KEY (`department_id`),
   KEY `fk_departments_manager` (`manager_employee_id`),
   CONSTRAINT `fk_departments_manager` FOREIGN KEY (`manager_employee_id`) REFERENCES `employees` (`employee_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -234,6 +235,11 @@ CREATE TABLE `employees` (
   `sss_number` varchar(50) DEFAULT NULL,
   `philhealth_number` varchar(50) DEFAULT NULL,
   `pagibig_number` varchar(50) DEFAULT NULL,
+  `mobile_number` varchar(30) DEFAULT NULL,
+  `email` varchar(150) DEFAULT NULL,
+  `address` varchar(255) DEFAULT NULL,
+  `emergency_contact_name` varchar(120) DEFAULT NULL,
+  `emergency_contact_number` varchar(30) DEFAULT NULL,
   `is_active` tinyint(1) NOT NULL DEFAULT 1,
   PRIMARY KEY (`employee_id`),
   UNIQUE KEY `uq_employees_employee_number` (`employee_number`),
@@ -241,7 +247,7 @@ CREATE TABLE `employees` (
   KEY `fk_employees_department` (`department_id`),
   CONSTRAINT `fk_employees_department` FOREIGN KEY (`department_id`) REFERENCES `departments` (`department_id`),
   CONSTRAINT `fk_employees_position` FOREIGN KEY (`position_id`) REFERENCES `positions` (`position_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=34 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -250,7 +256,7 @@ CREATE TABLE `employees` (
 
 LOCK TABLES `employees` WRITE;
 /*!40000 ALTER TABLE `employees` DISABLE KEYS */;
-INSERT INTO `employees` VALUES (4,'EMP-0001','Vinchy','Fantonial','1995-01-01','Single',4,4,'2025-01-01','Active',60000.00,'TIN-EMP-0001','SSS-EMP-0001','PH-EMP-0001','PI-EMP-0001',1),(5,'EMP-0002','Juan','Dela Cruz','1995-01-01','Single',5,5,'2025-01-01','Active',45000.00,'TIN-EMP-0002','SSS-EMP-0002','PH-EMP-0002','PI-EMP-0002',1),(8,'EMP-0003','Harry Ej','Sangcopan','2006-06-06','Separated',4,4,'2026-10-16','Active',10000.00,'123-456-789-004','01-2233445-8','12-345678901-4','1122-3344-5568',1);
+INSERT INTO `employees` VALUES (4,'EMP-0001','Vinchy','Fantonial','1995-01-01','Single',4,4,'2025-01-01','Active',60000.00,'TIN-EMP-0001','SSS-EMP-0001','PH-EMP-0001','PI-EMP-0001',NULL,NULL,NULL,NULL,NULL,1),(5,'EMP-0002','Juan','Dela Cruz','1995-01-01','Single',5,5,'2025-01-01','Active',45000.00,'TIN-EMP-0002','SSS-EMP-0002','PH-EMP-0002','PI-EMP-0002',NULL,NULL,NULL,NULL,NULL,1),(8,'EMP-0003','Harry Ej','Sangcopan','2006-06-06','Separated',4,4,'2026-10-16','Active',10000.00,'123-456-789-004','01-2233445-8','12-345678901-4','1122-3344-5568',NULL,NULL,NULL,NULL,NULL,1);
 /*!40000 ALTER TABLE `employees` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -274,7 +280,7 @@ CREATE TABLE `govt_contributions` (
   PRIMARY KEY (`contribution_id`),
   KEY `fk_govt_contributions_payslip` (`payslip_id`),
   CONSTRAINT `fk_govt_contributions_payslip` FOREIGN KEY (`payslip_id`) REFERENCES `payslips` (`payslip_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=68 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=93 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -305,7 +311,7 @@ CREATE TABLE `leave_balances` (
   KEY `fk_leave_balances_type` (`leave_type_id`),
   CONSTRAINT `fk_leave_balances_employee` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`employee_id`),
   CONSTRAINT `fk_leave_balances_type` FOREIGN KEY (`leave_type_id`) REFERENCES `leave_types` (`leave_type_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -336,7 +342,7 @@ CREATE TABLE `leave_requests` (
   KEY `fk_leave_requests_type` (`leave_type_id`),
   CONSTRAINT `fk_leave_requests_employee` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`employee_id`),
   CONSTRAINT `fk_leave_requests_type` FOREIGN KEY (`leave_type_id`) REFERENCES `leave_types` (`leave_type_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -362,7 +368,7 @@ CREATE TABLE `leave_types` (
   `is_paid` tinyint(1) NOT NULL DEFAULT 1,
   `is_active` tinyint(1) NOT NULL DEFAULT 1,
   PRIMARY KEY (`leave_type_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -392,7 +398,7 @@ CREATE TABLE `loan_payments` (
   KEY `fk_loan_payments_payslip` (`payslip_id`),
   CONSTRAINT `fk_loan_payments_loan` FOREIGN KEY (`loan_id`) REFERENCES `loans` (`loan_id`),
   CONSTRAINT `fk_loan_payments_payslip` FOREIGN KEY (`payslip_id`) REFERENCES `payslips` (`payslip_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -421,7 +427,7 @@ CREATE TABLE `loans` (
   PRIMARY KEY (`loan_id`),
   KEY `fk_loans_employee` (`employee_id`),
   CONSTRAINT `fk_loans_employee` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`employee_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -458,7 +464,7 @@ CREATE TABLE `overtime_records` (
   KEY `idx_overtime_status_date` (`status`,`ot_date`),
   KEY `idx_overtime_approved_by` (`approved_by`),
   CONSTRAINT `fk_overtime_employee` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`employee_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=23 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -485,7 +491,7 @@ CREATE TABLE `payroll_periods` (
   `period_type` varchar(30) DEFAULT NULL,
   `status` varchar(30) DEFAULT NULL,
   PRIMARY KEY (`period_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -516,7 +522,7 @@ CREATE TABLE `payroll_runs` (
   KEY `fk_payroll_runs_user` (`processed_by`),
   CONSTRAINT `fk_payroll_runs_period` FOREIGN KEY (`period_id`) REFERENCES `payroll_periods` (`period_id`),
   CONSTRAINT `fk_payroll_runs_user` FOREIGN KEY (`processed_by`) REFERENCES `users` (`user_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=27 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -550,7 +556,7 @@ CREATE TABLE `payslips` (
   KEY `fk_payslips_employee` (`employee_id`),
   CONSTRAINT `fk_payslips_employee` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`employee_id`),
   CONSTRAINT `fk_payslips_run` FOREIGN KEY (`run_id`) REFERENCES `payroll_runs` (`run_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=68 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=96 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -608,7 +614,7 @@ CREATE TABLE `qr_codes` (
   UNIQUE KEY `code_value` (`code_value`),
   KEY `fk_qr_codes_employee` (`employee_id`),
   CONSTRAINT `fk_qr_codes_employee` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`employee_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -664,7 +670,7 @@ CREATE TABLE `users` (
   `password_hash` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`user_id`),
   UNIQUE KEY `username` (`username`)
-) ENGINE=InnoDB AUTO_INCREMENT=66 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=84 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -676,14 +682,6 @@ LOCK TABLES `users` WRITE;
 INSERT INTO `users` VALUES (4,'admin',NULL,'Administrator',1,'$2y$10$Ey5ttBp8vVD3tVHwjnZvN.dG0GU2y1WCIVcSr6BlKwfSuerRaVxSi'),(5,'vinchy',4,'Employee',1,'$2y$10$Vl/K9Mew3DaMvn5m0FK85eOLwOTwwoYQxB0hbWqBVHc4z73bjYkdK'),(34,'juan.delacruz',5,'Employee',1,'$2y$10$MGGVmrO6H8IjbkJtisPmaODdXa/JrCVFYcUoeYwg3192XqNiUxorW');
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
 UNLOCK TABLES;
-
---
--- Dumping events for database 'payroll_db'
---
-
---
--- Dumping routines for database 'payroll_db'
---
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -694,4 +692,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-10-18 12:20:29
+-- Dump completed on 2026-10-18 12:42:01

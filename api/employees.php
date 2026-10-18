@@ -8,7 +8,9 @@ $method = $_SERVER["REQUEST_METHOD"];
 $fields = ["employee_number", "first_name", "last_name", "birth_date", "civil_status",
            "position_id", "department_id", "date_hired", "employment_status",
            "basic_salary",
-           "tin_number", "sss_number", "philhealth_number", "pagibig_number"];
+           "tin_number", "sss_number", "philhealth_number", "pagibig_number",
+           "mobile_number", "email", "address",
+           "emergency_contact_name", "emergency_contact_number"];
 
 // ---- GET ----
 if ($method === "GET") {
