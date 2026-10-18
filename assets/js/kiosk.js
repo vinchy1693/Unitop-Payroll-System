@@ -42,7 +42,11 @@
         unlockUser:   document.getElementById("unlock-user"),
         unlockPass:   document.getElementById("unlock-pass"),
         unlockMsg:    document.getElementById("unlock-msg"),
-        unlockCancel: document.getElementById("unlock-cancel")
+        unlockCancel: document.getElementById("unlock-cancel"),
+        demoToggle:   document.getElementById("demo-toggle"),
+        demoPanel:    document.getElementById("demo-panel"),
+        demoDate:     document.getElementById("demo-date"),
+        demoTime:     document.getElementById("demo-time")
     };
 
     var scanner = null;
@@ -103,7 +107,17 @@
         busy = true;
         el.submit.disabled = true;
 
-        axios.post(API + "scan_attendance.php", { code_value: code })
+        // Demo mode lets a demo supply the date and time. It is OFF unless the
+        // operator explicitly opens the strip and fills a field, and the server
+        // should set ALLOW_DEMO_SCANS to false on a real deployment, which makes
+        // these fields (and this whole feature) inert.
+        var payload = { code_value: code };
+        if (!el.demoPanel.classList.contains("hidden")) {
+            if (el.demoDate.value) { payload.demo_mode = true; payload.demo_date = el.demoDate.value; }
+            if (el.demoTime.value) { payload.demo_mode = true; payload.demo_time = el.demoTime.value; }
+        }
+
+        axios.post(API + "scan_attendance.php", payload)
             .then(function (res) {
                 var d = res.data.data || {};
                 if (d.action === "in") {
@@ -194,6 +208,21 @@
     }
 
     // ---------- wiring ----------
+    el.demoToggle.addEventListener("click", function () {
+        var hidden = el.demoPanel.classList.toggle("hidden");
+        el.demoToggle.classList.toggle("is-on", !hidden);
+        el.demoToggle.textContent = hidden ? "Demo mode" : "Demo mode: on";
+        if (!hidden && !el.demoDate.value) {
+            // Local YYYY-MM-DD. Do not reach for a ymd() helper: there is none in
+            // this file (that lives in the portal), and optional chaining does
+            // not protect an undeclared identifier - it throws.
+            var t = new Date();
+            el.demoDate.value = t.getFullYear() + "-"
+                + String(t.getMonth() + 1).padStart(2, "0") + "-"
+                + String(t.getDate()).padStart(2, "0");
+        }
+    });
+
     el.start.addEventListener("click", startCamera);
     el.stop.addEventListener("click", stopCamera);
 

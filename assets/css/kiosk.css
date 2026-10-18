@@ -321,3 +321,61 @@
 }
 .kiosk-panel-manual { gap: 6px; }
 .kiosk-foot { padding-top: 6px; padding-bottom: 16px; }
+/* ---------- demo strip ----------
+   Discreet by design: a kiosk left in demo mode would record fabricated times
+   for everyone, so it is collapsed by default and states plainly when it is on. */
+.kiosk-demo {
+    width: min(880px, 100%);
+    margin: 0 auto;
+    padding: 0 24px 6px;
+    box-sizing: border-box;
+    text-align: center;
+}
+.kiosk-demo-toggle {
+    background: transparent;
+    border: 1px dashed var(--border-mid);
+    border-radius: 999px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 7px 14px;
+    cursor: pointer;
+}
+.kiosk-demo-toggle:hover { color: var(--text); border-color: var(--text); }
+.kiosk-demo-toggle.is-on {
+    color: #fff;
+    background: var(--red-fill, #CE1126);
+    border-style: solid;
+    border-color: var(--red-fill, #CE1126);
+}
+.kiosk-demo-panel {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 14px;
+    margin-top: 12px;
+    padding: 14px 16px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    text-align: left;
+}
+.kiosk-demo-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.kiosk-demo-field input {
+    padding: 10px 12px;
+    font-size: 14px;
+    color: var(--text);
+    background: var(--control-bg, var(--card));
+    border: 1px solid var(--border-mid);
+    border-radius: 8px;
+}

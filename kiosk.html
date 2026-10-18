@@ -66,6 +66,19 @@
         </div>
     </section>
 
+    <section class="kiosk-demo">
+        <button id="demo-toggle" class="kiosk-demo-toggle" type="button">Demo mode</button>
+        <div id="demo-panel" class="kiosk-demo-panel hidden">
+            <label class="kiosk-demo-field">Date
+                <input type="date" id="demo-date">
+            </label>
+            <label class="kiosk-demo-field">Time
+                <input type="time" id="demo-time">
+            </label>
+            <span class="kiosk-hint">Scans use this date and time instead of the real clock. Leave a field blank to use the real one.</span>
+        </div>
+    </section>
+
     <footer class="kiosk-foot">
         <span>Point your QR code at the camera, or type the value above.</span>
     </footer>
