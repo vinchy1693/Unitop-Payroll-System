@@ -278,3 +278,46 @@
 .kiosk-unlock .kiosk-brand { color: var(--blue); }
 .kiosk-unlock-text { margin: 0; font-size: 13.5px; color: var(--muted); line-height: 1.5; }
 .kiosk-unlock-msg { min-height: 18px; font-size: 13px; color: var(--red); }
+/* =====================================================================
+   Layout overrides - appended deliberately.
+   Later rules win by the cascade, so the blocks above stay untouched and
+   nothing here can unbalance them.
+   ===================================================================== */
+
+/* The admin stylesheet gives `main` a centred max-width. The kiosk is a
+   full-screen terminal, so its shell must not inherit that - it was the dead
+   band in the top-left corner, with the brand pushed ~250px in from the edge. */
+.kiosk-body,
+.kiosk-shell {
+    max-width: none;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+}
+.kiosk-head {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px 24px;
+}
+
+/* One column: the scanner is the hero and the manual fallback sits directly
+   beneath it, so the eye travels down instead of across two cards of unequal
+   height. A narrow column also removes the empty wings either side. */
+.kiosk-main {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    width: min(880px, 100%);
+    margin: 0 auto;
+    padding: 22px 24px;
+    box-sizing: border-box;
+    flex: 1;
+}
+.kiosk-reader {
+    flex: none;
+    width: 100%;
+    min-height: 380px;
+    max-height: 52vh;
+}
+.kiosk-panel-manual { gap: 6px; }
+.kiosk-foot { padding-top: 6px; padding-bottom: 16px; }
