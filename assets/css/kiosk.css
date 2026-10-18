@@ -131,28 +131,36 @@
 .kiosk-main {
     flex: 1;
     display: grid;
-    grid-template-columns: 1.35fr auto 1fr;
-    gap: 18px;
-    align-items: start;
+    /* The camera is the point of the kiosk: it takes the larger share and both
+       panels stretch to one height, instead of a short manual panel floating
+       beside a tall camera one with dead space underneath. */
+    grid-template-columns: minmax(0, 1.7fr) minmax(320px, 1fr);
+    gap: 24px;
+    align-items: stretch;
     align-content: center;
-    padding: 22px;
-    width: min(1200px, 100%);
+    padding: 28px;
+    width: min(1400px, 100%);
     margin: 0 auto;
     box-sizing: border-box;
 }
 .kiosk-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
     background: var(--card);
     border: 1px solid var(--border);
-    border-radius: var(--radius, 12px);
-    padding: 20px;
+    border-radius: 16px;
+    padding: 24px;
     box-shadow: var(--shadow);
 }
 .kiosk-panel-title {
-    font-size: 15px;
-    font-weight: 700;
-    margin-bottom: 12px;
+    font-size: 19px;
+    font-weight: 800;
+    letter-spacing: -0.2px;
+    margin-bottom: 14px;
 }
 .kiosk-reader {
+    flex: 1;
     width: 100%;
     min-height: 300px;
     background: #000;
@@ -176,24 +184,17 @@
 }
 .kiosk-hint { font-size: 12.5px; color: var(--muted); }
 
-.kiosk-divider {
-    align-self: stretch;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--muted);
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
+/* The old "or" sat in its own auto-sized column, floating between two panels of
+   different heights. The panels explain themselves. */
+.kiosk-divider { display: none; }
 
 .kiosk-form { display: flex; flex-direction: column; gap: 12px; }
 .kiosk-input {
     width: 100%;
     box-sizing: border-box;
-    padding: 16px 14px;
+    padding: 20px 16px;
     font-family: ui-monospace, Consolas, monospace;
-    font-size: 17px;
+    font-size: 20px;
     letter-spacing: .5px;
     color: var(--text);
     background: var(--control-bg, var(--card));
@@ -210,7 +211,7 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    min-height: 52px;
+    min-height: 60px;
     padding: 0 22px;
     border: 1px solid transparent;
     border-radius: 10px;
