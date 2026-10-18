@@ -18,6 +18,24 @@ $isDemoMode = !empty($in["demo_mode"]);
 $demoTime   = trim($in["demo_time"] ?? "");   // "HH:MM" or "HH:MM:SS"
 $demoDate   = trim($in["demo_date"] ?? "");   // "YYYY-MM-DD"
 
+// Validate the demo inputs. Without this a malformed value went straight into the
+// attendance row (demo_time "25:99" was accepted), and the audit log then records
+// nonsense. Format only - demo scanning itself is governed by ALLOW_DEMO_SCANS.
+if ($isDemoMode) {
+    if ($demoDate !== "") {
+        $dd = DateTime::createFromFormat("Y-m-d", $demoDate);
+        if (!$dd || $dd->format("Y-m-d") !== $demoDate) {
+            respond(false, "demo_date must be a real date in YYYY-MM-DD form.", null, 422);
+        }
+    }
+    if ($demoTime !== "") {
+        if (!preg_match('/^([01]?\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/', $demoTime)) {
+            respond(false, "demo_time must be a valid 24-hour time (HH:MM).", null, 422);
+        }
+        if (strlen($demoTime) === 5) $demoTime .= ":00";
+    }
+}
+
 // ---- 1. Look up the QR code ----
 $stmt = $pdo->prepare(
     "SELECT q.qr_code_id, q.employee_id, q.status,
