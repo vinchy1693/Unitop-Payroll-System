@@ -244,8 +244,14 @@ function computeAttendanceDeductions(
     }
     $leaveDays = count($leaveDates);
 
-    // If HR logged nothing for this employee, assume perfect attendance
-    if ($presentDays === 0) {
+    // Assume HR has not finished logging ONLY when there is nothing on file at
+    // all: no attendance AND no approved leave. If approved leave exists then the
+    // period has clearly been worked on, so any working day that neither the
+    // attendance nor the leave covers is a genuine absence and must be docked.
+    // (Testing only the attendance count meant an employee who was on leave for
+    // part of the period and absent for the rest was paid in full, because zero
+    // attendance rows suppressed every deduction.)
+    if ($presentDays === 0 && $leaveDays === 0) {
         return [
             "expected_days"     => $expectedDays,
             "present_days"      => 0,
