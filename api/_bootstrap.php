@@ -1,4 +1,10 @@
 <?php
+// Pin the application timezone. Without this PHP falls back to the php.ini
+// default (here Europe/Berlin) while MySQL runs on the machine's local time
+// (Asia/Manila), so work_date and the scan times drifted by six hours - a scan
+// at 14:00 local was recorded as 08:00, which silently made every late
+// calculation wrong and could stamp attendance on the wrong day.
+date_default_timezone_set("Asia/Manila");
 // =====================================================================
 // api/_bootstrap.php
 // Session + DB + JSON helpers.
