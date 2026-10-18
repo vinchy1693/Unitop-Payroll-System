@@ -244,26 +244,13 @@ function computeAttendanceDeductions(
     }
     $leaveDays = count($leaveDates);
 
-    // Assume HR has not finished logging ONLY when there is nothing on file at
-    // all: no attendance AND no approved leave. If approved leave exists then the
-    // period has clearly been worked on, so any working day that neither the
-    // attendance nor the leave covers is a genuine absence and must be docked.
-    // (Testing only the attendance count meant an employee who was on leave for
-    // part of the period and absent for the rest was paid in full, because zero
-    // attendance rows suppressed every deduction.)
-    if ($presentDays === 0 && $leaveDays === 0) {
-        return [
-            "expected_days"     => $expectedDays,
-            "present_days"      => 0,
-            "leave_days"        => $leaveDays,
-            "absent_days"       => 0,
-            "late_minutes"      => 0,
-            "daily_rate"        => round($dailyRate, 2),
-            "absence_deduction" => 0.0,
-            "late_deduction"    => 0.0,
-        ];
-    }
-
+    // No short-circuit here on purpose. An earlier version assumed "no attendance
+    // rows means HR has not finished logging" and returned zero deductions, which
+    // paid an employee in full for a period they never attended. Every working day
+    // not covered by attendance or approved leave is now an absence. The caller
+    // (payroll_runs.php) caps the resulting deduction at basic + overtime minus
+    // statutory contributions, so a fully absent employee nets 0.00 and never a
+    // negative amount.
     // A day is present, excused (approved paid leave), or absent.
     $absentDays = max(0, $expectedDays - $presentDays - $leaveDays);
     $perMinute  = $dailyRate / 480.0;
