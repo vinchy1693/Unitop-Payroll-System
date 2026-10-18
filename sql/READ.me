@@ -10,6 +10,7 @@ Each file is run **exactly once**. Do not re-run old files.
 | 003_audit_log.sql | Audit trail table written centrally by respond() for every mutating request | ✅ Applied |
 | 004_employee_contact_fields.sql | Employee self-service contact fields: mobile_number, email, address, emergency contacts | ✅ Applied |
 | 005_payroll_approval_workflow.sql | Segregation of duties: payroll_runs status (Submitted/Approved/Returned/Released), submitter/approver/return/release columns + remarks | ✅ Applied |
+| 006_employee_bank_fields.sql | Employee payment details for the bank file export: bank_name, bank_account_name, bank_account_number | Applied |
 
 ## Payroll approval workflow (005)
 
@@ -43,3 +44,53 @@ C:\xampp\php\php.exe tests\seed_staff_accounts.php
 | payroll | Payroll Officer (maker) | test123 (never overwritten if it already exists) |
 | approver | Approver (checker) | test123 (never overwritten if it already exists) |
 | admin | Administrator (technical only) | unchanged |
+
+## Employee bank details + payment exports (006)
+
+`employees` gained three nullable columns:
+
+| Column | Width | Purpose |
+|--------|-------|---------|
+| `bank_name` | VARCHAR(100) | the receiving bank |
+| `bank_account_name` | VARCHAR(120) | account holder exactly as the bank knows it |
+| `bank_account_number` | VARCHAR(40) | the account the bank file credits |
+
+* They are edited on the Employees screen (Payment Details) and are
+  MAKER-writable only: `employees.php` already requires `MAKER_ROLES` for
+  POST/PUT, so the Approver can read them (needed to review the bank file) but
+  cannot change them. A blank field is stored as NULL.
+* They are never returned by the employee portal: every `me_*` endpoint selects
+  its columns explicitly, so adding the columns cannot leak them.
+
+`api/bank_file.php` is the single export endpoint:
+
+```
+GET api/bank_file.php?run_id=<id>&format=bank|register|remittance
+```
+
+| Format | File name | Contents |
+|--------|-----------|----------|
+| `bank` | `bank-file_<start>_<end>.csv` | one credit line per payslip + a TOTAL row |
+| `register` | `payroll-register_<start>_<end>.csv` | every payslip: basic, overtime, gross, SSS/PhilHealth/Pag-IBIG employee shares, withholding tax, other deductions, totals + a TOTAL row |
+| `remittance` | `govt-remittance_<start>_<end>.csv` | SSS / PhilHealth / Pag-IBIG employee AND employer amounts per employee + a GRAND TOTAL row |
+
+Guard and refusals:
+
+* `Payroll Officer` and `Approver` only (200). `Employee` and
+  `Administrator` -> 403.
+* Run missing -> 404; `format` not one of the three -> 422.
+* Run status `Returned` -> 409 for every format: its figures are not final
+  until the maker resubmits.
+* `format=bank` -> 422 and no file at all when ANY included employee is
+  missing `bank_name` or `bank_account_number`; the message names every
+  affected employee (employee number + name).
+* The CSV is `text/csv` with LF line endings, fields containing a comma, quote
+  or newline are quoted, and a cell starting with `=`, `+`, `-` or `@` is
+  prefixed with a single quote so it can never run as a spreadsheet formula.
+* Exports are GETs and the central `respond()` hook only audits non-GET
+  requests, so `bank_file.php` writes its own `audit_log` row for every attempt
+  (successes and refusals alike). Account numbers are never stored in it.
+
+`tests/bank_file_test.php` covers the three formats, the missing-bank-details
+refusal, the Returned guard, the role guards, the CSV escaping and the audit
+rows, and restores every fixture it creates.

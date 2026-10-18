@@ -22,6 +22,11 @@ let currentUser = null;
 function isMaker()   { return !!currentUser && currentUser.role === "Payroll Officer"; }
 function isChecker() { return !!currentUser && currentUser.role === "Approver"; }
 
+// The maker prepares the files, the checker may review them. Employee and
+// Administrator cannot export at all; the API answers 403 for them, so hiding
+// the buttons is never the only guard.
+function canExport() { return isMaker() || isChecker(); }
+
 function fmtDate(v) {
     if (!v) return "-";
     return escapeHtml(String(v).replace("T", " "));
@@ -107,7 +112,79 @@ function actionsFor(r) {
     }
 
     buttons.push(`<a class="btn btn-plain" href="payslips.html?run_id=${r.run_id}">Payslips</a>`);
-    return buttons.join(" ");
+    return buttons.join(" ") + exportButtonsFor(r);
+}
+
+// ---------------------------------------------------------------------
+// Exports: the maker's three payment files, one GET endpoint per format.
+// Rendered only for the maker/checker. The API still enforces the guard and
+// still refuses a Returned run (409) or missing bank details (422).
+// ---------------------------------------------------------------------
+const EXPORTS = [
+    { format: "bank",       label: "Bank file" },
+    { format: "register",   label: "Payroll register" },
+    { format: "remittance", label: "Remittance" },
+];
+
+function exportButtonsFor(r) {
+    if (!canExport()) return "";
+    const buttons = EXPORTS.map((exp) =>
+        `<button class="btn btn-plain" data-export="${exp.format}" data-run="${r.run_id}">${exp.label}</button>`
+    );
+    return `<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;justify-content:center;">${buttons.join(" ")}</div>`;
+}
+
+/** A refused export answers JSON, but it is fetched with responseType=blob. */
+async function exportErrorMessage(err) {
+    const data = err?.response?.data;
+    if (data && typeof data === "object" && typeof data.text === "function") {
+        try {
+            const parsed = JSON.parse(await data.text());
+            if (parsed && parsed.message) return parsed.message;
+        } catch (_) { /* not JSON - fall through */ }
+    }
+    return apiErrorMessage(err);
+}
+
+async function exportRun(runId, format, btn) {
+    if (btn) btn.disabled = true;
+    try {
+        const res = await api.get("bank_file.php", {
+            params: { run_id: Number(runId), format },
+            responseType: "blob",
+        });
+
+        const disposition = res.headers["content-disposition"] || "";
+        const match = /filename="([^"]+)"/i.exec(disposition);
+        const filename = match ? match[1] : `${format}_run${runId}.csv`;
+
+        const url = URL.createObjectURL(res.data);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+
+        showToast(`Downloaded ${filename}`, "success");
+    } catch (err) {
+        const message = await exportErrorMessage(err);
+        if (format === "bank") {
+            // A refused bank file names every employee with no bank details.
+            await Swal.fire({
+                title: "Bank file refused",
+                html: `<div style="text-align:left;font-size:13.5px;line-height:1.55;">${escapeHtml(message).replace(/\n/g, "<br>")}</div>`,
+                icon: "warning",
+                confirmButtonColor: "#0038A8",
+                confirmButtonText: "OK",
+            });
+        } else {
+            showToast(message, "error");
+        }
+    } finally {
+        if (btn) btn.disabled = false;
+    }
 }
 
 function renderRows(rows) {
@@ -156,6 +233,9 @@ function renderRows(rows) {
 
     rowsEl.querySelectorAll("[data-action]").forEach((btn) => {
         btn.addEventListener("click", () => handleAction(btn.dataset.action, Number(btn.dataset.run), btn));
+    });
+    rowsEl.querySelectorAll("[data-export]").forEach((btn) => {
+        btn.addEventListener("click", () => exportRun(btn.dataset.run, btn.dataset.export, btn));
     });
 }
 

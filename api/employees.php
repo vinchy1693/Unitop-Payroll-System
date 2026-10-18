@@ -9,6 +9,10 @@ $fields = ["employee_number", "first_name", "last_name", "birth_date", "civil_st
            "position_id", "department_id", "date_hired", "employment_status",
            "basic_salary",
            "tin_number", "sss_number", "philhealth_number", "pagibig_number",
+           // Payment details: used by api/bank_file.php?format=bank. MAKER-writable
+           // only (the guard below), and never returned by an employee-portal me_*
+           // endpoint - the portal selects its own contact columns explicitly.
+           "bank_name", "bank_account_name", "bank_account_number",
            "mobile_number", "email", "address",
            "emergency_contact_name", "emergency_contact_number"];
 

@@ -9,6 +9,9 @@ const FIELDS = ["employee_number", "first_name", "last_name", "birth_date", "civ
                 "position_id", "department_id", "date_hired", "employment_status",
                 "basic_salary",
                 "tin_number", "sss_number", "philhealth_number", "pagibig_number",
+                // Payment details: read by the Bank file export. They are only
+                // writable by the maker and never exposed to the employee portal.
+                "bank_name", "bank_account_name", "bank_account_number",
                 "mobile_number", "email", "address",
                 "emergency_contact_name", "emergency_contact_number"];
 
