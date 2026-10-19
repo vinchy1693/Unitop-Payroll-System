@@ -48,7 +48,7 @@ function formatLongDate(value) {
 function formatPeriod(startValue, endValue) {
     const s = parseApiDate(startValue);
     const e = parseApiDate(endValue);
-    if (!s || !e) return startValue + " → " + endValue;
+    if (!s || !e) return String(startValue || "—") + " → " + String(endValue || "—");
     const sameMonth = s.m === e.m && s.y === e.y;
     const startText = pad2(s.d) + (sameMonth ? "" : " " + DASH_MONTHS[s.m - 1]);
     const endText = pad2(e.d) + " " + DASH_MONTHS[e.m - 1];

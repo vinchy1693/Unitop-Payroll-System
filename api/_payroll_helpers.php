@@ -183,6 +183,20 @@ function recomputePayslipTotals(PDO $pdo, int $payslipId): array {
 // Any logged attendance means the period is "actively tracked" and
 // absence deductions apply normally. Only if ZERO records exist do we
 // assume HR hasn't finished logging and skip deductions.
+/**
+ * Working-day dates that are actually public holidays inside a range.
+ *
+ * Labor Code Art. 94 entitles a covered employee to the regular daily wage on a
+ * REGULAR holiday even when no work is performed, so those dates must not be
+ * counted as days the employee was expected to attend - otherwise a holiday with
+ * no attendance is scored as an absence and the pay is docked.
+ */
+function countHolidaysInRange(PDO $pdo, string $from, string $to): int {
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM holidays WHERE holiday_date BETWEEN ? AND ?");
+    $stmt->execute([$from, $to]);
+    return (int) $stmt->fetchColumn();
+}
+
 function computeAttendanceDeductions(
     PDO $pdo,
     int $employeeId,
@@ -191,7 +205,11 @@ function computeAttendanceDeductions(
     float $monthlySalary,
     ?float $semiMonthlyBasic = null
 ): array {
-    $expectedDays = countWorkingDays($startDate, $endDate);
+    // Exclude public holidays: a holiday is not a day the employee was expected
+    // to attend, so it must not become an absence (Labor Code Art. 94).
+    $holidayDays  = countHolidaysInRange($pdo, $startDate, $endDate);
+    $expectedDays = max(0, countWorkingDays($startDate, $endDate) - $holidayDays);
+    $expectedDaysExHoliday = countWorkingDays($startDate, $endDate);
 
     // Self-balancing daily rate: the semi-monthly basic spread across the
     // working days actually present in THIS period. A fully-absent period
