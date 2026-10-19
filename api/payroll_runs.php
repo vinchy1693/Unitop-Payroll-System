@@ -297,8 +297,8 @@ if ($method === "POST") {
 
         $slipStmt = $pdo->prepare(
             "INSERT INTO payslips
-             (run_id, employee_id, basic_pay, overtime_pay, gross_pay, total_deductions, net_pay)
-             VALUES (?, ?, ?, ?, ?, 0, ?)"
+             (run_id, employee_id, basic_pay, overtime_pay, premium_pay, gross_pay, total_deductions, net_pay)
+             VALUES (?, ?, ?, ?, ?, ?, 0, ?)"
         );
 
         $contribStmt = $pdo->prepare(
@@ -318,7 +318,7 @@ if ($method === "POST") {
         // request the employee never started, contributes nothing. `hours` is
         // written by the overtime clock-out, never by hand.
         $otStmt = $pdo->prepare(
-            "SELECT hours, rate_multiplier
+            "SELECT ot_date, hours, rate_multiplier
              FROM overtime_records
              WHERE employee_id = ? AND ot_date BETWEEN ? AND ?
                AND status IN ('Approved','Completed')
@@ -364,29 +364,51 @@ if ($method === "POST") {
                 $monthly,
                 $basic
             );
-            $attendanceDeduction = round($att["absence_deduction"] + $att["late_deduction"], 2);
+            $attendanceDeduction = round(
+                $att["absence_deduction"] + $att["late_deduction"] + $att["undertime_deduction"], 2
+            );
 
-            // Overtime, priced at the same period-based rate as the daily rate
+            // Premium pay for work recorded on rest days / holidays. The first
+            // eight hours use the day-type rate and the excess the day-type OT
+            // rate; ordinary-day work is covered by the basic.
+            $premium    = computePremiumPay(
+                $pdo, (int) $emp["employee_id"], $period["start_date"], $period["end_date"], $att["daily_rate"]
+            );
+            $premiumPay = $premium["total"];
+
+            // Overtime, priced at the same period-based rate as the daily rate.
+            // The multiplier is at least the statutory one for the date, so a
+            // stored 1.25 can never underpay a rest day / holiday.
             $otStmt->execute([$emp["employee_id"], $period["start_date"], $period["end_date"]]);
             $otRows = $otStmt->fetchAll();
 
             $hourlyRate = $att["daily_rate"] / 8.0;
             $otPay = 0.0;
             foreach ($otRows as $ot) {
-                $otPay += (float) $ot["hours"] * (float) $ot["rate_multiplier"] * $hourlyRate;
+                $otDayType  = dayTypeForDate($pdo, $ot["ot_date"]);
+                $multiplier = max(
+                    (float) $ot["rate_multiplier"],
+                    overtimeMultiplierForDayType($otDayType)
+                );
+                $otPay += (float) $ot["hours"] * $multiplier * $hourlyRate;
             }
             $otPay = round($otPay, 2);
 
             // Statutory contributions (based on monthly salary) plus withholding
-            // tax computed on the reduced taxable base.
-            $calc      = computePayslipDeductions($monthly, $basic, $attendanceDeduction, $otPay);
+            // tax computed on the reduced taxable base. Premium pay is taxable
+            // compensation, so it is passed through the same additional-taxable
+            // channel as overtime.
+            $calc      = computePayslipDeductions($monthly, $basic, $attendanceDeduction, $otPay + $premiumPay);
             $statutory = $calc["total_deductions"];
 
             // Never dock more than the employee actually earned: cap attendance
             // deductions at what remains after statutory deductions.
-            $room             = max(0.0, round($basic + $otPay - $statutory, 2));
+            $room             = max(0.0, round($basic + $otPay + $premiumPay - $statutory, 2));
             $absenceDeduction = min($att["absence_deduction"], $room);
-            $lateDeduction    = min($att["late_deduction"], max(0.0, round($room - $absenceDeduction, 2)));
+            $remainingRoom    = max(0.0, round($room - $absenceDeduction, 2));
+            $lateDeduction    = min($att["late_deduction"], $remainingRoom);
+            $remainingRoom    = max(0.0, round($remainingRoom - $lateDeduction, 2));
+            $undertimeDeduction = min($att["undertime_deduction"], $remainingRoom);
 
             // Insert payslip shell
             $slipStmt->execute([
@@ -394,7 +416,8 @@ if ($method === "POST") {
                 $emp["employee_id"],
                 $basic,
                 $otPay,
-                round($basic + $otPay, 2),
+                $premiumPay,
+                round($basic + $otPay + $premiumPay, 2),
                 $calc["net_pay"],
             ]);
             $payslipId = (int) $pdo->lastInsertId();
@@ -425,6 +448,15 @@ if ($method === "POST") {
                         ? "Late/Undertime ({$att['late_minutes']} min, capped to remaining pay)"
                         : "Late/Undertime ({$att['late_minutes']} min)",
                     $lateDeduction,
+                ]);
+            }
+            if ($undertimeDeduction > 0) {
+                $dedStmt->execute([
+                    $payslipId,
+                    $undertimeDeduction < $att["undertime_deduction"]
+                        ? "Undertime ({$att['undertime_minutes']} min, capped to remaining pay)"
+                        : "Undertime ({$att['undertime_minutes']} min)",
+                    $undertimeDeduction,
                 ]);
             }
 

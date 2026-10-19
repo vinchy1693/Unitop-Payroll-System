@@ -29,7 +29,7 @@ if ($report === "payroll_register") {
     if (!$runInfo) respond(false, "Run not found.", null, 404);
 
     $stmt = $pdo->prepare(
-        "SELECT ps.payslip_id, ps.basic_pay, ps.overtime_pay, ps.gross_pay,
+        "SELECT ps.payslip_id, ps.basic_pay, ps.overtime_pay, ps.premium_pay, ps.gross_pay,
                 ps.total_deductions, ps.net_pay,
                 e.employee_number,
                 CONCAT(e.last_name, ', ', e.first_name) AS employee_name,
@@ -61,7 +61,7 @@ if ($report === "payroll_register") {
     unset($ps);
 
     $totals = [
-        "basic_pay" => 0, "overtime_pay" => 0, "allowance_total" => 0,
+        "basic_pay" => 0, "overtime_pay" => 0, "premium_pay" => 0, "allowance_total" => 0,
         "gross_pay" => 0, "sss_ee" => 0, "philhealth_ee" => 0,
         "pagibig_ee" => 0, "withholding_tax" => 0, "other_deductions" => 0,
         "total_deductions" => 0, "net_pay" => 0,

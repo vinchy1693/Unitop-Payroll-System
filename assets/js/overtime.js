@@ -78,14 +78,18 @@ function renderRows(rows) {
         return `
         <tr>
             <td>${escapeHtml(r.employee_name)}<br><span style="color:var(--muted);font-size:11px;">${escapeHtml(r.employee_number)}</span></td>
-            <td class="col-center">${escapeHtml(r.ot_date)}</td>
-            <td class="col-center">${escapeHtml(r.ot_type)}<br><span style="color:var(--muted);font-size:11px;">${Number(r.rate_multiplier).toFixed(2)}x</span></td>
-            <td class="col-center">${formatDateTime(r.requested_at)}</td>
+            <td class="col-center">${escapeHtml(r.ot_date)}
+                ${r.reason ? `<div style="max-width:240px;white-space:normal;text-align:left;margin-top:4px;font-size:11px;color:var(--muted);"><strong>Reason:</strong> ${escapeHtml(r.reason)}</div>` : ""}
+            </td>
+            <td class="col-center" style="white-space:nowrap;">${escapeHtml(r.day_type || r.ot_type)}<br><span style="color:var(--muted);font-size:11px;">${Number(r.rate_multiplier).toFixed(2)}x</span></td>
+            <td class="col-center" style="white-space:nowrap;">${formatTime(r.requested_start)} &ndash; ${formatTime(r.requested_end)}
+                <div style="margin-top:3px;font-size:11px;color:var(--muted);">filed ${formatDateTime(r.requested_at)}</div>
+            </td>
             <td class="col-center">${formatTime(r.time_in)}</td>
             <td class="col-center">${formatTime(r.time_out)}</td>
             <td style="text-align:right;">${hoursCell(r)}</td>
             <td class="col-center">${statusBadge(r.status)}${decidedBy}</td>
-            <td class="col-center">${actions}</td>
+            <td class="col-center" style="white-space:nowrap;">${actions}</td>
         </tr>`;
     }).join("");
 

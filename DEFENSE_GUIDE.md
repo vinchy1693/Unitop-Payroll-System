@@ -70,7 +70,7 @@ if ($action !== "resubmit" && $run["submitted_by"] !== null
 | **Pag-IBIG** | RA 9679, HDMF Law of 2009 | **2%** | Monthly compensation | **Max Fund Salary ₱10,000** |
 | **Withholding tax** | RA 10963 (TRAIN) + BIR RR 11-2018 | progressive | Annualised **taxable** income — basic + overtime + taxable allowances, less attendance deductions and the three contributions | ₱250,000 exempt |
 | **Tardiness / absence** | Labor Code "no work, no pay" + company policy | — | daily rate | capped at remaining pay |
-| **Overtime premium** | Labor Code Art. 87 | **+25%** of hourly rate | hourly rate | — |
+| **Overtime premium** | Labor Code Arts. 87, 93, 94 | **+25%** ordinary; **+30%** rest day; holiday rates | hourly rate | — |
 | **13th month** | PD 851 | 1/12 of annual basic | — | first ₱90,000 exempt (TRAIN) |
 | **Service Incentive Leave** | Labor Code Art. 95 | ≥5 days after 1 yr | — | — |
 | **Maternity** | RA 11210 | 105 days paid | — | — |
@@ -278,11 +278,55 @@ VALUES (?, '13th Month Pay', ?, 0)
 
 `recomputePayslipTotals()` deliberately **does not** re-tax a payslip that carries a `13th Month Pay` line: the ordinary base would otherwise withhold on the exempt portion. For a ₱60,000 13th month the tax is **₱0** and net is the full ₱60,000.
 
+### Contribution bases (why basic only)
+
+The three contributions are deliberately computed on **`basic_salary`**, not on gross pay:
+
+- **SSS** — RA 1161 §8 defines compensation as excluding “bonuses, allowances, or overtime pay given in addition to the regular or base pay.”
+- **PhilHealth** — RA 11223 uses the **monthly basic salary**.
+- **Pag-IBIG** — RA 9679 §4 defines compensation as “basic monthly salary plus mandated cost of living allowance.”
+
+So overtime, holiday premium and allowances do **not** raise the contribution base. This is the statute, not an omission; do not “fix” it by passing gross pay.
+
+### Day types and premium pay
+
+`dayTypeForDate()` classifies every date: **Regular Holiday** (`holidays.holiday_type`), **Special Holiday**, **Rest Day** (Sunday, the only non-working day), or **Ordinary Day**. The date drives the rate; the client never supplies it.
+
+| Day type | First 8 hours | Overtime beyond 8h |
+|---|---|---|
+| Ordinary day | 1.00 (basic) | **1.25** |
+| Rest day | **1.30** | **1.69** (1.30 × 1.30) |
+| Special holiday | **1.30** | **1.69** |
+| Regular holiday | **2.00** | **2.60** (2.00 × 1.30) |
+
+- The first 8 hours of rest-day/holiday work are **premium pay** (`payslips.premium_pay`), not overtime. Only the excess, or a separate approved overtime block, uses the day-type OT rate.
+- For a holiday the semimonthly basic already pays the 1.00 non-working-day part, so the premium line adds only the part above it. For a rest day the basic does not cover the day, so the full 1.30 is added.
+- `premium_pay` is taxable compensation: it is included in gross and in the withholding base.
+- If a holiday falls on a Sunday, the holiday rate takes precedence (a documented simplification; the special “holiday on rest day” rate is not compounded).
+
+```php
+// api/payroll_runs.php
+$premium    = computePremiumPay($pdo, $employeeId, $start, $end, $att["daily_rate"]);
+$otDayType  = dayTypeForDate($pdo, $ot["ot_date"]);
+$multiplier = max((float) $ot["rate_multiplier"], overtimeMultiplierForDayType($otDayType));
+$otPay += (float) $ot["hours"] * $multiplier * $hourlyRate;
+```
+
+> `max(stored, derived)` means an old row stored at 1.25 on a holiday is still paid at 2.60. The migration backfills the stored value too, but payroll does not rely on it.
+
+### Undertime
+
+`computeAttendanceDeductions()` counts the minutes between the 17:00 shift end and `time_out`; a missing clock-out docks the remaining shift (480 − late minutes). Lateness and undertime are separate, so a 6-minute late arrival that still clocks out at 17:00 is not docked twice. The payslip line is `Undertime (N min)`, capped like absence and late deductions.
+
+### Meal break
+
+A span longer than **300 minutes** loses one **60-minute** meal break — for the regular shift and for overtime (`computeOvertimeHours()`). A 5-hour block is paid in full; a 5.5-hour block is paid 4.5 hours. This is a policy assumption: the system does not capture a separate meal-out/meal-in scan.
+
 ### Overtime
 ```php
 // api/payroll_runs.php
 $hourlyRate = $att["daily_rate"] / 8.0;
-$otPay += (float) $ot["hours"] * (float) $ot["rate_multiplier"] * $hourlyRate;
+$otPay += (float) $ot["hours"] * $multiplier * $hourlyRate;
 ```
 Only records matching **all** of these count:
 ```sql
@@ -308,7 +352,9 @@ AND time_in IS NOT NULL AND time_out IS NOT NULL
 | 4 | request **Approved** | **overtime clock-IN** |
 | 5 | approved + started | **overtime clock-OUT** — hours computed, `Completed` |
 
-> **Approval gates the work, not just the payment.** Hours are measured only from the approved block's `time_in` to `time_out` — staying late without approval earns nothing.
+> **Approval gates the work, not just the payment.** Hours are measured only from the approved block's `time_in` to `time_out` — staying late without approval is not recorded or paid. That is the system's control; legally, work actually rendered is generally compensable, so this is the one control to align with company policy (see §11).
+
+The employee can also file the request from the **portal attendance page** with a date, requested window and reason — the preferred path for planned overtime. The kiosk remains the time clock: after approval, the employee scans for OT clock-in and clock-out. The day type and rate are derived on the server either way.
 
 Every employee may also **type** the QR value ("Scanner not working?"), which is the practical path on a phone: browsers block camera access outside HTTPS/`localhost`.
 
@@ -428,6 +474,7 @@ C:\xampp\php\php.exe C:\xampp\master_file_tests\full_payroll_test.php       # ov
 C:\xampp\php\php.exe C:\xampp\master_file_tests\payroll_approval_test.php   # maker/checker + lock
 C:\xampp\php\php.exe C:\xampp\master_file_tests\payroll_void_test.php       # void + reprocess + audit
 C:\xampp\php\php.exe C:\xampp\master_file_tests\security_test.php           # CSRF, cookie flags, audit redaction
+C:\xampp\php\php.exe C:\xampp\master_file_tests\premium_undertime_test.php   # day-type premium, 2.60 holiday OT, undertime
 ```
 
 ---
@@ -462,7 +509,7 @@ Yes. `api/payroll_void.php`: Approver-only, mandatory reason (≥10 characters),
 §9 — a second, independent implementation agrees on all 36 checked values.
 
 **"What about holidays, rest days, night differential?"**
-Public holidays in the `holidays` table are **excluded from expected working days** (Art. 94), so a regular holiday never becomes an absence. **Premiums** are still flat: overtime is 1.25 on every day, so there is no +30% rest-day or holiday premium, and night differential (Art. 86) is not computed. Say this plainly — it is a scope boundary, not an oversight.
+Public holidays in the `holidays` table are **excluded from expected working days** (Art. 94), so a regular holiday never becomes an absence. The day-type engine pays the first 8 hours at **1.30** on a rest day/special holiday and **2.00** on a regular holiday, with overtime at **1.69 / 2.60**. **Night differential** (Art. 86, +10% for 22:00–06:00) is **not** computed. Say that plainly — it is a scope boundary, not an oversight.
 
 ---
 
@@ -470,7 +517,10 @@ Public holidays in the `holidays` table are **excluded from expected working day
 
 | Limitation | Honest framing |
 |---|---|
-| Overtime has no rest-day / holiday premium | Holiday **dates** are excluded from absences (Art. 94), but overtime is priced flat at 1.25 — no +30% for a rest day or a special/regular holiday |
+| Night differential is not computed | Art. 86 gives +10% for work between 22:00 and 06:00. Holiday/rest-day premiums are implemented; the night window is the remaining gap |
+| Overtime actually worked without approval is not paid | The kiosk refuses to record an unapproved block and payroll only pays Approved/Completed. Legally, work actually rendered is generally compensable; align the exception/approval policy before the defence |
+| A holiday that falls on a rest day uses the holiday rate | The compounded “holiday on rest day” rate is not modelled; the holiday rate takes precedence |
+| The meal break is assumed, not scanned | Any span over 300 minutes loses 60 minutes; a shift that works through lunch is underpaid and a long OT block that takes a longer break is overpaid |
 | SSS uses the straight-line formula, not the official MSC bracket table | Identical above the ₱35,000 cap; the bracket lookup is a data change, not a logic change |
 | No hire-date proration | An employee hired mid-period receives a full semi-monthly basic |
 | 13th month uses current salary for all 12 months | A mid-year raise is not weighted |
@@ -484,17 +534,18 @@ Public holidays in the `holidays` table are **excluded from expected working day
 ## 12. Demo script
 
 1. **Login `payroll`** → Employees (contact + bank fields), Payroll Periods (pay date auto-fills: 20th / 5th next month)
-2. **Kiosk** → scan or type QR → clock in → clock out → **scan again = overtime request** → **scan again = refused, "still awaiting approval"** ← *the strongest single moment*
-3. **Overtime page as `payroll`** → approve
-4. **Scan** → overtime starts → **scan** → hours computed
-5. **Portal on the phone** → Attendance → **Request a correction** → submit
-6. **Corrections page as `payroll`** → approve → `minutes_late` recomputes
-7. **Process payroll** → show a payslip, and that the deduction lines **sum to the total**
-8. **Try to approve your own run as `payroll`** → **403 Segregation of duties**; log in as `approver` → approves
-9. **Edit a deduction on the approved run** → **409, formal adjustment required**
-10. **Void the wrong run as `approver`** → period reopens → **process it again** (the void reason is in the Audit Log)
-11. **Exports** → bank file / register / remittance
-12. **Login `admin`** → Users + **Audit Log**, showing every action above — and no payroll access
+2. **Kiosk** → scan or type QR → **clock in → clock out** (the time clock)
+3. **Portal on the phone → Attendance → Request overtime** → date, requested window, reason → **the server shows the day type and rate** (e.g. 2026-12-25 = Regular Holiday, 2.60x)
+4. **Overtime page as `payroll`** → approve; the row shows the reason, requested window and derived day type
+5. **Kiosk** → **overtime clock-in → overtime clock-out** → hours computed
+6. **Portal → Attendance → Request a correction** → submit
+7. **Corrections page as `payroll`** → approve → `minutes_late` recomputes
+8. **Process payroll** → show a payslip: Basic, Overtime, **Premium Pay**, and the Absences / Late / **Undertime** lines
+9. **Try to approve your own run as `payroll`** → **403 Segregation of duties**; log in as `approver` → approves
+10. **Edit a deduction on the approved run** → **409, formal adjustment required**
+11. **Void the wrong run as `approver`** → period reopens → **process it again** (the void reason is in the Audit Log)
+12. **Exports** → bank file / register / remittance
+13. **Login `admin`** → Users + **Audit Log**, showing every action above — and no payroll access
 
 ---
 
@@ -508,6 +559,9 @@ Public holidays in the `holidays` table are **excluded from expected working day
 | TRAIN brackets | `api/_payroll_helpers.php` → `computeWithholdingTax()` |
 | Tax base, cap, zero-net floor | `api/_payroll_helpers.php` → `computePayslipDeductions()`, `recomputePayslipTotals()` |
 | Public holidays excluded from working days | `api/_payroll_helpers.php` → `countHolidaysInRange()`; `sql/009_holidays.sql` |
+| Day types, premium pay, day-type OT multiplier | `api/_payroll_helpers.php` → `dayTypeForDate()`, `computePremiumPay()`, `overtimeMultiplierForDayType()`; `sql/013_premium_ot_request_undertime.sql` |
+| Undertime deduction | `api/_payroll_helpers.php` → `computeAttendanceDeductions()` |
+| OT request reason / window / portal form | `api/overtime_records.php`, `employee_portal/api/me_overtime_requests.php` |
 | Taxable / non-taxable allowances | `api/_payroll_helpers.php` → `recomputePayslipTotals()`; `sql/011_allowance_taxability.sql` |
 | Payroll assembly, maker/checker, lock | `api/payroll_runs.php` |
 | Void + reprocess (the formal adjustment) | `api/payroll_void.php` |
@@ -519,7 +573,7 @@ Public holidays in the `holidays` table are **excluded from expected working day
 | CSRF, session cookie flags, safe errors | `api/_bootstrap.php` (admin) and `employee_portal/api/_bootstrap.php` |
 | Exports | `api/bank_file.php` |
 | Schema | `sql/payroll_db_schema.sql` (structure), `sql/payroll_db_recovery.sql` (structure + data) |
-| Migrations 002–012 | `sql/00*.sql` |
+| Migrations 002–013 | `sql/00*.sql` |
 | Verification | `C:\xampp\master_file_tests\verify_computations.php` |
 
 ---
@@ -540,7 +594,7 @@ Public holidays in the `holidays` table are **excluded from expected working day
 | 7 | **Maternity leave** | **RA 11210** — *105-Day Expanded Maternity Leave Law* (2019) | Amends Labor Code Art. 133 | **105 days** paid (60 for miscarriage); +15 for solo parents | Leave type only |
 | 8 | **Paternity leave** | **RA 8187** — *Paternity Leave Act of 1996* | Sec. 3 | **7 days** paid, first **4** deliveries of legitimate spouse | Leave type only |
 | 9 | **Solo parent leave** | **RA 11861** — *Expanded Solo Parents Welfare Act* (2022) | Sec. 8 | **7 days** (15 for sole caregivers) | Not implemented |
-| 10 | **Overtime premium** | **PD 442** — *Labor Code* | **Art. 87** (ordinary day), **Art. 93** (rest day), **Art. 94** (holiday) | **+25%** on ordinary days; **+30%** on rest days | 1.25 only |
+| 10 | **Overtime premium** | **PD 442** — *Labor Code* | **Art. 87** (ordinary day), **Art. 93** (rest day), **Art. 94** (holiday) | **+25%** ordinary; **+30%** rest day; holiday rates | Yes — 1.25 / 1.69 / 2.60 by day type |
 | 11 | **Hours of work** | **PD 442** — *Labor Code* | **Arts. 83–85** | Normal hours **8 per day**; lunch break not counted | Yes |
 | 12 | **Absences / tardiness** | **PD 442** — *Labor Code*; "no work, no pay" principle | Arts. 97(f) ("wage"), Art. 82; settled jurisprudence | No pay for time not worked | Yes |
 | 13 | **Data privacy** | **RA 10173** — *Data Privacy Act of 2012* | Sec. 11–13 (processing, security) | Government IDs, bank accounts are personal data; requires safeguards | Partly |
@@ -560,10 +614,9 @@ Public holidays in the `holidays` table are **excluded from expected working day
 | Benefit | Law | Status |
 |---|---|---|
 | Night shift differential (+10%) | Labor Code **Art. 86** | Not implemented |
-| Rest day / holiday **premiums** | Labor Code **Arts. 93–94** | Not implemented (OT is flat 1.25). Holiday **dates** are excluded from absences |
-| Premium pay for special/regular holidays | Labor Code **Arts. 73–76** | Not implemented |
+| Holiday-on-rest-day compounded premium | Labor Code **Arts. 93–94** | The holiday rate takes precedence; the compounded rate is not modelled |
 | De minimis benefits (non-taxable) | BIR RR 11-2018, Sec. 2.78.1 | Modelled as an `allowances.is_taxable = 0` line; the statutory limits are not auto-enforced |
 | Separation / retirement pay | Labor Code **Arts. 283–287** | Out of scope |
 | SSS sickness / unemployment benefits | RA 11199 | Out of scope |
 
-> Framing: *"The payslip covers the semi-monthly wage computation and the four mandatory contributions plus withholding tax. Holiday dates are already excluded from absences; premium rates for rest days and holidays, night differential, and statutory benefits like separation pay are outside this module."*
+> Framing: *"The payslip covers the semi-monthly wage computation, the four mandatory contributions plus withholding tax, and the day-type premiums for rest days and holidays. Night differential, holiday-on-rest-day compounding, and statutory benefits like separation pay are outside this module."*

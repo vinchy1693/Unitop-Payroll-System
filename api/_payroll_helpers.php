@@ -44,6 +44,140 @@ function workDaySql(string $column): string {
     );
 }
 
+// =====================================================================
+// Day types and statutory premiums
+//
+// The work week is Monday-Saturday, so Sunday is the rest day. A date is a
+// holiday when the `holidays` table says so; holiday takes precedence over the
+// rest day (a holiday that falls on a Sunday is paid at the holiday rate).
+//
+// Rates (Labor Code):
+//   ordinary day       first 8h 1.00   OT 1.25
+//   rest day           first 8h 1.30   OT 1.69  (1.30 x 1.30)
+//   special holiday    first 8h 1.30   OT 1.69
+//   regular holiday    first 8h 2.00   OT 2.60  (2.00 x 1.30)
+//
+// For a holiday the semimonthly basic already pays the 1.00 non-working-day
+// part, so computePremiumPay() adds only the premium above it. For a rest day
+// the basic does not cover the day at all, so the whole 1.30 is added.
+// =====================================================================
+const REST_DAY_ISO_DOW = 7;
+
+function holidayTypeForDate(PDO $pdo, string $date): ?string {
+    $stmt = $pdo->prepare(
+        "SELECT holiday_type FROM holidays WHERE holiday_date = ?
+         ORDER BY holiday_type = 'Regular' DESC LIMIT 1"
+    );
+    $stmt->execute([$date]);
+    $type = $stmt->fetchColumn();
+    return $type === false ? null : (string) $type;
+}
+
+function dayTypeForDate(PDO $pdo, string $date): string {
+    $holiday = holidayTypeForDate($pdo, $date);
+    if ($holiday === "Regular") return "Regular Holiday";
+    if ($holiday === "Special") return "Special Holiday";
+    if ((int) (new DateTime($date))->format("N") === REST_DAY_ISO_DOW) return "Rest Day";
+    return "Ordinary Day";
+}
+
+/** Multiplier for the first eight hours of work on the date. */
+function firstEightMultiplierForDayType(string $dayType): float {
+    return match ($dayType) {
+        "Rest Day"        => 1.30,
+        "Special Holiday" => 1.30,
+        "Regular Holiday" => 2.00,
+        default           => 1.00,
+    };
+}
+
+/** Statutory overtime multiplier for work beyond eight hours on the date. */
+function overtimeMultiplierForDayType(string $dayType): float {
+    return match ($dayType) {
+        "Rest Day"        => 1.69,
+        "Special Holiday" => 1.69,
+        "Regular Holiday" => 2.60,
+        default           => 1.25,
+    };
+}
+
+/**
+ * Hours between two clock times, less one 60-minute meal break when the span
+ * exceeds 300 minutes. Used for overtime blocks and for attendance rows whose
+ * hours_worked was not stored. Mirrors the kiosk's regular-shift rule.
+ */
+function computeOvertimeHours(string $timeIn, string $timeOut): float {
+    $in  = new DateTime($timeIn);
+    $out = new DateTime($timeOut);
+    $minutes = ($out->getTimestamp() - $in->getTimestamp()) / 60.0;
+    if ($minutes < 0) $minutes += 1440;   // crossed midnight
+    if ($minutes > 300) $minutes -= 60;   // meal break
+    return round(max(0.0, $minutes) / 60.0, 2);
+}
+
+/**
+ * Premium pay for work actually recorded on rest days and holidays.
+ *
+ * Returns the total and a per-day breakdown. The first eight hours use the
+ * day-type rate; the excess uses the day-type OT rate. Ordinary-day work is not
+ * included here - it is covered by the semimonthly basic (and its own OT line).
+ */
+function computePremiumPay(
+    PDO $pdo,
+    int $employeeId,
+    string $startDate,
+    string $endDate,
+    float $dailyRate
+): array {
+    $stmt = $pdo->prepare(
+        "SELECT work_date, time_in, time_out, hours_worked
+         FROM attendance
+         WHERE employee_id = ? AND work_date BETWEEN ? AND ?
+         ORDER BY work_date"
+    );
+    $stmt->execute([$employeeId, $startDate, $endDate]);
+
+    $hourly  = $dailyRate / 8.0;
+    $total   = 0.0;
+    $days    = [];
+
+    foreach ($stmt->fetchAll() as $row) {
+        $dayType = dayTypeForDate($pdo, $row["work_date"]);
+        if ($dayType === "Ordinary Day") continue;
+
+        $hours = $row["hours_worked"] !== null
+            ? (float) $row["hours_worked"]
+            : (($row["time_in"] !== null && $row["time_out"] !== null)
+                ? computeOvertimeHours($row["time_in"], $row["time_out"]) : 0.0);
+        if ($hours <= 0) continue;
+
+        $first  = min($hours, 8.0);
+        $beyond = max(0.0, $hours - 8.0);
+
+        if ($dayType === "Rest Day") {
+            // The basic does not cover Sunday, so the full premium is added.
+            $pay = $first * $hourly * firstEightMultiplierForDayType($dayType)
+                 + $beyond * $hourly * overtimeMultiplierForDayType($dayType);
+        } elseif ($dayType === "Regular Holiday") {
+            // Basic already paid 1.00 for the holiday; add 1.00 / 1.60.
+            $pay = $first * $hourly * 1.00 + $beyond * $hourly * 1.60;
+        } else { // Special Holiday
+            // Basic already paid 1.00; add 0.30 / 0.69.
+            $pay = $first * $hourly * 0.30 + $beyond * $hourly * 0.69;
+        }
+
+        $total += $pay;
+        $days[] = [
+            "date"    => $row["work_date"],
+            "type"    => $dayType,
+            "hours"   => round($hours, 2),
+            "premium" => round($pay, 2),
+        ];
+    }
+
+    return ["total" => round($total, 2), "days" => $days];
+}
+
 // ---- SSS (2025): 15% total, 5% EE / 10% ER, MSC ₱5,000 – ₱35,000 ----
 function computeSSS(float $monthlySalary): array {
     $msc = max(5000.0, min(35000.0, $monthlySalary));
@@ -87,6 +221,11 @@ function computePayslipDeductions(
     float $preTaxDeductions = 0.0,
     float $additionalTaxable = 0.0
 ): array {
+    // Contribution bases are statutory, not gross pay. RA 1161 sec. 8 defines
+    // SSS compensation as excluding bonuses, allowances and overtime pay; RA
+    // 11223 uses the monthly BASIC salary for PhilHealth; RA 9679 sec. 4 defines
+    // Pag-IBIG compensation as basic monthly salary plus mandated COLA. All
+    // three therefore stay on basic salary - deliberately not on gross pay.
     $sss = computeSSS($monthlySalary);
     $ph  = computePhilHealth($monthlySalary);
     $pi  = computePagIbig($monthlySalary);
@@ -125,7 +264,7 @@ function computePayslipDeductions(
 
 // ---- Recompute payslip totals ----
 function recomputePayslipTotals(PDO $pdo, int $payslipId): array {
-    $stmt = $pdo->prepare("SELECT basic_pay, overtime_pay FROM payslips WHERE payslip_id = ?");
+    $stmt = $pdo->prepare("SELECT basic_pay, overtime_pay, premium_pay FROM payslips WHERE payslip_id = ?");
     $stmt->execute([$payslipId]);
     $ps = $stmt->fetch();
     if (!$ps) throw new RuntimeException("Payslip not found: $payslipId");
@@ -147,6 +286,7 @@ function recomputePayslipTotals(PDO $pdo, int $payslipId): array {
 
     $basic = (float) $ps["basic_pay"];
     $ot    = (float) $ps["overtime_pay"];
+    $premium = (float) $ps["premium_pay"];
 
     // Recompute withholding tax on the CURRENT lines. Allowances are added after
     // the payslip is created, so without this a taxable allowance raised gross pay
@@ -165,7 +305,9 @@ function recomputePayslipTotals(PDO $pdo, int $payslipId): array {
 
     $attStmt = $pdo->prepare(
         "SELECT COALESCE(SUM(amount), 0) FROM deductions
-         WHERE payslip_id = ? AND (deduction_type LIKE 'Absences%' OR deduction_type LIKE 'Late/Undertime%')"
+         WHERE payslip_id = ? AND (deduction_type LIKE 'Absences%'
+                                    OR deduction_type LIKE 'Late/Undertime%'
+                                    OR deduction_type LIKE 'Undertime%')"
     );
     $attStmt->execute([$payslipId]);
     $attendanceDed = (float) $attStmt->fetchColumn();
@@ -173,7 +315,7 @@ function recomputePayslipTotals(PDO $pdo, int $payslipId): array {
     $statutoryOnly = round(
         (float) $gc["sss_ee"] + (float) $gc["philhealth_ee"] + (float) $gc["pagibig_ee"], 2
     );
-    $taxBase = round($basic + $ot + $taxableAllow - $attendanceDed - $statutoryOnly, 2);
+    $taxBase = round($basic + $ot + $premium + $taxableAllow - $attendanceDed - $statutoryOnly, 2);
     if ($taxBase < 0) $taxBase = 0;
 
     // 13th Month Pay is a special payslip: its tax is the excess over the
@@ -194,7 +336,7 @@ function recomputePayslipTotals(PDO $pdo, int $payslipId): array {
         }
     }
 
-    $gross    = round($basic + $ot + $allowTotal, 2);
+    $gross    = round($basic + $ot + $premium + $allowTotal, 2);
     $govtDed  = round((float)$gc["sss_ee"] + (float)$gc["philhealth_ee"] + (float)$gc["pagibig_ee"] + (float)$gc["withholding_tax"], 2);
     $totalDed = round($govtDed + $extraDed, 2);
     $net      = round($gross - $totalDed, 2);
@@ -220,6 +362,7 @@ function recomputePayslipTotals(PDO $pdo, int $payslipId): array {
         "gross_pay"        => $gross,
         "total_deductions" => $totalDed,
         "net_pay"          => $net,
+        "premium_pay"      => round($premium, 2),
         "allowance_total"  => round($allowTotal, 2),
         "extra_deductions" => round($extraDed, 2),
     ];
@@ -268,15 +411,43 @@ function computeAttendanceDeductions(
     // Only working-day attendance counts as "present" (Saturday counts,
     // Sunday does not), matching $expectedDays above.
     $stmt = $pdo->prepare(
-        "SELECT COUNT(*) AS days, COALESCE(SUM(minutes_late), 0) AS late_total
+        "SELECT work_date, time_in, time_out, minutes_late, hours_worked
          FROM attendance
          WHERE employee_id = ? AND work_date BETWEEN ? AND ?
-           AND " . workDaySql('work_date')
+           AND " . workDaySql('work_date') . "
+         ORDER BY work_date"
     );
     $stmt->execute([$employeeId, $startDate, $endDate]);
-    $att = $stmt->fetch();
-    $presentDays = (int) $att["days"];
-    $lateMinutes = (int) $att["late_total"];
+    $attRows     = $stmt->fetchAll();
+    $presentDays = count($attRows);
+    $lateMinutes = 0;
+    foreach ($attRows as $row) $lateMinutes += (int) $row["minutes_late"];
+
+    // Undertime: leaving before 17:00. minutes_late already accounts for a late
+    // arrival, so only the early-departure side is added here - otherwise a late
+    // employee who still leaves on time would be docked twice. A row with no
+    // clock-out proves no hours for the rest of the shift, so the remaining
+    // (480 - late) minutes are docked rather than paying a full day.
+    $holidayStmt = $pdo->prepare(
+        "SELECT holiday_date FROM holidays WHERE holiday_date BETWEEN ? AND ?"
+    );
+    $holidayStmt->execute([$startDate, $endDate]);
+    $holidaySet = array_fill_keys($holidayStmt->fetchAll(PDO::FETCH_COLUMN), true);
+
+    $undertimeMinutes = 0;
+    $shiftEnd = new DateTime("17:00:00");
+    foreach ($attRows as $row) {
+        if (isset($holidaySet[$row["work_date"]])) continue; // premium day, not an ordinary shift
+        if ($row["time_out"] === null || $row["time_out"] === "") {
+            $undertimeMinutes += max(0, 480 - (int) $row["minutes_late"]);
+            continue;
+        }
+        $out = new DateTime($row["time_out"]);
+        if ($out < $shiftEnd) {
+            $diff = $out->diff($shiftEnd);
+            $undertimeMinutes += min(480, ($diff->h * 60) + $diff->i);
+        }
+    }
 
     // Approved PAID leave excuses an absence. Without this, an employee on
     // approved leave has no attendance row for those days and is docked for
@@ -334,9 +505,11 @@ function computeAttendanceDeductions(
         "leave_days"        => $leaveDays,
         "absent_days"       => $absentDays,
         "late_minutes"      => $lateMinutes,
+        "undertime_minutes" => $undertimeMinutes,
         "daily_rate"        => round($dailyRate, 2),
         "absence_deduction" => round($absentDays * $dailyRate, 2),
         "late_deduction"    => round($lateMinutes * $perMinute, 2),
+        "undertime_deduction" => round($undertimeMinutes * $perMinute, 2),
     ];
 }
 

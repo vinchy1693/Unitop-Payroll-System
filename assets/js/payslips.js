@@ -115,6 +115,7 @@ function renderPayslip(p) {
     const gross    = Number(p.gross_pay || 0);
     const basic    = Number(p.basic_pay || 0);
     const ot       = Number(p.overtime_pay || 0);
+    const premium  = Number(p.premium_pay || 0);
     const sss      = Number(p.sss_ee || 0);
     const ph       = Number(p.philhealth_ee || 0);
     const pi       = Number(p.pagibig_ee || 0);
@@ -186,6 +187,7 @@ function renderPayslip(p) {
                     <h4>Earnings</h4>
                     <div class="line"><span>Basic Pay</span><span>${formatMoney(basic)}</span></div>
                     <div class="line"><span>Overtime Pay</span><span>${formatMoney(ot)}</span></div>
+                    <div class="line"><span>Premium Pay (Rest Day / Holiday)</span><span>${formatMoney(premium)}</span></div>
                     ${allowanceRows}
                     <div class="line-add">
                         <button class="btn-add-line" data-add-allowance>+ Add Allowance</button>

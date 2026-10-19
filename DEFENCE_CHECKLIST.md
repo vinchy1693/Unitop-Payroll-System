@@ -30,6 +30,15 @@ Legend: `[ ]` to do · `[x]` verified done · ⚠️ = could cost marks if unadd
 - [x] **`Processed` is no longer terminal** — `api/payroll_void.php` voids a run (Approver, reason,
       audited) and reopens the period for reprocessing.
 - [x] **Public holidays are excluded from expected working days** (Art. 94) via the `holidays` table.
+- [x] **Rest-day / holiday premiums** — first 8h 1.30/2.00, OT 1.69/2.60, paid as `payslips.premium_pay`
+      (migration 013); holiday takes precedence over the Sunday rest day.
+- [x] **Undertime** — early clock-out is deducted from `time_out`; a missing clock-out docks the remaining
+      shift; late arrival is not double-docked.
+- [x] **OT requests carry a reason and requested window**, and the day type/rate are derived on the server,
+      never trusted from the client. The portal attendance page is the employee path.
+- [x] **Meal break** — a span over 300 minutes loses 60 minutes for both the regular shift and OT.
+- [x] **Contribution bases** — SSS/PhilHealth/Pag-IBIG stay on basic salary per RA 1161 §8, RA 11223 and
+      RA 9679 §4 (they exclude OT/allowances).
 - [ ] **No `UNIQUE(employee_id, work_date)`** — duplicate attendance days are double-credited.
 - [ ] **Unvalidated FK inserts** return 500 instead of 422 (leave, loans, overtime, salary rates, positions, departments).
 
@@ -49,6 +58,8 @@ Legend: `[ ]` to do · `[x]` verified done · ⚠️ = could cost marks if unadd
 - [x] `salary_rates` / `cash_disbursements` references removed from the matrices; dead endpoints stay deleted.
 - [x] `nav_matrix_test.php` / `supervisor_scope_test.php` read the HTML by absolute path.
 - [x] Tests that depended on employee id 3 or live leave data now build their own fixtures.
+- [x] `premium_undertime_test.php` — Sunday + Regular holiday premiums, 2.60 holiday OT, 60-minute undertime.
+- [x] `employee_portal_test.php` — the employee files an overtime request; the server derives the rest-day rate.
 - [ ] **Change every password.** `admin`, `payroll`, `approver`, `vinchy`, `juan.delacruz` are all `test123`.
 - [ ] **Admin repo `main` is far behind `checking`** and is the GitHub default — fast-forward it or flip the default branch.
 
@@ -89,7 +100,13 @@ Legend: `[ ]` to do · `[x]` verified done · ⚠️ = could cost marks if unadd
 - [x] Taxable allowances affect withholding tax; a de minimis allowance can be marked non-taxable.
 - [x] Public holidays from the `holidays` table are excluded from expected working days (Art. 94).
 - [x] A wrong run can be voided by the Approver (reason required, audited) and the period reprocessed.
-- [ ] Overtime is priced flat at **1.25** — no rest-day or holiday **premium** (holiday dates are excluded, not premium-rated).
+- [x] Rest-day / holiday premiums are paid by day type; holiday OT is at least 2.60.
+- [x] Undertime and missing clock-outs are deducted; late arrival is not double-docked.
+- [x] OT requests carry a reason and requested window; the rate is server-derived.
+- [x] Employee portal overtime request + approval + kiosk time-in/out (51/0 portal suite).
+- [x] `premium_undertime_test.php` 17/0: Sunday/holiday premium, 2.60 holiday OT, 60-min undertime.
+- [ ] Night differential (+10%, Art. 86) is **not** computed.
+- [ ] Overtime actually worked without approval is **not** paid — align with company policy.
 - [ ] SSS uses the straight `min(35,000, salary) × 5%` rather than the official MSC bracket table (identical above ₱35,000).
 - [ ] Rates are **2025 hard-coded** values; a change is a code edit, not configuration.
 - [ ] The phone **camera cannot work** over `http://<LAN-IP>` — browsers require HTTPS; use manual QR entry.

@@ -1,5 +1,6 @@
 <?php
 require __DIR__ . "/_bootstrap.php";
+require __DIR__ . "/_payroll_helpers.php";
 
 $method = $_SERVER["REQUEST_METHOD"];
 if ($method !== "POST") {
@@ -199,16 +200,27 @@ $stmt->execute([$empId, $today]);
 $ot = $stmt->fetch();
 
 $fileRequest = function () use ($pdo, $empId, $today, $nowTime) {
+    // The kiosk request is after the shift, so it has no requested end; the
+    // actual block is measured by the OT clock-in/clock-out. The day type and
+    // rate are still derived from the date, not hardcoded to an ordinary day.
+    $dayType    = dayTypeForDate($pdo, $today);
+    $multiplier = overtimeMultiplierForDayType($dayType);
+
     // A request has no hours and no time_in: those only exist once an admin
     // has approved it AND the employee has actually started/finished.
     $stmt = $pdo->prepare(
         "INSERT INTO overtime_records
-         (employee_id, ot_date, hours, ot_type, rate_multiplier,
-          status, time_in, time_out, requested_at, approved_by, approved_at)
-         VALUES (?, ?, NULL, 'Ordinary Day', 1.25, 'Pending', NULL, NULL, ?, NULL, NULL)"
+         (employee_id, ot_date, hours, ot_type, rate_multiplier, reason,
+          requested_start, requested_end, day_type, status, time_in, time_out,
+          requested_at, approved_by, approved_at)
+         VALUES (?, ?, NULL, ?, ?, ?, ?, NULL, ?, 'Pending', NULL, NULL, ?, NULL, NULL)"
     );
     $requestedAt = $today . " " . $nowTime;
-    $stmt->execute([$empId, $today, $requestedAt]);
+    $stmt->execute([
+        $empId, $today, $dayType, $multiplier,
+        "Kiosk overtime request filed after the shift.",
+        $nowTime, $dayType, $requestedAt,
+    ]);
     return (int) $pdo->lastInsertId();
 };
 
@@ -265,16 +277,14 @@ if ($ot["status"] === "Approved" && $ot["time_in"] === null) {
 
 // 7e. Approved and started but not ended: compute the overtime hours.
 if ($ot["status"] === "Approved" && $ot["time_in"] !== null && $ot["time_out"] === null) {
-    $inMinutes  = ((int) substr($ot["time_in"], 0, 2)) * 60 + (int) substr($ot["time_in"], 3, 2);
-    $outMinutes = ((int) substr($nowTime, 0, 2)) * 60 + (int) substr($nowTime, 3, 2);
-    if ($outMinutes < $inMinutes) $outMinutes += 24 * 60;   // crossed midnight
-    $minutes = $outMinutes - $inMinutes;
+    // Same meal-break rule as the regular shift: a block longer than five hours
+    // loses one 60-minute meal break. computeOvertimeHours() also handles a
+    // block that crosses midnight.
+    $hours = computeOvertimeHours((string) $ot["time_in"], $nowTime);
 
-    if ($minutes < 1) {
+    if ($hours <= 0) {
         respond(false, "Overtime clock-out must be at least 1 minute after overtime clock-in.", null, 422);
     }
-
-    $hours = round($minutes / 60, 2);
 
     $stmt = $pdo->prepare(
         "UPDATE overtime_records

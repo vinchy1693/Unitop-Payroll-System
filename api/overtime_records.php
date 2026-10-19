@@ -10,6 +10,7 @@
 //                           request only (assertSupervises(), api/_bootstrap.php)
 // =====================================================================
 require __DIR__ . "/_bootstrap.php";
+require __DIR__ . "/_payroll_helpers.php";
 
 requireRole(TEAM_QUEUE_ROLES);   // maker + checker + supervisor may read
 
@@ -26,10 +27,19 @@ const OVERTIME_STATUSES = ["Pending", "Approved", "Rejected", "Completed"];
  *   approved_by_name - who approved/rejected it
  */
 function decorateOvertimeRow(array $row): array {
+    global $pdo;
+
     $row["ot_id"]          = (int) $row["ot_id"];
     $row["employee_id"]    = (int) $row["employee_id"];
-    $row["rate_multiplier"] = $row["rate_multiplier"] !== null ? (float) $row["rate_multiplier"] : 0.0;
     $row["hours"]          = $row["hours"] !== null ? (float) $row["hours"] : null;
+
+    // Old rows (before migration 013) have no day_type; derive it from the date.
+    if (empty($row["day_type"]) && !empty($row["ot_date"])) {
+        $row["day_type"] = dayTypeForDate($pdo, (string) $row["ot_date"]);
+    }
+    $statutory = overtimeMultiplierForDayType((string) ($row["day_type"] ?? "Ordinary Day"));
+    $row["statutory_multiplier"] = $statutory;
+    $row["rate_multiplier"] = max((float) ($row["rate_multiplier"] ?? 0), $statutory);
 
     $hours = $row["hours"];
     if ($hours === null && $row["time_in"] !== null) {
@@ -44,7 +54,10 @@ function decorateOvertimeRow(array $row): array {
         }
         if ($end !== null) {
             if ($end < $inMinutes) $end += 24 * 60;
-            $hours = round(max(0, $end - $inMinutes) / 60, 2);
+            $minutes = max(0, $end - $inMinutes);
+            // Same meal-break rule the clock-out uses for the final hours.
+            if ($minutes > 300) $minutes -= 60;
+            $hours = round($minutes / 60, 2);
         }
     }
     $row["pending_hours"] = $hours !== null ? $hours : 0.0;
@@ -179,16 +192,49 @@ if ($method === "PATCH") {
     requireRole(MAKER_ROLES);   // only the Payroll Officer drives the OT workflow
 }
 
-if ($method === "POST") {
-    $in         = json_input();
-    $empId      = (int)   ($in["employee_id"]     ?? 0);
-    $otDate     = trim($in["ot_date"]             ?? "");
-    $otType     = trim($in["ot_type"]             ?? "");
-    $multiplier = (float) ($in["rate_multiplier"] ?? 0);
-
-    if ($empId === 0 || $otDate === "" || $otType === "" || $multiplier <= 0) {
-        respond(false, "Employee, OT date, OT type and a rate multiplier > 0 are required.", null, 422);
+/** HH:MM or HH:MM:SS -> HH:MM:SS, or null when it is not a valid time. */
+function normalizeOtTime($value): ?string {
+    $value = trim((string) ($value ?? ""));
+    if ($value === "") return null;
+    if (!preg_match('/^([01][0-9]|2[0-3]):([0-5][0-9])(?::([0-5][0-9]))?$/', $value, $m)) {
+        return null;
     }
+    return sprintf("%s:%s:%s", $m[1], $m[2], $m[3] ?? "00");
+}
+
+if ($method === "POST") {
+    $in       = json_input();
+    $empId    = (int)  ($in["employee_id"] ?? 0);
+    $otDate   = trim($in["ot_date"] ?? "");
+    $reason   = trim($in["reason"] ?? "");
+    $reqStart = normalizeOtTime($in["requested_start"] ?? null);
+    $reqEnd   = normalizeOtTime($in["requested_end"] ?? null);
+
+    if ($empId === 0 || $otDate === "") {
+        respond(false, "Employee and OT date are required.", null, 422);
+    }
+    $dateCheck = DateTime::createFromFormat("Y-m-d", $otDate);
+    if (!$dateCheck || $dateCheck->format("Y-m-d") !== $otDate) {
+        respond(false, "ot_date must be a real date in YYYY-MM-DD form.", null, 422);
+    }
+    if (strlen($reason) < 10) {
+        respond(false, "A reason of at least 10 characters is required for an overtime request.", null, 422);
+    }
+    if (strlen($reason) > 500) {
+        respond(false, "The reason must be at most 500 characters.", null, 422);
+    }
+    if ($reqStart === null || $reqEnd === null) {
+        respond(false, "Requested start and end times are required (HH:MM).", null, 422);
+    }
+    if (strcmp($reqEnd, $reqStart) <= 0) {
+        respond(false, "The requested end must be after the requested start.", null, 422);
+    }
+
+    // The day type and the rate are derived on the server from the date and the
+    // holidays table. A client-supplied multiplier is ignored, so a rest day or
+    // holiday can never be stored as an ordinary-day 1.25 request.
+    $dayType    = dayTypeForDate($pdo, $otDate);
+    $multiplier = overtimeMultiplierForDayType($dayType);
 
     // One open request per employee per day. A finished block does not block
     // a new request later the same day.
@@ -206,31 +252,51 @@ if ($method === "POST") {
     // clock-in/clock-out can fill them.
     $stmt = $pdo->prepare(
         "INSERT INTO overtime_records
-         (employee_id, ot_date, hours, ot_type, rate_multiplier,
-          status, time_in, time_out, requested_at, approved_by, approved_at)
-         VALUES (?, ?, NULL, ?, ?, 'Pending', NULL, NULL, NOW(), NULL, NULL)"
+         (employee_id, ot_date, hours, ot_type, rate_multiplier, reason,
+          requested_start, requested_end, day_type, status, time_in, time_out,
+          requested_at, approved_by, approved_at)
+         VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, 'Pending', NULL, NULL, NOW(), NULL, NULL)"
     );
-    $stmt->execute([$empId, $otDate, $otType, $multiplier]);
+    $stmt->execute([$empId, $otDate, $dayType, $multiplier, $reason, $reqStart, $reqEnd, $dayType]);
 
     respond(true, "Overtime request submitted - waiting for approval.", [
-        "ot_id"  => (int) $pdo->lastInsertId(),
-        "status" => "Pending",
+        "ot_id"           => (int) $pdo->lastInsertId(),
+        "status"          => "Pending",
+        "day_type"        => $dayType,
+        "rate_multiplier" => $multiplier,
     ]);
 }
 
 // ---- PUT: edit a request that has not started yet ----
 if ($method === "PUT") {
-    $in         = json_input();
-    $id         = (int)   ($in["ot_id"]            ?? 0);
-    $otDate     = trim($in["ot_date"]              ?? "");
-    $otType     = trim($in["ot_type"]              ?? "");
-    $multiplier = (float) ($in["rate_multiplier"] ?? 0);
+    $in       = json_input();
+    $id       = (int)  ($in["ot_id"] ?? 0);
+    $otDate   = trim($in["ot_date"] ?? "");
+    $reason   = trim($in["reason"] ?? "");
+    $reqStart = normalizeOtTime($in["requested_start"] ?? null);
+    $reqEnd   = normalizeOtTime($in["requested_end"] ?? null);
 
-    if ($id === 0 || $otDate === "" || $otType === "" || $multiplier <= 0) {
-        respond(false, "OT date, OT type and a rate multiplier > 0 are required.", null, 422);
+    if ($id === 0 || $otDate === "") {
+        respond(false, "OT date is required.", null, 422);
+    }
+    $dateCheck = DateTime::createFromFormat("Y-m-d", $otDate);
+    if (!$dateCheck || $dateCheck->format("Y-m-d") !== $otDate) {
+        respond(false, "ot_date must be a real date in YYYY-MM-DD form.", null, 422);
+    }
+    if (strlen($reason) < 10) {
+        respond(false, "A reason of at least 10 characters is required for an overtime request.", null, 422);
+    }
+    if (strlen($reason) > 500) {
+        respond(false, "The reason must be at most 500 characters.", null, 422);
+    }
+    if ($reqStart === null || $reqEnd === null) {
+        respond(false, "Requested start and end times are required (HH:MM).", null, 422);
+    }
+    if (strcmp($reqEnd, $reqStart) <= 0) {
+        respond(false, "The requested end must be after the requested start.", null, 422);
     }
 
-    $stmt = $pdo->prepare("SELECT status, time_in FROM overtime_records WHERE ot_id = ?");
+    $stmt = $pdo->prepare("SELECT status, time_in, employee_id FROM overtime_records WHERE ot_id = ?");
     $stmt->execute([$id]);
     $row = $stmt->fetch();
     if (!$row) respond(false, "OT record not found.", null, 404);
@@ -239,13 +305,30 @@ if ($method === "PUT") {
     }
 
     $stmt = $pdo->prepare(
+        "SELECT ot_id FROM overtime_records
+         WHERE employee_id = ? AND ot_date = ? AND status IN ('Pending','Approved')
+           AND ot_id <> ? LIMIT 1"
+    );
+    $stmt->execute([(int) $row["employee_id"], $otDate, $id]);
+    if ($stmt->fetchColumn()) {
+        respond(false, "This employee already has an open overtime request for that date.", null, 409);
+    }
+
+    $dayType    = dayTypeForDate($pdo, $otDate);
+    $multiplier = overtimeMultiplierForDayType($dayType);
+
+    $stmt = $pdo->prepare(
         "UPDATE overtime_records
-         SET ot_date = ?, ot_type = ?, rate_multiplier = ?
+         SET ot_date = ?, ot_type = ?, rate_multiplier = ?, reason = ?,
+             requested_start = ?, requested_end = ?, day_type = ?
          WHERE ot_id = ?"
     );
-    $stmt->execute([$otDate, $otType, $multiplier, $id]);
+    $stmt->execute([$otDate, $dayType, $multiplier, $reason, $reqStart, $reqEnd, $dayType, $id]);
 
-    respond(true, "Overtime request updated.");
+    respond(true, "Overtime request updated.", [
+        "day_type"        => $dayType,
+        "rate_multiplier" => $multiplier,
+    ]);
 }
 
 // ---- PATCH: approve / reject a Pending request ----

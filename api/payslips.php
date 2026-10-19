@@ -59,7 +59,7 @@ if (isset($_GET["run_id"])) {
 
     $stmt = $pdo->prepare(
         "SELECT ps.payslip_id, ps.run_id, ps.employee_id,
-                ps.basic_pay, ps.overtime_pay, ps.gross_pay,
+                ps.basic_pay, ps.overtime_pay, ps.premium_pay, ps.gross_pay,
                 ps.total_deductions, ps.net_pay,
                 e.employee_number,
                 CONCAT(e.last_name, ', ', e.first_name) AS employee_name,

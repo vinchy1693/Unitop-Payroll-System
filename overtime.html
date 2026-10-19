@@ -49,7 +49,7 @@
 <div class="container">
 
     <h1>Overtime Approvals</h1>
-    <p class="subtitle">Approve or reject overtime requests. An employee can only start overtime after the request is approved; the hours are computed when they clock out of it.</p>
+    <p class="subtitle">Approve or reject overtime requests. Employees file the request from the portal (or the kiosk after clocking out); once approved, the employee clocks overtime in and out, and the hours are computed when they clock out of it.</p>
 
     <div id="msg" class="msg hidden"></div>
 
@@ -60,8 +60,8 @@
             <span style="font-size:13px;color:var(--muted);">pending overtime request(s)</span>
         </div>
         <div style="max-width:520px;font-size:13px;color:var(--muted);line-height:1.55;">
-            Flow: employee files a request after clocking out &rarr; you approve or reject it &rarr; the employee clocks overtime in and out &rarr; the hours become payable.
-            A Pending or Rejected request never reaches payroll.
+            Flow: employee files a request from the portal (or the kiosk after clocking out) &rarr; you approve or reject it &rarr; the employee clocks overtime in and out &rarr; the hours become payable.
+            A Pending or Rejected request never reaches payroll. The day type and rate are derived from the date, not typed by the employee.
         </div>
     </div>
 
@@ -86,24 +86,26 @@
             </div>
             <strong id="record-count">0 record(s)</strong>
         </div>
+        <div class="table-wrap">
         <table>
             <thead>
                 <tr>
                     <th>Employee</th>
                     <th class="col-center">Date</th>
                     <th class="col-center">OT Type</th>
-                    <th class="col-center">Requested</th>
+                    <th class="col-center">Requested Window</th>
                     <th class="col-center">Time In</th>
                     <th class="col-center">Time Out</th>
                     <th style="text-align:right;">Hours</th>
                     <th class="col-center">Status</th>
-                    <th class="col-center">Actions</th>
+                    <th class="col-center" style="white-space:nowrap;">Actions</th>
                 </tr>
             </thead>
             <tbody id="rows">
                 <tr class="loading-row"><td colspan="9">Loading...</td></tr>
             </tbody>
         </table>
+        </div>
     </div>
 
 </div>
