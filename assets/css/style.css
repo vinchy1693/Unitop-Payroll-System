@@ -1631,7 +1631,7 @@ html[data-theme="dark"] {
     flex-wrap: wrap;
     margin-bottom: var(--dash-gap);
     padding-bottom: 16px;
-    border-bottom: 1px solid var(--dash-rule);
+    border-bottom: 1px solid var(--border);
 }
 .dash-head h1 {
     font-size: 26px;

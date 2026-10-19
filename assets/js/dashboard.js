@@ -373,7 +373,6 @@ function render(data) {
             </table>
             <div class="card-foot">
                 <span>${recent_runs.length} most recent run${recent_runs.length === 1 ? "" : "s"} · net pay per run</span>
-                <a class="card-link" href="payroll_runs.html">Open payroll runs →</a>
             </div>
         `;
     }
