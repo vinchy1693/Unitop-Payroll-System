@@ -145,7 +145,7 @@ C:\xampp\php\php.exe C:\xampp\master_file_tests\security_test.php
 | `vinchy` | Employee (emp 4) | own portal data, files leave/OT/corrections | the admin app |
 | `juan.delacruz` | Employee (emp 5) | same, own data only | same |
 
-⚠️ All passwords are `test123`. **Change them.**
+⚠️ Passwords are per-account. **Change them before presenting.**
 
 ---
 
