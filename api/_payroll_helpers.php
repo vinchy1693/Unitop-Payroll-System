@@ -148,6 +148,41 @@ function recomputePayslipTotals(PDO $pdo, int $payslipId): array {
     $basic = (float) $ps["basic_pay"];
     $ot    = (float) $ps["overtime_pay"];
 
+    // Recompute withholding tax on the CURRENT lines. Allowances are added after
+    // the payslip is created, so without this a taxable allowance raised gross pay
+    // but never the tax base - under-withholding on every allowance-bearing
+    // payslip. The base matches the creation path: basic + overtime + TAXABLE
+    // allowances - attendance deductions - statutory contributions.
+    $monthly = (float) $pdo->query(
+        "SELECT e.basic_salary FROM payslips ps
+         JOIN employees e ON e.employee_id = ps.employee_id
+         WHERE ps.payslip_id = " . (int) $payslipId
+    )->fetchColumn();
+
+    $taxStmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) FROM allowances WHERE payslip_id = ? AND is_taxable = 1");
+    $taxStmt->execute([$payslipId]);
+    $taxableAllow = (float) $taxStmt->fetchColumn();
+
+    $attStmt = $pdo->prepare(
+        "SELECT COALESCE(SUM(amount), 0) FROM deductions
+         WHERE payslip_id = ? AND (deduction_type LIKE 'Absences%' OR deduction_type LIKE 'Late/Undertime%')"
+    );
+    $attStmt->execute([$payslipId]);
+    $attendanceDed = (float) $attStmt->fetchColumn();
+
+    $statutoryOnly = round(
+        (float) $gc["sss_ee"] + (float) $gc["philhealth_ee"] + (float) $gc["pagibig_ee"], 2
+    );
+    $taxBase = round($basic + $ot + $taxableAllow - $attendanceDed - $statutoryOnly, 2);
+    if ($taxBase < 0) $taxBase = 0;
+
+    $recomputedTax = computeWithholdingTax($taxBase);
+    if (abs($recomputedTax - (float) $gc["withholding_tax"]) >= 0.01) {
+        $pdo->prepare("UPDATE govt_contributions SET withholding_tax = ? WHERE payslip_id = ?")
+            ->execute([$recomputedTax, $payslipId]);
+        $gc["withholding_tax"] = $recomputedTax;
+    }
+
     $gross    = round($basic + $ot + $allowTotal, 2);
     $govtDed  = round((float)$gc["sss_ee"] + (float)$gc["philhealth_ee"] + (float)$gc["pagibig_ee"] + (float)$gc["withholding_tax"], 2);
     $totalDed = round($govtDed + $extraDed, 2);
