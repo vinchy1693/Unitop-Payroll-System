@@ -17,6 +17,9 @@ const editCard    = document.getElementById("edit-card");
 const rowsEl      = document.getElementById("rows");
 const countEl     = document.getElementById("record-count");
 const filterDate  = document.getElementById("filter-date");
+const otRowsEl    = document.getElementById("ot-rows");
+const otCountEl   = document.getElementById("ot-count");
+const otDateLabel = document.getElementById("ot-date-label");
 
 const summaryForm = document.getElementById("summary-form");
 const summaryCard = document.getElementById("summary-card");
@@ -312,6 +315,7 @@ async function loadRows() {
     const date = filterDate.value;
     if (!date) {
         rowsEl.innerHTML = `<tr class="empty-row"><td colspan="8">Pick a date above.</td></tr>`;
+        loadOvertime("");
         return;
     }
 
@@ -319,8 +323,10 @@ async function loadRows() {
     try {
         const { data } = await api.get("attendance.php", { params: { date } });
         renderRows(data.data);
+        loadOvertime(date);
     } catch (err) {
         rowsEl.innerHTML = `<tr class="empty-row"><td colspan="8">Failed to load: ${escapeHtml(apiErrorMessage(err))}</td></tr>`;
+        loadOvertime(date);
     }
 }
 
@@ -368,6 +374,78 @@ function renderRows(rows) {
     rowsEl.querySelectorAll("[data-delete]").forEach((btn) => {
         btn.addEventListener("click", () => deleteRow(btn.dataset.delete));
     });
+}
+
+// =====================================================================
+// Overtime for the selected date (requests + actual clocked blocks)
+// =====================================================================
+function shortTime(value) {
+    if (!value) return "—";
+    const s = String(value);
+    return s.length >= 5 ? s.slice(0, 5) : s;
+}
+
+function otStatusBadge(status) {
+    const styles = {
+        Pending:   "background:#fef3c7;color:#92400e",
+        Approved:  "background:#e0f2fe;color:#0369a1",
+        Rejected:  "background:#fde8e8;color:#b3261e",
+        Completed: "background:#dff5e1;color:#1e7d32",
+    };
+    return `<span class="badge" style="${styles[status] || ""}">${escapeHtml(status || "—")}</span>`;
+}
+
+async function loadOvertime(date) {
+    if (!otRowsEl) return;
+    if (!date) {
+        if (otDateLabel) otDateLabel.textContent = "—";
+        if (otCountEl) otCountEl.textContent = "0 record(s)";
+        otRowsEl.innerHTML = `<tr class="empty-row"><td colspan="7">Pick a date above.</td></tr>`;
+        return;
+    }
+
+    if (otDateLabel) otDateLabel.textContent = date;
+    otRowsEl.innerHTML = `<tr class="loading-row"><td colspan="7">Loading overtime…</td></tr>`;
+
+    try {
+        const { data } = await api.get("overtime_records.php", { params: { date } });
+        renderOvertime(data.data || [], date);
+    } catch (err) {
+        otRowsEl.innerHTML = `<tr class="empty-row"><td colspan="7">Failed to load overtime: ${escapeHtml(apiErrorMessage(err))}</td></tr>`;
+    }
+}
+
+function renderOvertime(rows, date) {
+    if (otCountEl) otCountEl.textContent = `${rows.length} record(s)`;
+
+    if (rows.length === 0) {
+        otRowsEl.innerHTML = `<tr class="empty-row"><td colspan="7">No overtime on ${escapeHtml(date)}.</td></tr>`;
+        return;
+    }
+
+    otRowsEl.innerHTML = rows.map((r) => {
+        const requested = r.requested_start
+            ? `${shortTime(r.requested_start)}${r.requested_end ? " – " + shortTime(r.requested_end) : ""}`
+            : "—";
+        const actual = r.time_in
+            ? `${shortTime(r.time_in)}${r.time_out ? " – " + shortTime(r.time_out) : " – running"}`
+            : "—";
+        const hours = r.hours !== null && r.hours !== undefined
+            ? Number(r.hours).toFixed(2)
+            : (r.pending_hours ? Number(r.pending_hours).toFixed(2) : "—");
+        const rate = Number(r.rate_multiplier || 0).toFixed(2);
+
+        return `
+        <tr>
+            <td>${escapeHtml(r.employee_name)}<br><span style="color:#888;font-size:11px;">${escapeHtml(r.employee_number)}</span></td>
+            <td class="col-center">${escapeHtml(r.day_type || r.ot_type || "—")}<br><span style="color:#888;font-size:11px;">${rate}x</span></td>
+            <td class="col-center">${requested}</td>
+            <td class="col-center">${actual}</td>
+            <td style="text-align:right;">${hours}</td>
+            <td class="col-center">${otStatusBadge(r.status)}</td>
+            <td><span style="color:#6b7280;font-size:12px;">${escapeHtml(r.reason || "—")}</span></td>
+        </tr>`;
+    }).join("");
 }
 
 // =====================================================================
