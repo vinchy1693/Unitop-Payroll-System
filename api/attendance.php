@@ -306,7 +306,23 @@ if ($method === "GET") {
 
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
-        respond(true, "", $stmt->fetchAll());
+        $rows = $stmt->fetchAll();
+
+        // Tell the page which rows are behind a Released/Approved payroll run,
+        // so it can disable Edit/Delete instead of opening a form that will only
+        // fail with 409 after scrolling the user to the top.
+        foreach ($rows as &$row) {
+            $lock = attendanceDateLock($pdo, (string) $row["work_date"]);
+            $row["locked"]         = $lock !== null;
+            $row["lock_run_id"]    = $lock["run_id"] ?? null;
+            $row["lock_status"]    = $lock["status"] ?? null;
+            $row["lock_period"]    = $lock
+                ? ($lock["start_date"] . " to " . $lock["end_date"])
+                : null;
+        }
+        unset($row);
+
+        respond(true, "", $rows);
     }
 
     respond(false, "Missing query parameter (summary, employee_detail, id, or date).", null, 422);

@@ -339,6 +339,11 @@ function statusBadge(status, lateMin) {
     return `<span class="badge inactive">${escapeHtml(status ?? "—")}</span>`;
 }
 
+function lockText(row) {
+    return `Payroll run #${row.lock_run_id} (${row.lock_period}) is ${row.lock_status} and locked. `
+        + "Attendance on this date cannot be changed. A formal adjustment is required.";
+}
+
 function renderRows(rows) {
     countEl.textContent = `${rows.length} record(s)`;
     if (rows.length === 0) {
@@ -353,6 +358,11 @@ function renderRows(rows) {
         const hoursDisplay = r.hours_worked !== null && r.hours_worked !== undefined
             ? Number(r.hours_worked).toFixed(2)
             : "—";
+        const locked = !!r.locked;
+        const actions = locked
+            ? `<span class="badge inactive" title="${escapeHtml(lockText(r))}">Locked</span>`
+            : `<button class="btn btn-edit" data-edit="${r.attendance_id}">Edit</button>
+               <button class="btn btn-delete" data-delete="${r.attendance_id}">Delete</button>`;
 
         return `
         <tr>
@@ -363,10 +373,7 @@ function renderRows(rows) {
             <td style="text-align:right;">${hoursDisplay}</td>
             <td style="text-align:right;">${r.minutes_late ?? 0}</td>
             <td class="col-center">${statusBadge(r.status, Number(r.minutes_late || 0))}</td>
-            <td class="col-center">
-                <button class="btn btn-edit" data-edit="${r.attendance_id}">Edit</button>
-                <button class="btn btn-delete" data-delete="${r.attendance_id}">Delete</button>
-            </td>
+            <td class="col-center">${actions}</td>
         </tr>`;
     }).join("");
 
@@ -374,7 +381,7 @@ function renderRows(rows) {
         btn.addEventListener("click", () => startEdit(rows.find((r) => r.attendance_id == btn.dataset.edit)));
     });
     rowsEl.querySelectorAll("[data-delete]").forEach((btn) => {
-        btn.addEventListener("click", () => deleteRow(btn.dataset.delete));
+        btn.addEventListener("click", () => deleteRow(rows.find((r) => r.attendance_id == btn.dataset.delete)));
     });
 }
 
@@ -455,6 +462,10 @@ function renderOvertime(rows, date) {
 // =====================================================================
 function startEdit(row) {
     if (!row) return;
+    if (row.locked) {
+        showToast(lockText(row), "error");
+        return;
+    }
     editId = row.attendance_id;
     editCard.classList.remove("hidden");
     document.getElementById("attendance_id").value = row.attendance_id;
@@ -509,7 +520,13 @@ form.addEventListener("submit", async (e) => {
 // =====================================================================
 // Delete
 // =====================================================================
-async function deleteRow(id) {
+async function deleteRow(row) {
+    if (!row) return;
+    if (row.locked) {
+        showToast(lockText(row), "error");
+        return;
+    }
+    const id = row.attendance_id;
     if (!await confirmDialog(
         "Delete this attendance record? This cannot be undone.",
         { title: "Confirm Delete", icon: "warning", confirmText: "Delete" }
