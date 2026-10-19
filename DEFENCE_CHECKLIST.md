@@ -36,6 +36,9 @@ Legend: `[ ]` to do · `[x]` verified done · ⚠️ = could cost marks if unadd
       shift; late arrival is not double-docked.
 - [x] **OT requests carry a reason and requested window**, and the day type/rate are derived on the server,
       never trusted from the client. The portal attendance page is the employee path.
+- [x] **Portal OT demo mode** — a testing-only checkbox allows a past same-day window or a past date up
+      to 30 days; `ALLOW_DEMO_OT` in `employee_portal/api/me_overtime_requests.php` must be false in
+      production.
 - [x] **The kiosk enforces the approved OT window** — clock-in >5 min early or after the end is 409;
       clock-out >5 min early is 409; a late clock-out is recorded but paid only to the approved end.
       The after-shift fallback has no requested end, so it keeps the old behaviour.

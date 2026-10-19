@@ -366,6 +366,8 @@ The kiosk is **staff-operated and on-site**. Employees do **not** type their cod
 
 A **Demo mode** strip (collapsed by default, red when on) lets a demonstration supply a date and time; both are validated. It is **maker-only** (`requireRole(MAKER_ROLES)`), so an Employee, Approver, Supervisor or Administrator gets **403**, and `ALLOW_DEMO_SCANS` in `api/_bootstrap.php` can disable it outright for a real deployment.
 
+The portal overtime form has a separate **Demo mode** checkbox for a same-day window that has already passed, or a past date up to 30 days back. It is accepted only while `ALLOW_DEMO_OT` is true in `employee_portal/api/me_overtime_requests.php`; set it to **false** in production, otherwise an employee can file retroactive overtime. Normal reason/time/order/open-request checks still apply.
+
 ### Short-lived QR tokens
 
 The portal no longer displays the static `qr_codes.code_value`. `employee_portal/api/me_qr.php` issues a **120-second, one-time, purpose-bound token** (`UNITOP-T-…`):
@@ -463,7 +465,8 @@ One hook in `api/_bootstrap.php`, inside `respond()`:
 | **JSON-only bodies** | `json_input()` accepts `application/json` only; the old `$_POST` fallback is gone, and a form-encoded mutation answers **415**. A browser form cannot send `application/json`. |
 | **Session cookies** | `HttpOnly`, `SameSite=Lax`, and `Secure` whenever the site is on HTTPS. `admin_sid` and `portal_sid` are separate names. |
 | **Errors** | `display_errors=0`; uncaught exceptions and PDO failures return a neutral **500** and the detail goes to the server log. No SQL, schema or credential text reaches the browser. |
-| **Demo scans** | Maker-only, and `ALLOW_DEMO_SCANS` can turn the branch off. |
+| Demo scans | Maker-only, and `ALLOW_DEMO_SCANS` can turn the branch off. |
+| Portal OT demo mode | `ALLOW_DEMO_OT` must be **false** in production; when true, an employee can file a past overtime date/window (up to 30 days back) for testing. |
 
 ### Maker cannot approve their own payroll
 
