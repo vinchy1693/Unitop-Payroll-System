@@ -49,6 +49,48 @@ function detailsCell(details) {
         </details>`;
 }
 
+const ACTION_LABELS = {
+    "auth.php": "Authentication",
+    "payroll_runs.php": "Payroll run",
+    "payroll_void.php": "Void payroll",
+    "payroll_periods.php": "Payroll period",
+    "attendance.php": "Attendance",
+    "scan_attendance.php": "Kiosk attendance",
+    "overtime_records.php": "Overtime",
+    "attendance_corrections.php": "Attendance correction",
+    "leave_requests.php": "Leave",
+    "leave_balances.php": "Leave balance",
+    "leave_types.php": "Leave type",
+    "loans.php": "Loan",
+    "employees.php": "Employee",
+    "departments.php": "Department",
+    "positions.php": "Position",
+    "users.php": "User account",
+    "qr_codes.php": "QR code",
+    "reports.php": "Report",
+    "bank_file.php": "Bank file export",
+    "payslips.php": "Payslip",
+    "allowances.php": "Allowance",
+    "deductions.php": "Deduction",
+    "me_overtime_requests.php": "Portal overtime",
+    "me_leave_requests.php": "Portal leave",
+    "me_attendance_corrections.php": "Portal correction",
+    "me_loans.php": "Portal loan",
+    "me_profile.php": "Portal profile",
+    "me_payslips.php": "Portal payslip",
+};
+
+function actionLabel(action) {
+    const raw = String(action || "").trim();
+    if (raw === "") return "-";
+    const known = ACTION_LABELS[raw.toLowerCase()];
+    if (known) return known;
+    return raw
+        .replace(/\.php$/i, "")
+        .replace(/[_-]+/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function renderRows(rows) {
     if (rows.length === 0) {
         rowsEl.innerHTML = `<tr class="empty-row"><td colspan="9">No audit records match these filters.</td></tr>`;
@@ -64,7 +106,7 @@ function renderRows(rows) {
                 <td style="white-space:nowrap;">${escapeHtml(displayTime(r.created_at))}</td>
                 <td>${user}</td>
                 <td>${role}</td>
-                <td>${escapeHtml(r.action)}</td>
+                <td title="Source endpoint: ${escapeHtml(r.action || "-")}">${escapeHtml(actionLabel(r.action))}</td>
                 <td>${escapeHtml(r.method)}</td>
                 <td class="col-center">${escapeHtml(r.http_status)}</td>
                 <td class="col-center"><span class="badge ${ok ? "active" : "inactive"}">${ok ? "Success" : "Failed"}</span></td>
