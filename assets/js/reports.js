@@ -106,7 +106,7 @@ function renderSummary(payload) {
                 </div>
                 <div class="summary-tile">
                     <div class="summary-tile-label">Total Deductions</div>
-                    <div class="summary-tile-value">− ${formatMoney(totals.total_deductions)}</div>
+                    <div class="summary-tile-value">${formatMoney(totals.total_deductions)}</div>
                 </div>
                 <div class="summary-tile success">
                     <div class="summary-tile-label">Total Net Pay</div>
