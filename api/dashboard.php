@@ -115,5 +115,5 @@ try {
     ]);
 
 } catch (PDOException $e) {
-    respond(false, "Dashboard database error: " . $e->getMessage(), null, 500);
+    respondServerError("The dashboard could not be loaded. Please try again.", $e, "dashboard");
 }

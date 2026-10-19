@@ -118,5 +118,5 @@ try {
         "offset" => $offset,
     ]);
 } catch (PDOException $e) {
-    respond(false, "Audit log database error: " . $e->getMessage(), null, 500);
+    respondServerError("The audit log could not be read. Please try again.", $e, "audit_log");
 }

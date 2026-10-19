@@ -92,5 +92,5 @@ try {
     );
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();
-    respond(false, "Could not void the run: " . $e->getMessage(), null, 500);
+    respondServerError("The run could not be voided. Please try again or contact the administrator.", $e, "payroll_void");
 }

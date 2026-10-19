@@ -5,6 +5,11 @@
 // at 14:00 local was recorded as 08:00, which silently made every late
 // calculation wrong and could stamp attendance on the wrong day.
 date_default_timezone_set("Asia/Manila");
+
+// Never render PHP errors into a JSON response: a PDOException message can
+// contain the SQL, the schema and the credentials. Log it instead.
+ini_set("display_errors", "0");
+ini_set("log_errors", "1");
 // =====================================================================
 // api/_bootstrap.php
 // Session + DB + JSON helpers.
@@ -14,8 +19,75 @@ if (session_status() === PHP_SESSION_NONE) {
     // Own session cookie name, so an employee-portal login cannot be replayed
     // against this admin site (and vice versa).
     session_name("admin_sid");
+
+    // Session cookie flags: HttpOnly keeps the SID away from JavaScript,
+    // SameSite=Lax stops a cross-site form from carrying it, and Secure is set
+    // whenever the site is served over HTTPS (it would break plain localhost).
+    $cookieSecure = (!empty($_SERVER["HTTPS"]) && $_SERVER["HTTPS"] !== "off");
+    session_set_cookie_params([
+        "lifetime" => 0,
+        "path"     => "/",
+        "domain"   => "",
+        "secure"   => $cookieSecure,
+        "httponly" => true,
+        "samesite" => "Lax",
+    ]);
     session_start();
 }
+
+// =====================================================================
+// CSRF: a per-session token, published in a readable cookie and required in
+// the X-CSRF-Token header on every mutating request. A cross-site form can
+// send the cookie but cannot read it, so it cannot set the header; and it
+// cannot send application/json at all.
+// =====================================================================
+
+const CSRF_COOKIE = "admin_csrf";
+
+function csrf_is_https(): bool {
+    return !empty($_SERVER["HTTPS"]) && $_SERVER["HTTPS"] !== "off";
+}
+
+function csrf_token(): string {
+    if (empty($_SESSION["csrf_token"])) {
+        $_SESSION["csrf_token"] = bin2hex(random_bytes(32));
+    }
+    return (string) $_SESSION["csrf_token"];
+}
+
+function csrf_cookie_options(int $expires = 0): array {
+    return [
+        "expires"  => $expires,
+        "path"     => "/",
+        "secure"   => csrf_is_https(),
+        "httponly" => false,   // the page script must read it to set the header
+        "samesite" => "Lax",
+    ];
+}
+
+/** Publish the current token to the readable cookie (idempotent). */
+function csrf_publish(): void {
+    if (!headers_sent()) {
+        setcookie(CSRF_COOKIE, csrf_token(), csrf_cookie_options());
+    }
+}
+
+/** Issue a fresh token, e.g. after login, and republish the cookie. */
+function csrf_rotate(): string {
+    $_SESSION["csrf_token"] = bin2hex(random_bytes(32));
+    csrf_publish();
+    return (string) $_SESSION["csrf_token"];
+}
+
+/** Drop the token on logout. */
+function csrf_clear(): void {
+    if (!headers_sent()) {
+        setcookie(CSRF_COOKIE, "", csrf_cookie_options(time() - 3600));
+    }
+    unset($_SESSION["csrf_token"]);
+}
+
+csrf_publish();
 
 // Identity snapshot for the audit trail. respond() is the single write point,
 // and logout destroys the session before it calls respond(), so remember who
@@ -59,6 +131,11 @@ const TEAM_QUEUE_ROLES = ["Payroll Officer", "Approver", "Supervisor"]; // + tea
 // Every role the users screen may assign.
 const ALL_ROLES = ["Employee", "Payroll Officer", "Approver", "Supervisor", "Administrator"];
 
+// Demo scanning lets the caller supply a date and time, so it writes attendance
+// outside the real clock. It is a training aid, not a kiosk feature: the maker
+// is the only role allowed to use it, and a real deployment turns it off here.
+const ALLOW_DEMO_SCANS = true;
+
 header("Content-Type: application/json; charset=utf-8");
 
 if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
@@ -69,10 +146,14 @@ if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
 try {
     require __DIR__ . "/../config.php";
 } catch (PDOException $e) {
+    // Never echo the driver message: it names the host, the schema and can
+    // include the SQL. The operator reads the server log; the client gets a
+    // neutral message.
+    error_log("Database connection failed: " . $e->getMessage());
     http_response_code(500);
     echo json_encode([
         "success" => false,
-        "message" => "Database connection failed: " . $e->getMessage(),
+        "message" => "Database connection failed. Please contact the administrator.",
         "data"    => null,
     ]);
     exit;
@@ -81,8 +162,9 @@ try {
 function json_input(): array {
     $raw = audit_raw_body();
     $data = json_decode($raw, true);
-    if (is_array($data)) return $data;
-    return $_POST ?: [];
+    // JSON only. The old $_POST fallback let a cross-site form reach an
+    // endpoint without the browser ever sending application/json.
+    return is_array($data) ? $data : [];
 }
 
 function respond(bool $success, string $message = "", $data = null, int $status = 200): void {
@@ -103,6 +185,62 @@ function respond(bool $success, string $message = "", $data = null, int $status 
         "data"    => $data,
     ]);
     exit;
+}
+
+// =====================================================================
+// CSRF guard
+// =====================================================================
+
+/**
+ * Log the real exception and return a neutral 500. The client must never see
+ * a PDOException message (it names the SQL, the schema and sometimes the
+ * credentials); the operator reads the server log instead.
+ */
+function respondServerError(string $clientMessage, Throwable $e, string $logContext = ""): void {
+    $prefix = $logContext !== "" ? $logContext . ": " : "";
+    error_log(
+        $prefix . get_class($e) . ": " . $e->getMessage()
+        . " in " . $e->getFile() . ":" . $e->getLine()
+    );
+    respond(false, $clientMessage, null, 500);
+}
+
+/** The login form has no session token yet; JSON-only + SameSite cover it. */
+function csrf_request_is_exempt(): bool {
+    $script = basename((string) parse_url((string) ($_SERVER["SCRIPT_NAME"] ?? ""), PHP_URL_PATH));
+    $action = strtolower(trim((string) ($_GET["action"] ?? "")));
+    return $script === "auth.php" && $action === "login";
+}
+
+/**
+ * Require the session token on every non-GET request, and require a JSON
+ * content type on POST/PUT/PATCH. respond() exits, so this never returns when
+ * it refuses.
+ */
+function assertCsrf(): void {
+    $method = strtoupper((string) ($_SERVER["REQUEST_METHOD"] ?? "GET"));
+    if (in_array($method, ["GET", "HEAD", "OPTIONS"], true)) return;
+    if (csrf_request_is_exempt()) return;
+
+    $expected = (string) ($_SESSION["csrf_token"] ?? "");
+    $sent     = (string) ($_SERVER["HTTP_X_CSRF_TOKEN"] ?? "");
+    if ($expected === "" || $sent === "" || !hash_equals($expected, $sent)) {
+        respond(
+            false,
+            "Your session token is missing or has expired. Refresh the page and try again.",
+            ["code" => "csrf_failed"],
+            403
+        );
+    }
+
+    // A browser form cannot send application/json. DELETE is exempt because it
+    // normally carries no body; its token check above is what protects it.
+    if ($method !== "DELETE") {
+        $ctype = strtolower((string) ($_SERVER["CONTENT_TYPE"] ?? ""));
+        if (!str_contains($ctype, "application/json")) {
+            respond(false, "This endpoint accepts JSON requests only.", null, 415);
+        }
+    }
 }
 
 // =====================================================================
@@ -144,15 +282,32 @@ function audit_actor(): array {
 }
 
 /**
- * True for any key whose value must never be persisted: password fields,
- * tokens, CSRF values, secrets and API keys (case / punctuation insensitive).
+ * True for any key whose value must never be persisted: credentials, tokens,
+ * and the identifiers that are themselves live secrets (a QR code is a bearer
+ * credential; bank and government numbers are personal data under RA 10173).
+ * Case / punctuation insensitive.
  */
 function audit_is_secret_key(string $key): bool {
     $normalized = strtolower(preg_replace('/[^a-z0-9]/i', '', $key) ?? $key);
+
+    // Substring match: these must also catch compound names (password_hash,
+    // bank_account_number is handled exactly below so sss_ee is not hit).
     foreach (["password", "passwd", "token", "csrf", "secret", "apikey"] as $needle) {
         if (str_contains($normalized, $needle)) return true;
     }
-    return false;
+
+    // Exact match, so a contribution amount like sss_ee or an id like
+    // qr_code_id is still visible while the number / code itself is not.
+    return in_array($normalized, [
+        "codevalue",          // the QR value the kiosk scans (a bearer credential)
+        "qrcodevalue",
+        "bankaccountnumber",
+        "accountnumber",
+        "tinnumber",
+        "sssnumber",
+        "philhealthnumber",
+        "pagibignumber",
+    ], true);
 }
 
 /**
@@ -482,6 +637,25 @@ function assertTeamReadScope(PDO $pdo, int $employeeId, string $what): void {
     }
 }
 
+assertCsrf();
 if (!defined("AUTH_ENDPOINT")) {
     requireLogin();
 }
+
+// Last-resort handler: an uncaught exception must never reach the client as a
+// stack trace or a PDOException message. The detail goes to the server log.
+set_exception_handler(function (Throwable $e): void {
+    error_log(
+        "Unhandled " . get_class($e) . ": " . $e->getMessage()
+        . " in " . $e->getFile() . ":" . $e->getLine()
+    );
+    if (!headers_sent()) {
+        http_response_code(500);
+        header("Content-Type: application/json; charset=utf-8");
+    }
+    echo json_encode([
+        "success" => false,
+        "message" => "Internal server error. Please try again or contact the administrator.",
+        "data"    => null,
+    ]);
+});

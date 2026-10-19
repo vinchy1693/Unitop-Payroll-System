@@ -205,7 +205,7 @@ if ($method === "POST") {
             $pdo->commit();
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
-            respond(false, "Failed to record loan payment: " . $e->getMessage(), null, 500);
+            respondServerError("The loan payment could not be recorded. Please try again.", $e, "loans payment");
         }
 
         respond(true, "Loan payment recorded.", ["payment_id" => $paymentId]);

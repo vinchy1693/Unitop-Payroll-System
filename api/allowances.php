@@ -56,7 +56,7 @@ if ($method === "POST") {
         ]);
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
-        respond(false, "Failed to add allowance: " . $e->getMessage(), null, 500);
+        respondServerError("The allowance could not be added. Please try again.", $e, "allowances add");
     }
 }
 
@@ -90,7 +90,7 @@ if ($method === "DELETE") {
         respond(true, "Allowance removed.", ["totals" => $totals]);
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
-        respond(false, "Failed to remove allowance: " . $e->getMessage(), null, 500);
+        respondServerError("The allowance could not be removed. Please try again.", $e, "allowances remove");
     }
 }
 

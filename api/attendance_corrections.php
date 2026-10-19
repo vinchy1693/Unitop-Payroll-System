@@ -480,7 +480,7 @@ try {
     $pdo->commit();
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();
-    respond(false, "Attendance correction could not be saved: " . $e->getMessage(), null, 500);
+    respondServerError("Attendance correction could not be saved. Please try again or contact the administrator.", $e, "attendance_corrections");
 }
 
 respond(true, $message, [

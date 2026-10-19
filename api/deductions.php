@@ -56,7 +56,7 @@ if ($method === "POST") {
         ]);
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
-        respond(false, "Failed to add deduction: " . $e->getMessage(), null, 500);
+        respondServerError("The deduction could not be added. Please try again.", $e, "deductions add");
     }
 }
 
@@ -89,7 +89,7 @@ if ($method === "DELETE") {
         respond(true, "Deduction removed.", ["totals" => $totals]);
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
-        respond(false, "Failed to remove deduction: " . $e->getMessage(), null, 500);
+        respondServerError("The deduction could not be removed. Please try again.", $e, "deductions remove");
     }
 }
 

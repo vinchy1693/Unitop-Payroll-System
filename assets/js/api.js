@@ -8,6 +8,27 @@ const api = axios.create({
     headers: { "Content-Type": "application/json" },
 });
 
+// ---------------------------------------------------------------------
+// CSRF: the server publishes a per-session token in a readable cookie and
+// requires it in X-CSRF-Token on every non-GET request. A cross-site page
+// can make the browser send the cookie, but it cannot read it (same-origin
+// policy), so it cannot forge the header.
+// ---------------------------------------------------------------------
+function readCookie(name) {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const match = document.cookie.match(new RegExp("(?:^|; )" + escaped + "=([^;]*)"));
+    return match ? decodeURIComponent(match[1]) : "";
+}
+
+api.interceptors.request.use((config) => {
+    const token = readCookie("admin_csrf");
+    if (token) {
+        config.headers = config.headers || {};
+        config.headers["X-CSRF-Token"] = token;
+    }
+    return config;
+});
+
 api.interceptors.response.use(
     (response) => response,
     (error) => {

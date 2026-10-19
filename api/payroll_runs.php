@@ -175,7 +175,7 @@ if ($method === "PATCH") {
         $pdo->commit();
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
-        respond(false, "Payroll run action failed: " . $e->getMessage(), null, 500);
+        respondServerError("The payroll run action could not be completed. Please try again.", $e, "payroll_runs PATCH");
     }
 
     respond(true, $message, payrollRunById($pdo, $runId));
@@ -479,10 +479,10 @@ if ($method === "POST") {
                 "This period already has a payroll run. Void the existing run first, then process the period again.",
                 null, 409);
         }
-        respond(false, "Payroll run failed: " . $e->getMessage(), null, 500);
+        respondServerError("The payroll run could not be processed. Please try again or contact the administrator.", $e, "payroll_runs POST (PDO)");
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
-        respond(false, "Payroll run failed: " . $e->getMessage(), null, 500);
+        respondServerError("The payroll run could not be processed. Please try again or contact the administrator.", $e, "payroll_runs POST");
     }
 }
 

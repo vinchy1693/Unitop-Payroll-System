@@ -35,6 +35,7 @@ if ($method === "POST" && $action === "login") {
     }
 
     session_regenerate_id(true);
+    csrf_rotate();   // a fresh token for the authenticated session
 
     $_SESSION["user_id"]     = (int) $user["user_id"];
     $_SESSION["username"]    = $user["username"];
@@ -46,6 +47,7 @@ if ($method === "POST" && $action === "login") {
         "username"    => $user["username"],
         "role"        => $user["role"],
         "employee_id" => $_SESSION["employee_id"],
+        "csrf_token"  => $_SESSION["csrf_token"],
     ]);
 }
 
@@ -53,6 +55,7 @@ if ($method === "POST" && $action === "login") {
 // POST ?action=logout
 // =====================================================================
 if ($method === "POST" && $action === "logout") {
+    csrf_clear();
     $_SESSION = [];
     if (ini_get("session.use_cookies")) {
         $params = session_get_cookie_params();
@@ -72,6 +75,9 @@ if ($method === "GET" && $action === "me") {
     if (!$user) {
         respond(false, "Not authenticated.", null, 401);
     }
+    // The page scripts read the cookie; this is a same-origin convenience for
+    // clients that cannot read cookies (and makes the token visible to tests).
+    $user["csrf_token"] = csrf_token();
     respond(true, "", $user);
 }
 

@@ -8,18 +8,18 @@ Legend: `[ ]` to do · `[x]` verified done · ⚠️ = could cost marks if unadd
 
 ### A1. Security (highest risk first)
 
-- [ ] ⚠️ **`api/scan_attendance.php` — no role guard + `demo_mode`/`demo_date` unvalidated.**
-      Any logged-in Employee can stamp attendance for any date, including inside a locked period.
-      Fix: add `requireRole` for the demo branch, validate `demo_date` against a sane window.
-- [ ] ⚠️ **No CSRF protection** and `json_input()` falls back to `$_POST`.
-      A cross-site form can create an Administrator. Fix: a token, or reject non-JSON bodies.
+- [x] **`api/scan_attendance.php` — `demo_mode` is maker-only.** Every other role gets 403;
+      the demo date/time are validated and `ALLOW_DEMO_SCANS` can disable the branch.
+- [x] **CSRF + JSON-only bodies.** Per-session `admin_csrf` / `portal_csrf` token required in
+      `X-CSRF-Token`; `json_input()` no longer falls back to `$_POST` (415 otherwise).
 - [ ] ⚠️ **The payroll lock is not enforced on attendance / overtime / leave writes.**
       `assertAttendanceDateUnlocked()` exists but has **zero callers** outside corrections.
       Fix: call it in `attendance.php`, `scan_attendance.php`, `overtime_records.php`.
 - [ ] **`verify` is a credential oracle** with no rate limiting.
-- [ ] **No session cookie flags** (HttpOnly / SameSite / Secure).
-- [ ] **`PDOException` text reaches the client** with `display_errors=1`.
-- [ ] **Audit log stores live QR codes** and bank / government numbers in clear text.
+- [x] **Session cookie flags** — HttpOnly, SameSite=Lax, Secure on HTTPS (both apps).
+- [x] **`PDOException` text no longer reaches the client** — display_errors off, generic 500,
+      detail logged.
+- [x] **Audit log redacts** QR values and bank / government numbers; `sql/012` scrubs old rows.
 
 ### A2. Correctness
 
@@ -101,17 +101,19 @@ Legend: `[ ]` to do · `[x]` verified done · ⚠️ = could cost marks if unadd
 
 ```powershell
 # every payslip recomputed independently — exit 0 means all figures match
-C:\xampp\php\php.exe tests\verify_computations.php
+C:\xampp\php\php.exe C:\xampp\master_file_tests\verify_computations.php
 
 # payroll flow
-C:\xampp\php\php.exe tests\full_payroll_test.php
+C:\xampp\php\php.exe C:\xampp\master_file_tests\full_payroll_test.php
+C:\xampp\php\php.exe C:\xampp\master_file_tests\payroll_void_test.php
 
 # role separation
-C:\xampp\php\php.exe tests\role_matrix_test.php
-C:\xampp\php\php.exe tests\payroll_approval_test.php
+C:\xampp\php\php.exe C:\xampp\master_file_tests\role_matrix_test.php
+C:\xampp\php\php.exe C:\xampp\master_file_tests\payroll_approval_test.php
 
-# audit trail
-C:\xampp\php\php.exe tests\audit_log_test.php
+# audit trail + hardening
+C:\xampp\php\php.exe C:\xampp\master_file_tests\audit_log_test.php
+C:\xampp\php\php.exe C:\xampp\master_file_tests\security_test.php
 ```
 
 ---
@@ -141,6 +143,11 @@ C:\xampp\php\php.exe tests\audit_log_test.php
 - [x] Attendance-deduction cap; net never negative
 - [x] Deduction lines sum exactly to `total_deductions`
 - [x] One run per period (`uq_runs_period`) and a void/reprocess path
+- [x] CSRF token required on every mutation; JSON-only bodies (415 for forms)
+- [x] Session cookies are HttpOnly + SameSite=Lax (both apps)
+- [x] Errors are generic; PDOException detail stays in the server log
+- [x] Audit log redacts QR values and bank / government numbers
+- [x] Demo scanning is maker-only; `ALLOW_DEMO_SCANS` can disable it
 - [x] Database dumps, `tests/`, and `.git/` are no longer web-accessible (403)
 - [x] Maker cannot approve their own payroll (403, API-enforced)
 - [x] Zero response-shape mismatches across 44 endpoints

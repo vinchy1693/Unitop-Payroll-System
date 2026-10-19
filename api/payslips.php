@@ -43,7 +43,7 @@ if ($method === "PUT") {
         $pdo->commit();
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
-        respond(false, "Failed to update payslip: " . $e->getMessage(), null, 500);
+        respondServerError("The payslip could not be updated. Please try again.", $e, "payslips");
     }
 
     respond(true, "Payslip updated.", ["payslip_id" => $id, "totals" => $totals]);

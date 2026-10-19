@@ -300,7 +300,7 @@ AND time_in IS NOT NULL AND time_out IS NOT NULL
 
 Every employee may also **type** the QR value ("Scanner not working?"), which is the practical path on a phone: browsers block camera access outside HTTPS/`localhost`.
 
-A **Demo mode** strip (collapsed by default, red when on) lets a demonstration supply a date and time; both are validated, and `ALLOW_DEMO_SCANS` in `api/_bootstrap.php` disables it entirely for a real deployment.
+A **Demo mode** strip (collapsed by default, red when on) lets a demonstration supply a date and time; both are validated. It is **maker-only** (`requireRole(MAKER_ROLES)`), so an Employee, Approver, Supervisor or Administrator gets **403**, and `ALLOW_DEMO_SCANS` in `api/_bootstrap.php` can disable it outright for a real deployment.
 
 ---
 
@@ -372,7 +372,17 @@ One hook in `api/_bootstrap.php`, inside `respond()`:
 //   actor · script · method · HTTP status · success · message · IP · target · redacted body
 ```
 
-> Placed in `respond()` rather than in 20 endpoints, so **every mutating request is captured automatically, including endpoints written later.** It logs failures too — a rejected 403 from an employee probing payroll is itself evidence. Passwords, tokens and CSRF values are replaced with `***`; GETs are never logged.
+> Placed in `respond()` rather than in 20 endpoints, so **every mutating request is captured automatically, including endpoints written later.** It logs failures too — a rejected 403 from an employee probing payroll is itself evidence. Passwords, tokens and CSRF values are replaced with `***`, and so are the identifiers that are themselves live secrets: the **QR value** (`code_value`) and the **bank / government numbers** (`bank_account_number`, `tin_number`, `sss_number`, `philhealth_number`, `pagibig_number`). GETs are never logged. `sql/012_scrub_audit_sensitive.sql` removes the copies already stored.
+
+### Request hardening
+
+| Control | Implementation |
+|---|---|
+| **CSRF** | A per-session token is published in a readable `admin_csrf` / `portal_csrf` cookie; every non-GET request must echo it in `X-CSRF-Token`. A cross-site form can send the cookie but cannot read it, so it cannot set the header. The login action is exempt (it has no session yet) and is covered by SameSite + JSON-only. |
+| **JSON-only bodies** | `json_input()` accepts `application/json` only; the old `$_POST` fallback is gone, and a form-encoded mutation answers **415**. A browser form cannot send `application/json`. |
+| **Session cookies** | `HttpOnly`, `SameSite=Lax`, and `Secure` whenever the site is on HTTPS. `admin_sid` and `portal_sid` are separate names. |
+| **Errors** | `display_errors=0`; uncaught exceptions and PDO failures return a neutral **500** and the detail goes to the server log. No SQL, schema or credential text reaches the browser. |
+| **Demo scans** | Maker-only, and `ALLOW_DEMO_SCANS` can turn the branch off. |
 
 ### Maker cannot approve their own payroll
 
@@ -405,6 +415,7 @@ C:\xampp\php\php.exe C:\xampp\master_file_tests\me_selfservice_test.php     # 11
 C:\xampp\php\php.exe C:\xampp\master_file_tests\full_payroll_test.php       # overtime, late, loan, 13th month
 C:\xampp\php\php.exe C:\xampp\master_file_tests\payroll_approval_test.php   # maker/checker + lock
 C:\xampp\php\php.exe C:\xampp\master_file_tests\payroll_void_test.php       # void + reprocess + audit
+C:\xampp\php\php.exe C:\xampp\master_file_tests\security_test.php           # CSRF, cookie flags, audit redaction
 ```
 
 ---
@@ -452,7 +463,7 @@ Public holidays in the `holidays` table are **excluded from expected working day
 | No hire-date proration | An employee hired mid-period receives a full semi-monthly basic |
 | 13th month uses current salary for all 12 months | A mid-year raise is not weighted |
 | `salary_rates` table exists but payroll reads `employees.basic_salary` | Redundant; either wire it or remove the table |
-| No CSRF tokens; session cookies lack HttpOnly/SameSite | Hardening outstanding |
+| The kiosk `verify` credential check has no rate limiting | It verifies an existing staff password to exit kiosk mode; a lockout/backoff is still outstanding |
 | Attendance writes do not check the payroll lock | Only the corrections endpoint enforces it; the helper exists and needs to be called |
 | Supervisor team assignment has no UI | `employees.supervisor_id` must be set by SQL |
 
@@ -492,9 +503,11 @@ Public holidays in the `holidays` table are **excluded from expected working day
 | Leave rules, overlap, balance | `api/leave_requests.php`, `api/me_leave_requests.php` |
 | Attendance corrections + recompute | `api/attendance_corrections.php` |
 | Audit hook | `api/_bootstrap.php` → `respond()` |
+| Audit redaction (QR / bank / govt numbers) | `api/_bootstrap.php` → `audit_is_secret_key()`; `sql/012_scrub_audit_sensitive.sql` |
+| CSRF, session cookie flags, safe errors | `api/_bootstrap.php` (admin) and `employee_portal/api/_bootstrap.php` |
 | Exports | `api/bank_file.php` |
 | Schema | `sql/payroll_db_schema.sql` (structure), `sql/payroll_db_recovery.sql` (structure + data) |
-| Migrations 002–011 | `sql/00*.sql` |
+| Migrations 002–012 | `sql/00*.sql` |
 | Verification | `C:\xampp\master_file_tests\verify_computations.php` |
 
 ---

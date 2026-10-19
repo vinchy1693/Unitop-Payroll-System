@@ -265,7 +265,7 @@ if ($method === "PATCH") {
 
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
-        respond(false, "Failed: " . $e->getMessage(), null, 500);
+        respondServerError("The leave request could not be saved. Please try again.", $e, "leave_requests");
     }
 }
 
