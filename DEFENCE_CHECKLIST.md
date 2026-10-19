@@ -45,7 +45,8 @@ Legend: `[ ]` to do · `[x]` verified done · ⚠️ = could cost marks if unadd
 - [x] **Short-lived QR tokens** — `me_qr.php` issues a 120-second, one-time, purpose-bound token
       only when the employee has an **Active `qr_codes` badge**; with no active badge it returns 404
       and the attendance page shows no QR. After clock-out the purpose is `complete` and no token/QR
-      is issued (the attendance QR is not an overtime QR). Only the SHA-256 hash is stored.
+      is issued, **unless an Approved OT for today is still open**, in which case it is `ot` for the
+      kiosk OT clock-in/out. Pending/Completed OT produces no QR. Only the SHA-256 hash is stored.
 - [x] **Revoke actually revokes** — the QR screen revokes all active badges for the employee and
       invalidates unused tokens; a missing id is 404; the portal refuses to mint until a badge is
       generated/reactivated.

@@ -372,7 +372,7 @@ The portal overtime form has a separate **Demo mode** checkbox for a same-day wi
 
 The portal no longer displays the static `qr_codes.code_value`. `employee_portal/api/me_qr.php` issues a **120-second, one-time, purpose-bound token** (`UNITOP-T-…`):
 
-- `purpose` is `time_in` or `time_out`, derived from today's attendance; after both punches it returns `complete` and **no token/QR**. The attendance QR is never turned into an overtime QR; use the overtime request form.
+- `purpose` is `time_in` or `time_out`, derived from today's attendance; after both punches it returns `complete` and **no token/QR**, unless an **Approved overtime record for today is still open** — then it returns `ot` so the kiosk can clock the approved OT in/out. A Pending or Completed OT does not produce a QR.
 - Only a SHA-256 hash is stored in `qr_tokens`; the token is marked used when the kiosk writes the punch.
 - The kiosk accepts it through `qr_token`, validates expiry/used/employee-active, and consumes it. The legacy static badge is still accepted while `ALLOW_LEGACY_QR` is true; flip that after the printed badges are replaced.
 - An employee needs an **Active `qr_codes` badge**; with no active badge the portal returns 404 and shows no QR. Revoking a badge revokes **all active badges** for that employee and invalidates every unused token; the portal then refuses to mint another (`403`). Reactivating or generating a badge restores access.
