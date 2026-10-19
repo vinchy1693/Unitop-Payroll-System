@@ -262,9 +262,7 @@
             password: el.unlockPass.value
         }).then(function () {
             stopCamera();
-            axios.post(API + "auth.php?action=logout")
-                .catch(function () {})
-                .then(function () { window.location.href = "login.html"; });
+            window.location.href = API + "auth.php?action=logout";
         }).catch(function (err) {
             el.unlockMsg.textContent =
                 (err.response && err.response.data && err.response.data.message)
