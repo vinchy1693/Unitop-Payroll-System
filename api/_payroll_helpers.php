@@ -176,11 +176,22 @@ function recomputePayslipTotals(PDO $pdo, int $payslipId): array {
     $taxBase = round($basic + $ot + $taxableAllow - $attendanceDed - $statutoryOnly, 2);
     if ($taxBase < 0) $taxBase = 0;
 
-    $recomputedTax = computeWithholdingTax($taxBase);
-    if (abs($recomputedTax - (float) $gc["withholding_tax"]) >= 0.01) {
-        $pdo->prepare("UPDATE govt_contributions SET withholding_tax = ? WHERE payslip_id = ?")
-            ->execute([$recomputedTax, $payslipId]);
-        $gc["withholding_tax"] = $recomputedTax;
+    // 13th Month Pay is a special payslip: its tax is the excess over the
+    // ₱90,000 exemption, computed by compute13thMonthPay() and stored when the
+    // run creates the line. Recomputing it through the ordinary base would
+    // withhold on the exempt portion, so keep the amount that was stored.
+    $is13thMonth = (int) $pdo->query(
+        "SELECT COUNT(*) FROM allowances
+         WHERE payslip_id = " . (int) $payslipId . " AND allowance_type = '13th Month Pay'"
+    )->fetchColumn() > 0;
+
+    if (!$is13thMonth) {
+        $recomputedTax = computeWithholdingTax($taxBase);
+        if (abs($recomputedTax - (float) $gc["withholding_tax"]) >= 0.01) {
+            $pdo->prepare("UPDATE govt_contributions SET withholding_tax = ? WHERE payslip_id = ?")
+                ->execute([$recomputedTax, $payslipId]);
+            $gc["withholding_tax"] = $recomputedTax;
+        }
     }
 
     $gross    = round($basic + $ot + $allowTotal, 2);

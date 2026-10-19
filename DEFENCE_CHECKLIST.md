@@ -44,8 +44,11 @@ Legend: `[ ]` to do · `[x]` verified done · ⚠️ = could cost marks if unadd
 
 ### A4. Tests and housekeeping
 
-- [ ] **`tests/overtime_workflow_test.php` → 101/1** — `pending_hours` fixture still encodes the old 6-hour timezone offset.
-- [ ] **`tests/attendance_correction_test.php` → 144/2** — assertions still expect a future-date rejection and a "90-day window" that the widened date range removed.
+- [x] `overtime_workflow_test.php` — timezone pinned to Asia/Manila in `_harness.php`; `pending_hours` ~1.50.
+- [x] `attendance_correction_test.php` — assertions updated to the 365-day window.
+- [x] `salary_rates` / `cash_disbursements` references removed from the matrices; dead endpoints stay deleted.
+- [x] `nav_matrix_test.php` / `supervisor_scope_test.php` read the HTML by absolute path.
+- [x] Tests that depended on employee id 3 or live leave data now build their own fixtures.
 - [ ] **Change every password.** `admin`, `payroll`, `approver`, `vinchy`, `juan.delacruz` are all `test123`.
 - [ ] **Admin repo `main` is far behind `checking`** and is the GitHub default — fast-forward it or flip the default branch.
 

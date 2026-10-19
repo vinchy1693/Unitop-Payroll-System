@@ -404,6 +404,7 @@ C:\xampp\php\php.exe C:\xampp\master_file_tests\bank_file_test.php          # 21
 C:\xampp\php\php.exe C:\xampp\master_file_tests\me_selfservice_test.php     # 116 / 0
 C:\xampp\php\php.exe C:\xampp\master_file_tests\full_payroll_test.php       # overtime, late, loan, 13th month
 C:\xampp\php\php.exe C:\xampp\master_file_tests\payroll_approval_test.php   # maker/checker + lock
+C:\xampp\php\php.exe C:\xampp\master_file_tests\payroll_void_test.php       # void + reprocess + audit
 ```
 
 ---

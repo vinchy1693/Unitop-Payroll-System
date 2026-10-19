@@ -29,8 +29,8 @@
 // Every page whose API requires PAYROLL_ROLES is visible to maker + checker.
 // A Supervisor is a team lead, so they get ONLY the five team screens
 // (Attendance, Overtime, Attendance Corrections, Leave, Loans) plus the kiosk:
-// never the Dashboard, Employees, Salary Rates, Payroll Periods / Runs,
-// Payslips, Reports, Users or Audit Log. Their API answers match - those
+// never the Dashboard, Employees, Payroll Periods / Runs, Payslips, Reports,
+// Users or Audit Log. Their API answers match - those
 // endpoints still require PAYROLL_ROLES, which does not include Supervisor -
 // and tests/nav_matrix_test.php proves the two agree page by page.
 // Users and Audit Log are Administrator only. The kiosk is open to everyone.
@@ -39,10 +39,6 @@
 // the active-link styling depend on them, so entries below must match the
 // existing values exactly. tests/nav_matrix_test.php proves the table covers
 // every data-page in the HTML and matches the API guard page by page.
-//
-// Salary Rates ships as salary_rates.html.bak in this branch, so no nav link
-// points at it today. The entry stays so restoring the page is already guarded
-// instead of silently navigable by every role.
 //
 // The table is strict JSON between the two markers below: the test decodes it.
 // =====================================================================
@@ -53,7 +49,6 @@ const NAV_ACCESS = {
     "departments.html":            ["Payroll Officer", "Approver"],
     "positions.html":              ["Payroll Officer", "Approver"],
     "employees.html":              ["Payroll Officer", "Approver"],
-    "salary_rates.html":           ["Payroll Officer", "Approver"],
     "attendance.html":             ["Payroll Officer", "Approver", "Supervisor"],
     "qr_codes.html":               ["Payroll Officer", "Approver"],
     "leave.html":                  ["Payroll Officer", "Approver", "Supervisor"],

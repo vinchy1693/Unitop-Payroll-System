@@ -236,9 +236,12 @@ if ($method === "POST") {
                  VALUES (?, 0, 0, 0, 0, 0, 0, ?)"
             );
 
+            // 13th Month Pay is exempt up to ₱90,000 (RA 10963, Sec. 32(B)(7)(a)).
+            // compute13thMonthPay() already taxes only the excess, so the line is
+            // marked non-taxable and recomputePayslipTotals() must not tax it again.
             $allowStmt = $pdo->prepare(
-                "INSERT INTO allowances (payslip_id, allowance_type, amount)
-                 VALUES (?, '13th Month Pay', ?)"
+                "INSERT INTO allowances (payslip_id, allowance_type, amount, is_taxable)
+                 VALUES (?, '13th Month Pay', ?, 0)"
             );
 
             $generated = 0;
