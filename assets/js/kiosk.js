@@ -111,7 +111,9 @@
         // operator explicitly opens the strip and fills a field, and the server
         // should set ALLOW_DEMO_SCANS to false on a real deployment, which makes
         // these fields (and this whole feature) inert.
-        var payload = { code_value: code };
+        var payload = code.indexOf("UNITOP-T-") === 0
+            ? { qr_token: code }
+            : { code_value: code };
         if (!el.demoPanel.classList.contains("hidden")) {
             if (el.demoDate.value) { payload.demo_mode = true; payload.demo_date = el.demoDate.value; }
             if (el.demoTime.value) { payload.demo_mode = true; payload.demo_time = el.demoTime.value; }

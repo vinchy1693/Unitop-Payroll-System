@@ -136,6 +136,13 @@ const ALL_ROLES = ["Employee", "Payroll Officer", "Approver", "Supervisor", "Adm
 // is the only role allowed to use it, and a real deployment turns it off here.
 const ALLOW_DEMO_SCANS = true;
 
+// Short-lived QR tokens. The portal displays a token, not the static badge:
+// 120 seconds, bound to the next action, single use. The kiosk accepts the
+// legacy static qr_codes value while printed badges are still in circulation;
+// flip this to false once every employee has a token QR.
+const QR_TOKEN_TTL_SECONDS = 120;
+const ALLOW_LEGACY_QR = true;
+
 header("Content-Type: application/json; charset=utf-8");
 
 if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
@@ -301,6 +308,8 @@ function audit_is_secret_key(string $key): bool {
     return in_array($normalized, [
         "codevalue",          // the QR value the kiosk scans (a bearer credential)
         "qrcodevalue",
+        "qrtoken",            // short-lived kiosk token (also a bearer credential)
+        "tokenhash",
         "bankaccountnumber",
         "accountnumber",
         "tinnumber",

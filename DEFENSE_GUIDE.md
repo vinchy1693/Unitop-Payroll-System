@@ -366,6 +366,19 @@ The kiosk is **staff-operated and on-site**. Employees do **not** type their cod
 
 A **Demo mode** strip (collapsed by default, red when on) lets a demonstration supply a date and time; both are validated. It is **maker-only** (`requireRole(MAKER_ROLES)`), so an Employee, Approver, Supervisor or Administrator gets **403**, and `ALLOW_DEMO_SCANS` in `api/_bootstrap.php` can disable it outright for a real deployment.
 
+### Short-lived QR tokens
+
+The portal no longer displays the static `qr_codes.code_value`. `employee_portal/api/me_qr.php` issues a **120-second, one-time, purpose-bound token** (`UNITOP-T-…`):
+
+- `purpose` is `time_in` or `time_out`, derived from today's attendance; after both punches it returns `complete` and no token.
+- Only a SHA-256 hash is stored in `qr_tokens`; the token is marked used when the kiosk writes the punch.
+- The kiosk accepts it through `qr_token`, validates expiry/used/employee-active, and consumes it. The legacy static badge is still accepted while `ALLOW_LEGACY_QR` is true; flip that after the printed badges are replaced.
+- `employee_portal/my_qr.html` is the QR-only module: it auto-refreshes 30 seconds before expiry, hides the QR when the page is backgrounded, suppresses selection/context-menu/printing, and shows a countdown.
+
+**Honest limit:** a browser cannot block the OS screenshot key or a second camera. The 120-second expiry and one-time use make a screenshot stale; true screen-capture blocking needs a native/managed kiosk (`FLAG_SECURE`). A token can still be relayed inside its 120-second window; the staffed face/photo check is still the authenticator.
+
+**Throughput:** the token is generated when the page loads/refreshes, not per kiosk scan. The kiosk validation is one small query; 50 phones refreshing every 90 seconds is well under one request per second. The camera/identity step, not token generation, is the line bottleneck.
+
 ---
 
 ## 7. Leave
@@ -502,6 +515,7 @@ C:\xampp\php\php.exe C:\xampp\master_file_tests\premium_undertime_test.php   # d
 C:\xampp\php\php.exe C:\xampp\master_file_tests\ot_window_test.php            # approved OT window: early/late in/out + pay cap
 C:\xampp\php\php.exe C:\xampp\master_file_tests\money_guard_test.php          # loan void/cap, period overlap, post-lock writes
 C:\xampp\php\php.exe C:\xampp\master_file_tests\sod_guard_test.php            # admin role limit, loan Pending, self-approval, salary checker
+C:\xampp\php\php.exe C:\xampp\master_file_tests\qr_token_test.php             # expiring one-time QR token, replay, purpose, legacy badge
 ```
 
 ---
@@ -555,7 +569,11 @@ Public holidays in the `holidays` table are **excluded from expected working day
 | 13th month uses current salary for all 12 months | A mid-year raise is not weighted |
 | `salary_rates` table exists but payroll reads `employees.basic_salary` | Redundant; either wire it or remove the table |
 | The kiosk `verify` credential check has no rate limiting | It verifies an existing staff password to exit kiosk mode; a lockout/backoff is still outstanding |
-| Attendance writes do not check the payroll lock | Only the corrections endpoint enforces it; the helper exists and needs to be called |
+| Browser QR pages cannot block OS screenshots | The 120-second, one-time token makes a screenshot stale, and the QR-only page hides on background/print; a second camera or a native/managed kiosk is outside the web layer. True blocking needs `FLAG_SECURE` in a native wrapper |
+| The legacy static QR is still accepted | `ALLOW_LEGACY_QR = true` keeps printed badges working during migration; a photograph of a static badge does not expire. Flip it to false once every employee uses the portal token |
+| QR tokens are not device-bound | A token can be relayed within its 120-second window; sharing a portal login can mint another. Hardware/device binding or the staffed face check is still needed |
+| Kiosk photo/face confirmation is not implemented yet | The kiosk shows the employee name after a scan but does not capture a photo/snapshot or require an operator confirmation. The token expiry is not a substitute for the identity gate |
+| Attendance/OT writes are locked only after Approval/Release | A `Submitted` run can still have its source attendance/OT changed while its payslips are frozen; the Submitted lock/recompute is the remaining state fix |
 | Supervisor team assignment has no UI | `employees.supervisor_id` must be set by SQL |
 
 ---
@@ -602,11 +620,12 @@ Public holidays in the `holidays` table are **excluded from expected working day
 | Leave rules, overlap, balance | `api/leave_requests.php`, `api/me_leave_requests.php` |
 | Attendance corrections + recompute | `api/attendance_corrections.php` |
 | Audit hook | `api/_bootstrap.php` → `respond()` |
-| Audit redaction (QR / bank / govt numbers) | `api/_bootstrap.php` → `audit_is_secret_key()`; `sql/012_scrub_audit_sensitive.sql` |
+| Audit redaction (QR / token / bank / govt numbers) | `api/_bootstrap.php` → `audit_is_secret_key()`; `sql/012_scrub_audit_sensitive.sql` |
 | CSRF, session cookie flags, safe errors | `api/_bootstrap.php` (admin) and `employee_portal/api/_bootstrap.php` |
+| Short-lived QR tokens | `employee_portal/api/me_qr.php`, `api/scan_attendance.php`, `employee_portal/my_qr.html`; `sql/014_qr_tokens.sql` |
 | Exports | `api/bank_file.php` |
 | Schema | `sql/payroll_db_schema.sql` (structure), `sql/payroll_db_recovery.sql` (structure + data) |
-| Migrations 002–013 | `sql/00*.sql` |
+| Migrations 002–014 | `sql/00*.sql` |
 | Verification | `C:\xampp\master_file_tests\verify_computations.php` |
 
 ---
