@@ -276,7 +276,7 @@ INSERT INTO allowances (payslip_id, allowance_type, amount, is_taxable)
 VALUES (?, '13th Month Pay', ?, 0)
 ```
 
-`recomputePayslipTotals()` deliberately **does not** re-tax a payslip that carries a `13th Month Pay` line: the ordinary base would otherwise withholde on the exempt portion. For a ₱60,000 13th month the tax is **₱0** and net is the full ₱60,000.
+`recomputePayslipTotals()` deliberately **does not** re-tax a payslip that carries a `13th Month Pay` line: the ordinary base would otherwise withhold on the exempt portion. For a ₱60,000 13th month the tax is **₱0** and net is the full ₱60,000.
 
 ### Overtime
 ```php
