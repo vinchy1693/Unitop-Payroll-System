@@ -5,6 +5,16 @@ requireRole(PAYROLL_ROLES);   // maker + checker may read
 
 $method = $_SERVER["REQUEST_METHOD"];
 
+// The only period labels the payroll engine understands. "13th Month" is a
+// separate extra run and may legitimately overlap a working period; two
+// periods of the same label may not overlap.
+const PERIOD_TYPES = ["Semi-monthly", "13th Month"];
+
+function validPeriodDate(string $value): bool {
+    $dt = DateTime::createFromFormat("!Y-m-d", $value);
+    return $dt !== false && $dt->format("Y-m-d") === $value;
+}
+
 // Pay date per Philippine practice: the 1-15 cut-off is paid on the 20th, and
 // the 16-end cut-off on the 5th of the following month. An explicit pay_date
 // supplied by the client always wins.
@@ -43,8 +53,17 @@ if ($method === "POST") {
     if ($start === "" || $end === "") {
         respond(false, "Start Date and End Date are required.", null, 422);
     }
+    if (!validPeriodDate($start) || !validPeriodDate($end)) {
+        respond(false, "Start Date and End Date must be real dates in YYYY-MM-DD form.", null, 422);
+    }
     if ($start > $end) {
         respond(false, "End Date must be on or after Start Date.", null, 422);
+    }
+    if (!in_array($type, PERIOD_TYPES, true)) {
+        respond(false, "Period type must be one of: " . implode(", ", PERIOD_TYPES) . ".", null, 422);
+    }
+    if ($payDate !== "" && !validPeriodDate($payDate)) {
+        respond(false, "Pay Date must be a real date in YYYY-MM-DD form.", null, 422);
     }
 
     $stmt = $pdo->prepare(
@@ -82,8 +101,17 @@ if ($method === "PUT") {
     if ($id === 0 || $start === "" || $end === "") {
         respond(false, "All fields are required.", null, 422);
     }
+    if (!validPeriodDate($start) || !validPeriodDate($end)) {
+        respond(false, "Start Date and End Date must be real dates in YYYY-MM-DD form.", null, 422);
+    }
     if ($start > $end) {
         respond(false, "End Date must be on or after Start Date.", null, 422);
+    }
+    if (!in_array($type, PERIOD_TYPES, true)) {
+        respond(false, "Period type must be one of: " . implode(", ", PERIOD_TYPES) . ".", null, 422);
+    }
+    if ($payDate !== "" && !validPeriodDate($payDate)) {
+        respond(false, "Pay Date must be a real date in YYYY-MM-DD form.", null, 422);
     }
 
     $stmt = $pdo->prepare("SELECT status FROM payroll_periods WHERE period_id = ?");
@@ -92,6 +120,16 @@ if ($method === "PUT") {
     if ($current === false) respond(false, "Payroll period not found.", null, 404);
     if ($current === "Processed") {
         respond(false, "Cannot edit a period that has already been processed.", null, 409);
+    }
+
+    $stmt = $pdo->prepare(
+        "SELECT COUNT(*) FROM payroll_periods
+         WHERE period_type = ? AND period_id <> ?
+           AND NOT (end_date < ? OR start_date > ?)"
+    );
+    $stmt->execute([$type, $id, $start, $end]);
+    if ((int) $stmt->fetchColumn() > 0) {
+        respond(false, "This period overlaps with an existing $type period.", null, 409);
     }
 
     $stmt = $pdo->prepare(

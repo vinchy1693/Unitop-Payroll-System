@@ -326,6 +326,12 @@ if ($method === "POST") {
         respond(false, "Employee, Date, and Time In are required.", null, 422);
     }
 
+    $dateCheck = DateTime::createFromFormat("!Y-m-d", $workDay);
+    if (!$dateCheck || $dateCheck->format("Y-m-d") !== $workDay) {
+        respond(false, "Work Date must be a real date in YYYY-MM-DD form.", null, 422);
+    }
+    assertAttendanceDateUnlocked($pdo, $workDay, "Attendance for this date");
+
     $stmt = $pdo->prepare("SELECT attendance_id FROM attendance WHERE employee_id = ? AND work_date = ?");
     $stmt->execute([$empId, $workDay]);
     if ($stmt->fetchColumn()) {
@@ -380,6 +386,12 @@ if ($method === "PATCH") {
         respond(false, "Employee, Date, and Time Out are required.", null, 422);
     }
 
+    $dateCheck = DateTime::createFromFormat("!Y-m-d", $workDay);
+    if (!$dateCheck || $dateCheck->format("Y-m-d") !== $workDay) {
+        respond(false, "Work Date must be a real date in YYYY-MM-DD form.", null, 422);
+    }
+    assertAttendanceDateUnlocked($pdo, $workDay, "Attendance for this date");
+
     $stmt = $pdo->prepare(
         "SELECT attendance_id, time_in, time_out FROM attendance
          WHERE employee_id = ? AND work_date = ?"
@@ -428,6 +440,20 @@ if ($method === "PUT") {
         respond(false, "Employee, Date, and Time In are required.", null, 422);
     }
 
+    $dateCheck = DateTime::createFromFormat("!Y-m-d", $workDay);
+    if (!$dateCheck || $dateCheck->format("Y-m-d") !== $workDay) {
+        respond(false, "Work Date must be a real date in YYYY-MM-DD form.", null, 422);
+    }
+
+    $currentStmt = $pdo->prepare("SELECT work_date FROM attendance WHERE attendance_id = ?");
+    $currentStmt->execute([$id]);
+    $currentDate = $currentStmt->fetchColumn();
+    if ($currentDate === false) {
+        respond(false, "Attendance record not found.", null, 404);
+    }
+    assertAttendanceDateUnlocked($pdo, (string) $currentDate, "Attendance for this date");
+    assertAttendanceDateUnlocked($pdo, $workDay, "Attendance for this date");
+
     if ($timeOut !== "") {
         $stats = computeAttendanceStats($timeIn, $timeOut);
         if (isset($stats["error"])) respond(false, $stats["error"], null, 422);
@@ -467,6 +493,15 @@ if ($method === "PUT") {
 if ($method === "DELETE") {
     $id = (int) ($_GET["id"] ?? 0);
     if ($id === 0) respond(false, "Missing attendance_id.", null, 422);
+
+    $stmt = $pdo->prepare("SELECT work_date FROM attendance WHERE attendance_id = ?");
+    $stmt->execute([$id]);
+    $workDate = $stmt->fetchColumn();
+    if ($workDate === false) {
+        respond(false, "Attendance record not found.", null, 404);
+    }
+    assertAttendanceDateUnlocked($pdo, (string) $workDate, "Attendance for this date");
+
     $pdo->prepare("DELETE FROM attendance WHERE attendance_id = ?")->execute([$id]);
     respond(true, "Attendance record deleted.");
 }

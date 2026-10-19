@@ -530,6 +530,23 @@ function currentEmployeeId(): ?int {
 }
 
 /**
+ * Refuse a decision on the acting user's own request. This applies to every
+ * role, not only Supervisors: a Payroll Officer whose account is linked to an
+ * employee must not approve their own overtime, leave, correction or loan.
+ */
+function assertNotOwnEmployee(int $employeeId, string $what): void {
+    $self = currentEmployeeId();
+    if ($self !== null && $employeeId === $self) {
+        respond(
+            false,
+            "You cannot $what because it is your own request. Another reviewer must decide it.",
+            null,
+            403
+        );
+    }
+}
+
+/**
  * Employee ids whose supervisor_id is $supervisorEmployeeId (the team that
  * employee leads). Never includes the supervisor themselves. A non-positive
  * id - the shape a NULL employee link takes - yields an empty team.

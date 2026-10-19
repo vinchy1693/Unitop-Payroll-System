@@ -25,9 +25,9 @@ They are **separate deployments** with **separate PHP sessions** (`admin_sid` / 
 
 | Role | Can | **Cannot** |
 |---|---|---|
-| **Payroll Officer** (maker) | Employees, attendance, leave, overtime, loans, payroll periods/runs, payslips, exports | Approve payroll; approve loans; open Users or Audit Log |
-| **Approver** (checker) | Approve / return / release payroll; approve loans; approve team requests; view reports | **Edit any amount**; run payroll |
-| **Administrator** (technical) | Create/disable users, assign roles, Audit Log | **Any payroll or salary data** |
+| **Payroll Officer** (maker) | Employees, attendance, leave, overtime preparation, loans preparation, payroll periods/runs, payslips, exports | Approve payroll; **approve overtime or loans**; assign Payroll/Approver roles; open Users or Audit Log |
+| **Approver** (checker) | Approve / return / release payroll; **approve overtime and loans**; approve team requests; view reports | **Edit any amount**; run payroll; create Payroll/Approver accounts |
+| **Administrator** (technical) | Create/disable users, assign Employee/Supervisor/Administrator roles, Audit Log | **Any payroll or salary data**; assign a Payroll Officer or Approver role; set a payroll-role password |
 | **Supervisor** | Approve corrections/overtime/leave **for their own team only**; **recommend** loans | Approve loans; see salaries; approve own requests |
 | **Employee** | Own data via the portal | The admin app entirely |
 
@@ -56,6 +56,8 @@ if ($action !== "resubmit" && $run["submitted_by"] !== null
 ```
 
 **Proof it works:** log in as `payroll`, process a period, then try to approve it → **403**. Log in as `approver` → succeeds.
+
+The same own-request rule is enforced for OT, leave, corrections and loans by `assertNotOwnEmployee()`: a reviewer with an employee link cannot decide their own request. The Administrator screen cannot create or promote a Payroll Officer/Approver, nor set a payroll-role password — those accounts are provisioned outside it, so the technical role cannot mint the checker who approves payroll.
 
 ---
 
@@ -360,6 +362,8 @@ The employee can also file the request from the **portal attendance page** with 
 
 The kiosk is **staff-operated and on-site**. Employees do **not** type their code in the portal: the old portal "Record attendance" fallback was removed, and `employee_portal/api/me_scan_attendance.php` now returns **403**. `api/scan_attendance.php` also requires a staff role (`TEAM_QUEUE_ROLES`), so an Employee who logs into the admin app cannot use `kiosk.html` from home either. The staff kiosk's manual code field remains for a broken camera at the office.
 
+**Who decides OT:** the **Approver** or the employee's **Supervisor** (PATCH allows `CHECKER_ROLES + SUPERVISOR_ROLE`). The Payroll Officer prepares/edits the request but cannot approve it; the UI hides the buttons for that role.
+
 A **Demo mode** strip (collapsed by default, red when on) lets a demonstration supply a date and time; both are validated. It is **maker-only** (`requireRole(MAKER_ROLES)`), so an Employee, Approver, Supervisor or Administrator gets **403**, and `ALLOW_DEMO_SCANS` in `api/_bootstrap.php` can disable it outright for a real deployment.
 
 ---
@@ -394,12 +398,14 @@ Payroll Officer processes ──► Submitted
                 Released
 ```
 
-Once `Approved` or `Released`, any edit to payslips, deductions, allowances or loan payments is refused:
+Once `Approved` or `Released`, any edit to payslips, deductions, allowances or loan payments is refused, and the **same date lock** now covers manual attendance, kiosk scans, and overtime create/edit/delete:
 
 ```php
 const PAYROLL_LOCKED_RUN_STATUSES = ["Approved", "Released"];
 // … 409: "Payroll run #N is Approved and locked. … A formal adjustment is required."
 ```
+
+`assertAttendanceDateUnlocked()` is called from `attendance.php`, `scan_attendance.php`, `overtime_records.php` and `attendance_corrections.php`, so deleting or rewriting the evidence behind a signed payslip is no longer possible.
 
 ### Voiding a run — the formal adjustment
 
@@ -409,6 +415,7 @@ const PAYROLL_LOCKED_RUN_STATUSES = ["Approved", "Released"];
 - **Remarks are mandatory** — at least 10 characters, because a void removes the payslip rows.
 - A `Released` run is refused with **409**: payment has already been authorised, so it needs a reversing entry, not a void.
 - One transaction, with `SELECT … FOR UPDATE` on the run: delete the run's deduction / allowance / contribution / loan-payment / cash rows, delete the payslips, delete the run, then set its period back to `Open` so it can be processed again.
+- **Loan status is repaired**: a loan the run marked `Paid` is re-opened to `Active` when its payments are removed and the principal is still outstanding. Without this, voiding a run forgave the remaining loan balance.
 - Audited by the same `respond()` hook as every other mutation, with the reason in the audit row.
 
 ```php
@@ -448,6 +455,21 @@ One hook in `api/_bootstrap.php`, inside `respond()`:
 
 Enforced **in the API** (see §2), not by hiding a button — a crafted request fails the same way a click would.
 
+### Salary is checker-only
+
+`api/employee_salary.php` is `CHECKER_ROLES` (Approver) only. It requires a reason of at least 10 characters, refuses the checker's own salary, and is audited. `employees.php` PUT still lets the maker maintain names, contacts, bank details and position, but a changed `basic_salary` returns **403** — the maker can no longer raise pay immediately before a run. New employees can still be created with a starting salary; later changes go through the checker.
+
+### Loan activation and payment cap
+
+- A new loan starts **Pending**; `POST loans.php` refuses `status=Active`. The Approver activates it.
+- Payroll withholds at most the employee's **remaining net pay**. If attendance/statutory deductions leave no room, no `loan_payments` row is written and the loan stays Active for the next run. The old code credited the full amortisation and then clamped net pay to zero, forgiving debt the employee never paid.
+- A manual payment is capped at the outstanding principal and is accepted only while the loan is **Active**; `payment_date` is validated.
+- Voiding the run deletes the loan payments and re-opens a loan that was marked `Paid`.
+
+### Period overlap and type
+
+`payroll_periods.php` accepts only **Semi-monthly** and **13th Month**. Same-type periods may not overlap, on POST **and** on PUT; a 13th-month run is deliberately allowed to overlap a working period. The free-text type field previously allowed a “Monthly” period to bypass the check and pay the same days twice.
+
 ### Data protection
 
 `sql/.htaccess`, `.git/.htaccess` and root `.htaccess` deny HTTP access to dumps, tests and version-control metadata. Verified: `403` on `sql/payroll_db_recovery.sql` and `.git/config`.
@@ -478,6 +500,8 @@ C:\xampp\php\php.exe C:\xampp\master_file_tests\payroll_void_test.php       # vo
 C:\xampp\php\php.exe C:\xampp\master_file_tests\security_test.php           # CSRF, cookie flags, audit redaction
 C:\xampp\php\php.exe C:\xampp\master_file_tests\premium_undertime_test.php   # day-type premium, 2.60 holiday OT, undertime
 C:\xampp\php\php.exe C:\xampp\master_file_tests\ot_window_test.php            # approved OT window: early/late in/out + pay cap
+C:\xampp\php\php.exe C:\xampp\master_file_tests\money_guard_test.php          # loan void/cap, period overlap, post-lock writes
+C:\xampp\php\php.exe C:\xampp\master_file_tests\sod_guard_test.php            # admin role limit, loan Pending, self-approval, salary checker
 ```
 
 ---
@@ -541,7 +565,7 @@ Public holidays in the `holidays` table are **excluded from expected working day
 1. **Login `payroll`** → Employees (contact + bank fields), Payroll Periods (pay date auto-fills: 20th / 5th next month)
 2. **Kiosk** → scan or type QR → **clock in → clock out** (the time clock)
 3. **Portal on the phone → Attendance → Request overtime** → date, requested window, reason → **the server shows the day type and rate** (e.g. 2026-12-25 = Regular Holiday, 2.60x)
-4. **Overtime page as `payroll`** → approve; the row shows the reason, requested window and derived day type
+4. **Overtime page as `approver`** → approve; the row shows the reason, requested window and derived day type. (The Payroll Officer can prepare it but gets 403 on approve.)
 5. **Kiosk** → **overtime clock-in → overtime clock-out** → hours computed
 6. **Portal → Attendance → Request a correction** → submit
 7. **Corrections page as `payroll`** → approve → `minutes_late` recomputes
@@ -570,6 +594,10 @@ Public holidays in the `holidays` table are **excluded from expected working day
 | Taxable / non-taxable allowances | `api/_payroll_helpers.php` → `recomputePayslipTotals()`; `sql/011_allowance_taxability.sql` |
 | Payroll assembly, maker/checker, lock | `api/payroll_runs.php` |
 | Void + reprocess (the formal adjustment) | `api/payroll_void.php` |
+| Salary change (checker-only) | `api/employee_salary.php`; `api/employees.php` |
+| Loan activation, payment cap, void reset | `api/loans.php`, `api/payroll_runs.php`, `api/payroll_void.php` |
+| Period type whitelist and overlap | `api/payroll_periods.php` |
+| Post-lock attendance / OT | `api/attendance.php`, `api/scan_attendance.php`, `api/overtime_records.php` |
 | Kiosk state machine | `api/scan_attendance.php` |
 | Leave rules, overlap, balance | `api/leave_requests.php`, `api/me_leave_requests.php` |
 | Attendance corrections + recompute | `api/attendance_corrections.php` |

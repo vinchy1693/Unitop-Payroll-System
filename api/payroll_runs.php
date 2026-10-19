@@ -460,7 +460,11 @@ if ($method === "POST") {
                 ]);
             }
 
-            // Loans
+            // Loans. Only withhold what is actually left after statutory and
+            // attendance deductions; the rest stays on the loan and is collected
+            // next run. Crediting the full amortisation against a zero net pay
+            // would forgive debt the employee never paid.
+            $loanRoom = $remainingRoom;
             $loanStmt->execute([$emp["employee_id"]]);
             $loans = $loanStmt->fetchAll();
 
@@ -474,6 +478,12 @@ if ($method === "POST") {
 
                 $amountDue = round((float) $loan["monthly_amortization"] / $loanDivisor, 2);
                 if ($amountDue > $remaining) $amountDue = $remaining;
+                if ($amountDue > $loanRoom) $amountDue = round($loanRoom, 2);
+
+                if ($amountDue <= 0) {
+                    // No room this run; leave the loan Active for the next run.
+                    continue;
+                }
 
                 $loanPayStmt->execute([$loan["loan_id"], $payslipId, $amountDue]);
 
@@ -482,6 +492,8 @@ if ($method === "POST") {
                     "Loan: " . $loan["loan_type"],
                     $amountDue,
                 ]);
+
+                $loanRoom = max(0.0, round($loanRoom - $amountDue, 2));
 
                 if (round($remaining - $amountDue, 2) <= 0) {
                     $pdo->prepare("UPDATE loans SET status = 'Paid' WHERE loan_id = ?")

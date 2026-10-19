@@ -82,6 +82,9 @@ if ($isDemoMode && $demoTime !== "") {
     $nowTime = (strlen($demoTime) === 5) ? $demoTime . ":00" : $demoTime;
 }
 
+// No kiosk write on a date whose payroll has already been signed off.
+assertAttendanceDateUnlocked($pdo, $today, "Attendance for this date");
+
 // ---- 3. Duplicate-scan guard -----------------------------------------
 // A kiosk camera can fire twice for one physical scan. Real scans by the
 // same employee inside 3 seconds are treated as one. Demo mode advances by

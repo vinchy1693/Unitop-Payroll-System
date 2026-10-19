@@ -186,10 +186,12 @@ if ($method === "GET") {
 // PATCH is the one write a Supervisor may also make, for their own team only;
 // that is decided inside the PATCH branch below. Every other method stays the
 // Payroll Officer's alone.
+// The checker and the team lead decide overtime; the maker (Payroll Officer)
+// prepares it but must not approve the pay-impacting request.
 if ($method === "PATCH") {
-    requireRole(array_merge(MAKER_ROLES, [SUPERVISOR_ROLE]));
+    requireRole(array_merge(CHECKER_ROLES, [SUPERVISOR_ROLE]));
 } else {
-    requireRole(MAKER_ROLES);   // only the Payroll Officer drives the OT workflow
+    requireRole(MAKER_ROLES);   // only the Payroll Officer prepares/edits OT
 }
 
 /** HH:MM or HH:MM:SS -> HH:MM:SS, or null when it is not a valid time. */
@@ -229,6 +231,8 @@ if ($method === "POST") {
     if (strcmp($reqEnd, $reqStart) <= 0) {
         respond(false, "The requested end must be after the requested start.", null, 422);
     }
+
+    assertAttendanceDateUnlocked($pdo, $otDate, "Overtime for this date");
 
     // The day type and the rate are derived on the server from the date and the
     // holidays table. A client-supplied multiplier is ignored, so a rest day or
@@ -296,13 +300,16 @@ if ($method === "PUT") {
         respond(false, "The requested end must be after the requested start.", null, 422);
     }
 
-    $stmt = $pdo->prepare("SELECT status, time_in, employee_id FROM overtime_records WHERE ot_id = ?");
+    $stmt = $pdo->prepare("SELECT status, time_in, employee_id, ot_date FROM overtime_records WHERE ot_id = ?");
     $stmt->execute([$id]);
     $row = $stmt->fetch();
     if (!$row) respond(false, "OT record not found.", null, 404);
     if ($row["status"] === "Completed" || $row["time_in"] !== null) {
         respond(false, "Overtime that has already started cannot be edited.", null, 409);
     }
+
+    assertAttendanceDateUnlocked($pdo, (string) $row["ot_date"], "Overtime for this date");
+    assertAttendanceDateUnlocked($pdo, $otDate, "Overtime for this date");
 
     $stmt = $pdo->prepare(
         "SELECT ot_id FROM overtime_records
@@ -346,10 +353,13 @@ if ($method === "PATCH") {
         respond(false, "action must be 'approve' or 'reject'.", null, 422);
     }
 
-    $stmt = $pdo->prepare("SELECT ot_id, employee_id, status FROM overtime_records WHERE ot_id = ?");
+    $stmt = $pdo->prepare("SELECT ot_id, employee_id, ot_date, status FROM overtime_records WHERE ot_id = ?");
     $stmt->execute([$id]);
     $row = $stmt->fetch();
     if (!$row) respond(false, "OT record not found.", null, 404);
+
+    assertNotOwnEmployee((int) $row["employee_id"], "approve or reject this overtime request");
+    assertAttendanceDateUnlocked($pdo, (string) $row["ot_date"], "Overtime for this date");
 
     // Team scope before the state check, so an out-of-team request always
     // answers 403 and never leaks whether it is still Pending.
@@ -381,6 +391,15 @@ if ($method === "DELETE") {
     if ($id === 0) {
         respond(false, "Missing ot_id.", null, 422);
     }
+
+    $stmt = $pdo->prepare("SELECT ot_date FROM overtime_records WHERE ot_id = ?");
+    $stmt->execute([$id]);
+    $otDate = $stmt->fetchColumn();
+    if ($otDate === false) {
+        respond(false, "Overtime record not found.", null, 404);
+    }
+    assertAttendanceDateUnlocked($pdo, (string) $otDate, "Overtime for this date");
+
     $pdo->prepare("DELETE FROM overtime_records WHERE ot_id = ?")->execute([$id]);
     respond(true, "Overtime record deleted.");
 }

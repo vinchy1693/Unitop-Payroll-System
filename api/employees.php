@@ -81,6 +81,18 @@ if ($method === "PUT") {
         respond(false, "Basic Salary is required and must be greater than zero.", null, 422);
     }
 
+    $currentStmt = $pdo->prepare("SELECT basic_salary FROM employees WHERE employee_id = ?");
+    $currentStmt->execute([$id]);
+    $currentSalary = $currentStmt->fetchColumn();
+    if ($currentSalary === false) {
+        respond(false, "Employee not found.", null, 404);
+    }
+    if (abs((float) $vals["basic_salary"] - (float) $currentSalary) >= 0.005) {
+        respond(false,
+            "Basic salary changes are restricted to the Approver. Use the salary change form.",
+            null, 403);
+    }
+
     try {
         $sql = "UPDATE employees SET " . implode(" = ?, ", $fields) . " = ? WHERE employee_id = ?";
         $stmt = $pdo->prepare($sql);

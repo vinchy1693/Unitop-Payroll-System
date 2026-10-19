@@ -64,10 +64,34 @@ try {
 
     if ($ids) {
         $list = implode(",", $ids);
+
+        // Remember which loans this run paid before the payments disappear, so
+        // a loan that the run marked Paid can be reopened for collection.
+        $loanStmt = $pdo->prepare(
+            "SELECT DISTINCT loan_id FROM loan_payments WHERE payslip_id IN ($list)"
+        );
+        $loanStmt->execute();
+        $loanIds = array_map("intval", $loanStmt->fetchAll(PDO::FETCH_COLUMN));
+
         foreach (["cash_disbursements", "loan_payments", "allowances", "deductions", "govt_contributions"] as $table) {
             $pdo->exec("DELETE FROM $table WHERE payslip_id IN ($list)");
         }
         $pdo->exec("DELETE FROM payslips WHERE payslip_id IN ($list)");
+
+        if ($loanIds) {
+            $loanList = implode(",", $loanIds);
+            // Re-open only loans that are still short after the delete; a loan
+            // with other payments that still covers the principal stays Paid.
+            $pdo->exec(
+                "UPDATE loans l
+                 SET status = 'Active'
+                 WHERE l.loan_id IN ($loanList)
+                   AND l.status = 'Paid'
+                   AND l.principal_amount > COALESCE(
+                       (SELECT SUM(lp.amount_paid) FROM loan_payments lp WHERE lp.loan_id = l.loan_id), 0
+                   )"
+            );
+        }
     }
     $pdo->prepare("DELETE FROM payroll_runs WHERE run_id = ?")->execute([$runId]);
 

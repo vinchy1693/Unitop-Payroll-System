@@ -135,10 +135,11 @@ if ($method === "PATCH" && $earlyAction === "approve") {
     $id = (int) ($early["loan_id"] ?? 0);
     if ($id === 0) respond(false, "loan_id is required.", null, 422);
 
-    $stmt = $pdo->prepare("SELECT loan_id, status FROM loans WHERE loan_id = ?");
+    $stmt = $pdo->prepare("SELECT loan_id, employee_id, status FROM loans WHERE loan_id = ?");
     $stmt->execute([$id]);
     $loan = $stmt->fetch();
     if (!$loan) respond(false, "Loan not found.", null, 404);
+    assertNotOwnEmployee((int) $loan["employee_id"], "approve this loan");
     if ($loan["status"] !== "Pending") {
         respond(false, "Only Pending loans can be approved. This one is {$loan['status']}.", null, 409);
     }
@@ -183,6 +184,27 @@ if ($method === "POST") {
 
         assertPayslipUnlocked($pdo, $payslipId, "Loan payments on this payslip");
 
+        $dateCheck = DateTime::createFromFormat("!Y-m-d", $payDate);
+        if (!$dateCheck || $dateCheck->format("Y-m-d") !== $payDate) {
+            respond(false, "Payment date must be a real date in YYYY-MM-DD form.", null, 422);
+        }
+
+        $stateStmt = $pdo->prepare(
+            "SELECT l.status, l.principal_amount,
+                    COALESCE((SELECT SUM(amount_paid) FROM loan_payments lp WHERE lp.loan_id = l.loan_id), 0) AS paid
+             FROM loans l WHERE l.loan_id = ?"
+        );
+        $stateStmt->execute([$loanId]);
+        $state = $stateStmt->fetch();
+        if (!$state) respond(false, "Loan not found.", null, 404);
+        if ($state["status"] !== "Active") {
+            respond(false, "Only an Active loan can receive a payment. This one is {$state['status']}.", null, 409);
+        }
+        $outstanding = round((float) $state["principal_amount"] - (float) $state["paid"], 2);
+        if ($amount > $outstanding + 0.005) {
+            respond(false, "Payment exceeds the outstanding balance of " . number_format($outstanding, 2) . ".", null, 422);
+        }
+
         try {
             $pdo->beginTransaction();
             $pdo->prepare(
@@ -215,13 +237,16 @@ if ($method === "POST") {
     $type       = trim($in["loan_type"]                 ?? "");
     $principal  = (float) ($in["principal_amount"]      ?? 0);
     $amort      = (float) ($in["monthly_amortization"]  ?? 0);
-    $status     = trim((string) ($in["status"] ?? "Active"));
+    $status     = trim((string) ($in["status"] ?? "Pending"));
 
     if ($empId === 0 || $type === "" || $principal <= 0 || $amort <= 0) {
         respond(false, "Employee, Type, Principal, and Monthly Amortization are required.", null, 422);
     }
-    if (!in_array($status, ["Active", "Pending"], true)) {
-        respond(false, "A new loan must be Active or Pending.", null, 422);
+    if ($status !== "Pending") {
+        respond(false,
+            "A new loan must start as Pending; the Approver activates it. "
+            . "The maker cannot create an Active loan.",
+            null, 403);
     }
 
     $stmt = $pdo->prepare(

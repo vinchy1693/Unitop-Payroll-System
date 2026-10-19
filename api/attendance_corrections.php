@@ -316,18 +316,17 @@ if ($action === "reject" && $remarks === "") {
 
 $user = currentUser();
 
-// Team scope, decided BEFORE the transaction opens so a refusal cannot leave
-// one half-written. Only a Supervisor is checked here: the maker keeps the
-// whole queue. The team test and the own-request rule are both inside
-// assertSupervises(), and the row is re-read FOR UPDATE inside the
-// transaction, so a correction cannot be moved between employees mid-flight.
+// Team scope and the own-request rule, decided BEFORE the transaction opens so
+// a refusal cannot leave one half-written and its audit row cannot be rolled
+// back with the correction.
+$owner = $pdo->prepare("SELECT employee_id FROM attendance_corrections WHERE correction_id = ?");
+$owner->execute([$id]);
+$ownerEmployeeId = $owner->fetchColumn();
+if ($ownerEmployeeId === false) {
+    respond(false, "Attendance correction not found.", null, 404);
+}
+assertNotOwnEmployee((int) $ownerEmployeeId, "approve or reject this correction");
 if (isSupervisor()) {
-    $owner = $pdo->prepare("SELECT employee_id FROM attendance_corrections WHERE correction_id = ?");
-    $owner->execute([$id]);
-    $ownerEmployeeId = $owner->fetchColumn();
-    if ($ownerEmployeeId === false) {
-        respond(false, "Attendance correction not found.", null, 404);
-    }
     assertSupervises($pdo, (int) $ownerEmployeeId, "approve or reject this attendance correction");
 }
 

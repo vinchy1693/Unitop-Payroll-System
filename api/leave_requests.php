@@ -180,17 +180,17 @@ if ($method === "PATCH") {
         respond(false, "Valid leave_id and status (Approved or Rejected) required.", null, 422);
     }
 
-    // Team scope, decided BEFORE the transaction opens so a refusal cannot
-    // leave one half-written. Only a Supervisor is checked: the maker keeps
-    // the whole queue. The team test and the own-request rule both live in
-    // assertSupervises(); the request is re-read inside the transaction.
+    // Team scope and the own-request rule, decided BEFORE the transaction opens
+    // so a refusal cannot leave one half-written and its audit row cannot be
+    // rolled back with the request.
+    $owner = $pdo->prepare("SELECT employee_id FROM leave_requests WHERE leave_id = ?");
+    $owner->execute([$id]);
+    $ownerEmployeeId = $owner->fetchColumn();
+    if ($ownerEmployeeId === false) {
+        respond(false, "Leave request not found.", null, 404);
+    }
+    assertNotOwnEmployee((int) $ownerEmployeeId, "approve or reject this leave request");
     if (isSupervisor()) {
-        $owner = $pdo->prepare("SELECT employee_id FROM leave_requests WHERE leave_id = ?");
-        $owner->execute([$id]);
-        $ownerEmployeeId = $owner->fetchColumn();
-        if ($ownerEmployeeId === false) {
-            respond(false, "Leave request not found.", null, 404);
-        }
         assertSupervises($pdo, (int) $ownerEmployeeId, "approve or reject this leave request");
     }
 

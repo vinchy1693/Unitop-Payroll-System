@@ -4,6 +4,7 @@
 
 let showAll = false;
 let editId  = null;
+let currentRole = "";
 
 const FIELDS = ["employee_number", "first_name", "last_name", "birth_date", "civil_status",
                 "position_id", "department_id", "date_hired", "employment_status",
@@ -22,6 +23,31 @@ const formTitle  = document.getElementById("form-title");
 const rowsEl     = document.getElementById("rows");
 const countEl    = document.getElementById("record-count");
 const toggleLink = document.getElementById("toggle-filter");
+const salaryCard = document.getElementById("salary-card");
+const salaryForm = document.getElementById("salary-form");
+const salaryEmployee = document.getElementById("salary-employee");
+const salaryAmount = document.getElementById("salary-amount");
+const salaryReason = document.getElementById("salary-reason");
+
+async function loadCurrentRole() {
+    try {
+        const { data } = await api.get("auth.php?action=me");
+        currentRole = data.data?.role || "";
+    } catch (_) {
+        currentRole = "";
+    }
+}
+
+async function loadSalaryEmployees() {
+    if (!salaryEmployee) return;
+    try {
+        const { data } = await api.get("employees.php", { params: { simple: 1 } });
+        salaryEmployee.innerHTML = `<option value="">-- Select --</option>` +
+            (data.data || []).map((e) => `<option value="${e.id}">${escapeHtml(e.label)}</option>`).join("");
+    } catch (err) {
+        showToast(apiErrorMessage(err), "error");
+    }
+}
 
 function formatMoney(n) {
     return "₱" + Number(n || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -65,7 +91,15 @@ function renderRows(rows) {
         return;
     }
 
-    rowsEl.innerHTML = rows.map((r) => `
+    rowsEl.innerHTML = rows.map((r) => {
+        const actions = currentRole === "Payroll Officer"
+            ? `<button class="btn btn-edit" data-edit="${r.employee_id}">Edit</button>
+               <button class="btn ${r.is_active ? "btn-delete" : "btn-restore"}" data-toggle="${r.employee_id}" data-active="${r.is_active ? 0 : 1}">
+                   ${r.is_active ? "Deactivate" : "Restore"}
+               </button>`
+            : `<span style="color:var(--muted);font-size:12px;">&mdash;</span>`;
+
+        return `
         <tr class="${r.is_active ? "" : "inactive-row"}">
             <td>${escapeHtml(r.employee_number)}</td>
             <td>${escapeHtml(r.last_name + ", " + r.first_name)}</td>
@@ -73,14 +107,9 @@ function renderRows(rows) {
             <td>${escapeHtml(r.department_name ?? "—")}</td>
             <td style="text-align:right;">${formatMoney(r.basic_salary)}</td>
             <td class="col-center"><span class="badge ${r.is_active ? "active" : "inactive"}">${r.is_active ? "Active" : "Inactive"}</span></td>
-            <td class="col-center">
-                <button class="btn btn-edit" data-edit="${r.employee_id}">Edit</button>
-                <button class="btn ${r.is_active ? "btn-delete" : "btn-restore"}" data-toggle="${r.employee_id}" data-active="${r.is_active ? 0 : 1}">
-                    ${r.is_active ? "Deactivate" : "Restore"}
-                </button>
-            </td>
-        </tr>
-    `).join("");
+            <td class="col-center">${actions}</td>
+        </tr>`;
+    }).join("");
 
     rowsEl.querySelectorAll("[data-edit]").forEach((btn) => {
         btn.addEventListener("click", () => startEdit(rows.find((r) => r.employee_id == btn.dataset.edit)));
@@ -158,7 +187,40 @@ toggleLink.addEventListener("click", (e) => {
     loadRows();
 });
 
-document.addEventListener("DOMContentLoaded", () => {
+if (salaryForm) {
+    salaryForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const employeeId = Number(salaryEmployee.value);
+        const salary     = Number(salaryAmount.value);
+        const reason     = salaryReason.value.trim();
+
+        if (!employeeId) { showToast("Select an employee.", "error"); return; }
+        if (!(salary > 0)) { showToast("Enter a salary greater than zero.", "error"); return; }
+        if (reason.length < 10) { showToast("Enter a reason of at least 10 characters.", "error"); return; }
+
+        try {
+            const { data } = await api.put("employee_salary.php", {
+                employee_id: employeeId,
+                basic_salary: salary,
+                reason,
+            });
+            showToast(data.message, "success");
+            salaryForm.reset();
+            await loadRows();
+            await loadSalaryEmployees();
+        } catch (err) {
+            showToast(apiErrorMessage(err), "error");
+        }
+    });
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+    await loadCurrentRole();
+    const isMaker = currentRole === "Payroll Officer";
+    const isApprover = currentRole === "Approver";
+    document.getElementById("emp-form-card")?.classList.toggle("hidden", !isMaker);
+    salaryCard?.classList.toggle("hidden", !isApprover);
+    if (isApprover) await loadSalaryEmployees();
     loadDropdowns();
     loadRows();
 });

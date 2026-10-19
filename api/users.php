@@ -33,6 +33,12 @@ if ($method === "POST") {
     if (!in_array($role, ALL_ROLES, true)) {
         respond(false, "Unknown role. Use one of: " . implode(", ", ALL_ROLES) . ".", null, 422);
     }
+    if (in_array($role, array_merge(MAKER_ROLES, CHECKER_ROLES), true)) {
+        respond(false,
+            "Payroll Officer and Approver accounts are provisioned outside the Administrator screen. "
+            . "The Administrator must not create the role that can approve payroll.",
+            null, 403);
+    }
     if ($role === "Employee" && $employeeId === null) {
         respond(false, "Employee role requires a linked employee record.", null, 422);
     }
@@ -66,6 +72,29 @@ if ($method === "PUT") {
     if (!in_array($role, ALL_ROLES, true)) {
         respond(false, "Unknown role. Use one of: " . implode(", ", ALL_ROLES) . ".", null, 422);
     }
+
+    $currentStmt = $pdo->prepare("SELECT role FROM users WHERE user_id = ?");
+    $currentStmt->execute([$id]);
+    $currentRole = $currentStmt->fetchColumn();
+    if ($currentRole === false) {
+        respond(false, "User not found.", null, 404);
+    }
+
+    $payrollRoles = array_merge(MAKER_ROLES, CHECKER_ROLES);
+    if (!in_array($currentRole, $payrollRoles, true)
+        && in_array($role, $payrollRoles, true)) {
+        respond(false,
+            "A user cannot be promoted into a payroll role from the Administrator screen.",
+            null, 403);
+    }
+    if ($password !== "" && (in_array($currentRole, $payrollRoles, true)
+        || in_array($role, $payrollRoles, true))) {
+        respond(false,
+            "The Administrator cannot set a password for a Payroll Officer or Approver. "
+            . "The user must change their own password.",
+            null, 403);
+    }
+
     if ($role === "Employee" && $employeeId === null) {
         respond(false, "Employee role requires a linked employee record.", null, 422);
     }

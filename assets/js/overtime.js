@@ -15,6 +15,16 @@ const filterDate    = document.getElementById("filter-date");
 const clearDateBtn  = document.getElementById("clear-date");
 
 let currentRows = [];
+let currentRole = "";
+
+async function loadCurrentRole() {
+    try {
+        const { data } = await api.get("auth.php?action=me");
+        currentRole = data.data?.role || "";
+    } catch (_) {
+        currentRole = "";
+    }
+}
 
 function formatTime(value) {
     if (!value) return "&mdash;";
@@ -66,7 +76,8 @@ function renderRows(rows) {
     }
 
     rowsEl.innerHTML = rows.map((r) => {
-        const canDecide = r.status === "Pending";
+        const canDecide = r.status === "Pending"
+            && (currentRole === "Approver" || currentRole === "Supervisor");
         const decidedBy = r.approved_by_name
             ? `<div style="font-size:11px;color:var(--muted);">by ${escapeHtml(r.approved_by_name)}</div>`
             : "";
@@ -160,7 +171,8 @@ clearDateBtn.addEventListener("click", () => {
     loadRows();
 });
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+    await loadCurrentRole();
     loadPendingCount();
     loadRows();
 });

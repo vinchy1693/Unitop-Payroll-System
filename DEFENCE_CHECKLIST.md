@@ -12,9 +12,9 @@ Legend: `[ ]` to do · `[x]` verified done · ⚠️ = could cost marks if unadd
       the demo date/time are validated and `ALLOW_DEMO_SCANS` can disable the branch.
 - [x] **CSRF + JSON-only bodies.** Per-session `admin_csrf` / `portal_csrf` token required in
       `X-CSRF-Token`; `json_input()` no longer falls back to `$_POST` (415 otherwise).
-- [ ] ⚠️ **The payroll lock is not enforced on attendance / overtime / leave writes.**
-      `assertAttendanceDateUnlocked()` exists but has **zero callers** outside corrections.
-      Fix: call it in `attendance.php`, `scan_attendance.php`, `overtime_records.php`.
+- [x] **The payroll lock is enforced on attendance / overtime writes.**
+      `assertAttendanceDateUnlocked()` is now called from `attendance.php`, `scan_attendance.php`,
+      `overtime_records.php` and `attendance_corrections.php`; a signed date answers **409**.
 - [ ] **`verify` is a credential oracle** with no rate limiting.
 - [x] **Session cookie flags** — HttpOnly, SameSite=Lax, Secure on HTTPS (both apps).
 - [x] **`PDOException` text no longer reaches the client** — display_errors off, generic 500,
@@ -39,6 +39,15 @@ Legend: `[ ]` to do · `[x]` verified done · ⚠️ = could cost marks if unadd
 - [x] **The kiosk enforces the approved OT window** — clock-in >5 min early or after the end is 409;
       clock-out >5 min early is 409; a late clock-out is recorded but paid only to the approved end.
       The after-shift fallback has no requested end, so it keeps the old behaviour.
+- [x] **OT is decided by the Approver or the team's Supervisor** — the Payroll Officer prepares it but
+      PATCH returns 403; the UI hides the buttons for the maker.
+- [x] **Basic salary is checker-only** — `api/employee_salary.php` (Approver, reason >=10, audited);
+      `employees.php` PUT returns 403 if the maker changes `basic_salary`.
+- [x] **Loans start Pending** — the maker cannot create Active; the Approver activates. Payroll withholds at
+      most the remaining net pay, a manual payment is capped at the outstanding principal, and voiding a run
+      re-opens a loan that was marked Paid.
+- [x] **Period types are whitelisted** — Semi-monthly / 13th Month; same-type overlap is checked on POST
+      and PUT, and a 13th-month run may overlap a working period.
 - [x] **Meal break** — a span over 300 minutes loses 60 minutes for both the regular shift and OT.
 - [x] **Contribution bases** — SSS/PhilHealth/Pag-IBIG stay on basic salary per RA 1161 §8, RA 11223 and
       RA 9679 §4 (they exclude OT/allowances).
@@ -63,6 +72,8 @@ Legend: `[ ]` to do · `[x]` verified done · ⚠️ = could cost marks if unadd
 - [x] Tests that depended on employee id 3 or live leave data now build their own fixtures.
 - [x] `premium_undertime_test.php` — Sunday + Regular holiday premiums, 2.60 holiday OT, 60-minute undertime.
 - [x] `ot_window_test.php` — early/late OT in, early out, late out capped at the approved end (25/0).
+- [x] `money_guard_test.php` — loan void reopens Paid loans, loan payment capped at net, period overlap/PUT, locked attendance/OT (34/0).
+- [x] `sod_guard_test.php` — Administrator cannot mint payroll roles, loans start Pending, self-approval blocked, salary checker-only (16/0).
 - [x] `manual_qr_test.php` — on-site enforcement: portal 403, no manual UI, staff kiosk 200, Employee kiosk 403.
 - [x] `employee_portal_test.php` — the employee files an overtime request; the server derives the rest-day rate.
 - [ ] **Change every password before presenting.** The accounts use per-account demo passwords; do not ship the presentation credentials.
@@ -88,7 +99,7 @@ Legend: `[ ]` to do · `[x]` verified done · ⚠️ = could cost marks if unadd
    - clock in → clock out → **scan again = overtime request** → shows "awaiting approval".
    - **scan again = refused** ("still awaiting approval") — this is the strongest single demo.
    - The Employee portal cannot record attendance (`me_scan_attendance.php` = 403); clocking in/out happens only here.
-3. [ ] **Overtime page as `payroll`** → approve.
+3. [ ] **Overtime page as `approver`** → approve. (The Payroll Officer prepares but cannot approve OT.)
 4. [ ] **Scan the employee's QR at the kiosk again** → overtime starts → scan again → hours computed.
 5. [ ] **Portal on the phone** → Attendance → **Request a correction** → file it → watch the table populate.
 6. [ ] **Corrections page as `payroll`** → approve → point out `minutes_late` recomputes to 0.
@@ -109,6 +120,7 @@ Legend: `[ ]` to do · `[x]` verified done · ⚠️ = could cost marks if unadd
 - [x] Rest-day / holiday premiums are paid by day type; holiday OT is at least 2.60.
 - [x] Undertime and missing clock-outs are deducted; late arrival is not double-docked.
 - [x] OT requests carry a reason and requested window; the rate is server-derived.
+- [x] A reviewer cannot decide their own OT, leave, correction or loan (`assertNotOwnEmployee`).
 - [x] Employee portal overtime request + approval + kiosk time-in/out (51/0 portal suite).
 - [x] `premium_undertime_test.php` 17/0: Sunday/holiday premium, 2.60 holiday OT, 60-min undertime.
 - [ ] Night differential (+10%, Art. 86) is **not** computed.
@@ -116,7 +128,7 @@ Legend: `[ ]` to do · `[x]` verified done · ⚠️ = could cost marks if unadd
 - [ ] SSS uses the straight `min(35,000, salary) × 5%` rather than the official MSC bracket table (identical above ₱35,000).
 - [ ] Rates are **2025 hard-coded** values; a change is a code edit, not configuration.
 - [ ] The phone **camera cannot work** over `http://<LAN-IP>` — browsers require HTTPS; use the **staff kiosk at the office** (its manual code field), not the portal. Portal clocking is disabled.
-- [ ] Administrator is technical-only by design and **cannot** run or approve payroll.
+- [x] Administrator is technical-only by design: cannot run/approve payroll, assign a Payroll Officer/Approver role, or set a payroll-role password.
 
 ---
 
@@ -145,8 +157,8 @@ C:\xampp\php\php.exe C:\xampp\master_file_tests\security_test.php
 
 | Login | Role | Can | Cannot |
 |---|---|---|---|
-| `payroll` | Payroll Officer (maker) | master data, attendance, payroll, loans, exports | approve payroll, users, audit |
-| `approver` | Approver (checker) | approve / return / release payroll, approve loans | edit any amount |
+| `payroll` | Payroll Officer (maker) | master data, attendance, payroll, loans preparation, exports | approve payroll; approve OT/loans; users, audit |
+| `approver` | Approver (checker) | approve / return / release payroll, approve OT/loans | edit any amount; run payroll |
 | `admin` | Administrator (technical) | Users, Audit Log | any payroll or salary data |
 | `vinchy` | Employee (emp 4) | own portal data, files leave/OT/corrections | the admin app |
 | `juan.delacruz` | Employee (emp 5) | same, own data only | same |
