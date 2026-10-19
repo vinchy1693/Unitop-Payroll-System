@@ -105,6 +105,12 @@ function actionsFor(r) {
         if (r.status === "Approved") {
             buttons.push(`<button class="btn btn-primary" data-action="release" data-run="${r.run_id}">Release</button>`);
         }
+        // Void is the formal adjustment: it removes the run and its lines and
+        // reopens the period. A Released run is refused by the API (payment is
+        // already authorised), so it never gets the button.
+        if (r.status !== "Released") {
+            buttons.push(`<button class="btn btn-delete" data-action="void" data-run="${r.run_id}">Void</button>`);
+        }
     }
 
     if (isMaker() && r.status === "Returned") {
@@ -269,16 +275,47 @@ async function handleAction(action, runId, btn) {
         });
         if (!result.isConfirmed) return;
         remarks = result.value.trim();
+    } else if (action === "void") {
+        // Approver-only; the API enforces the same rule, this is the UI half.
+        if (!isChecker()) return;
+
+        const result = await Swal.fire({
+            title: `Void payroll run #${runId}?`,
+            html: `<div style="text-align:left;font-size:13.5px;line-height:1.55;">
+                       This removes the run and every payslip, deduction, allowance, contribution
+                       and loan-payment line, then reopens the period so it can be processed again.
+                       <strong>A Released run cannot be voided.</strong>
+                   </div>`,
+            input: "textarea",
+            inputPlaceholder: "Why is this run being voided? (at least 10 characters)",
+            inputValidator: (value) => {
+                const v = (value || "").trim();
+                return v.length < 10
+                    ? "A reason of at least 10 characters is required — a void is a formal adjustment."
+                    : null;
+            },
+            showCancelButton: true,
+            confirmButtonText: "Void run",
+            confirmButtonColor: "#b3261e",
+            cancelButtonColor: "#6b7280",
+            reverseButtons: true,
+        });
+        if (!result.isConfirmed) return;
+        remarks = result.value.trim();
     } else {
         return;
     }
 
-    const payload = { run_id: runId, action };
-    if (remarks !== null) payload.remarks = remarks;
-
     if (btn) btn.disabled = true;
     try {
-        const { data } = await api.patch("payroll_runs.php", payload);
+        let data;
+        if (action === "void") {
+            ({ data } = await api.post("payroll_void.php", { run_id: runId, remarks }));
+        } else {
+            const payload = { run_id: runId, action };
+            if (remarks !== null) payload.remarks = remarks;
+            ({ data } = await api.patch("payroll_runs.php", payload));
+        }
         showToast(data.message, "success");
         await Promise.all([loadRows(), loadOpenPeriods()]);
     } catch (err) {
