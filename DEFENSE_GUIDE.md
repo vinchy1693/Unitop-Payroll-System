@@ -429,3 +429,44 @@ Labor Code Arts. 86–94. **Not implemented**: overtime is priced flat at 1.25 b
 ---
 
 *Accounts: `payroll`, `approver`, `admin`, `vinchy`, `juan.delacruz`. Change the passwords before presenting — the maker/checker demonstration is worthless if a panelist can log in as both.*
+---
+
+## 3a. Detailed statutory citations
+
+| # | Deduction / basis | Law (full title) | Provision | What it fixes | Implemented? |
+|---|---|---|---|---|---|
+| 1 | **SSS** | **RA 11199** — *Social Security Act of 2018* | Sec. 4, amending Sec. 18 of RA 1161 (as amended by RA 8282) | Total contribution **15%** (employee **5%**, employer 10%); Monthly Salary Credit **₱5,000–₱35,000** from Jan 2025 | Yes |
+| 2 | **PhilHealth** | **RA 11223** — *Universal Health Care Act of 2019* | Sec. 10 (premium contributions) | **5%** of monthly basic salary (employee **2.5%**, employer 2.5%); income floor ₱10,000, ceiling ₱100,000 | Yes |
+| 3 | **Pag-IBIG** | **RA 9679** — *Home Development Mutual Fund Law of 2009* | Sec. 3 (rate of contribution) | **2%** employee + 2% employer of monthly compensation; **Maximum Fund Salary ₱10,000** | Yes |
+| 4 | **Withholding tax** | **RA 10963** — *Tax Reform for Acceleration and Inclusion (TRAIN) Act*, amending **RA 8424** (National Internal Revenue Code) | Sec. 24(A) — individual income tax rates; BIR **Revenue Regulations No. 11-2018** | Progressive rates on annualised taxable compensation; **first ₱250,000 exempt** | Yes |
+| 5 | **13th month pay** | **PD 851** — *Requiring All Employers to Pay Their Employees a 13th Month Pay* (1975) | Sec. 1–3 | One-twelfth of annual basic; **first ₱90,000 exempt** under RA 10963, Sec. 32(B)(7)(a) NIRC | Helper only |
+| 6 | **Service Incentive Leave** | **PD 442** — *Labor Code of the Philippines* | **Art. 95** | ≥**5 days** paid leave after 1 year of service | Not auto-granted |
+| 7 | **Maternity leave** | **RA 11210** — *105-Day Expanded Maternity Leave Law* (2019) | Amends Labor Code Art. 133 | **105 days** paid (60 for miscarriage); +15 for solo parents | Leave type only |
+| 8 | **Paternity leave** | **RA 8187** — *Paternity Leave Act of 1996* | Sec. 3 | **7 days** paid, first **4** deliveries of legitimate spouse | Leave type only |
+| 9 | **Solo parent leave** | **RA 11861** — *Expanded Solo Parents Welfare Act* (2022) | Sec. 8 | **7 days** (15 for sole caregivers) | Not implemented |
+| 10 | **Overtime premium** | **PD 442** — *Labor Code* | **Art. 87** (ordinary day), **Art. 93** (rest day), **Art. 94** (holiday) | **+25%** on ordinary days; **+30%** on rest days | 1.25 only |
+| 11 | **Hours of work** | **PD 442** — *Labor Code* | **Arts. 83–85** | Normal hours **8 per day**; lunch break not counted | Yes |
+| 12 | **Absences / tardiness** | **PD 442** — *Labor Code*; "no work, no pay" principle | Arts. 97(f) ("wage"), Art. 82; settled jurisprudence | No pay for time not worked | Yes |
+| 13 | **Data privacy** | **RA 10173** — *Data Privacy Act of 2012* | Sec. 11–13 (processing, security) | Government IDs, bank accounts are personal data; requires safeguards | Partly |
+| 14 | **Electronic records** | **RA 8792** — *E-Commerce Act of 2000* | Sec. 7–11 | Electronic payslips and records are legally recognised | Yes (electronic payslips) |
+
+### Rate schedule authority — state it this way
+
+**SSS** and **PhilHealth** rates are not fixed by the statute directly; the statutes set a *schedule*, and the agencies implement it by circular. So:
+
+> "RA 11199 set the schedule reaching 15% by 2025; the SSS implements it through its annual contribution circular. RA 11223 sets the 5% premium; PhilHealth issues the premium schedule. Our constants are the **January 2025** figures, taken from the SSS announcement of 7 January 2025."
+
+**Pag-IBIG** and **withholding tax** are direct: the rates appear in RA 9679 and RA 10963 respectively.
+
+### What this system does NOT compute — say it before they ask
+
+| Benefit | Law | Status |
+|---|---|---|
+| Night shift differential (+10%) | Labor Code **Art. 86** | Not implemented |
+| Rest day / holiday premiums | Labor Code **Arts. 93–94** | Not implemented (OT is flat 1.25) |
+| Premium pay for special/regular holidays | Labor Code **Arts. 73–76** | Not implemented |
+| De minimis benefits (non-taxable) | BIR RR 11-2018, Sec. 2.78.1 | Not modelled |
+| Separation / retirement pay | Labor Code **Arts. 283–287** | Out of scope |
+| SSS sickness / unemployment benefits | RA 11199 | Out of scope |
+
+> Framing: *"The payslip covers the semi-monthly wage computation and the four mandatory contributions plus withholding tax. Premium pay for rest days and holidays, night differential, and statutory benefits like separation pay are outside this module because they need a holiday calendar and a benefits ledger respectively."*
