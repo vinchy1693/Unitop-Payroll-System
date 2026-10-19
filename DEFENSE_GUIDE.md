@@ -266,6 +266,18 @@ $taxBase = round($basic + $ot + $taxableAllow - $attendanceDed - $statutoryOnly,
 
 > The earlier behaviour taxed nothing that was added after creation, under-withholding on every allowance-bearing payslip. The base now matches the creation path exactly: basic + overtime + taxable allowances − attendance deductions − statutory contributions.
 
+### 13th month pay and its ₱90,000 exemption
+
+A `13th Month` period run writes a **non-taxable** allowance line and stores the tax that `compute13thMonthPay()` derives — 20% of the amount above **₱90,000** (RA 10963, Sec. 32(B)(7)(a) NIRC):
+
+```php
+// api/payroll_runs.php (13th Month branch)
+INSERT INTO allowances (payslip_id, allowance_type, amount, is_taxable)
+VALUES (?, '13th Month Pay', ?, 0)
+```
+
+`recomputePayslipTotals()` deliberately **does not** re-tax a payslip that carries a `13th Month Pay` line: the ordinary base would otherwise withholde on the exempt portion. For a ₱60,000 13th month the tax is **₱0** and net is the full ₱60,000.
+
 ### Overtime
 ```php
 // api/payroll_runs.php
