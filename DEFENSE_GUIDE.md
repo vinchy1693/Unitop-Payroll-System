@@ -370,10 +370,10 @@ A **Demo mode** strip (collapsed by default, red when on) lets a demonstration s
 
 The portal no longer displays the static `qr_codes.code_value`. `employee_portal/api/me_qr.php` issues a **120-second, one-time, purpose-bound token** (`UNITOP-T-…`):
 
-- `purpose` is `time_in` or `time_out`, derived from today's attendance; after both punches it returns `ot` so the same QR can file/continue the kiosk overtime state machine.
+- `purpose` is `time_in` or `time_out`, derived from today's attendance; after both punches it returns `complete` and **no token/QR**. The attendance QR is never turned into an overtime QR; use the overtime request form.
 - Only a SHA-256 hash is stored in `qr_tokens`; the token is marked used when the kiosk writes the punch.
 - The kiosk accepts it through `qr_token`, validates expiry/used/employee-active, and consumes it. The legacy static badge is still accepted while `ALLOW_LEGACY_QR` is true; flip that after the printed badges are replaced.
-- Revoking a badge in the QR screen revokes **all active badges** for that employee and invalidates every unused token; the portal then refuses to mint another (`403`). Reactivating or generating a badge restores access. If every `qr_codes` row is deleted, the system is token-only and the static gate is gone.
+- An employee needs an **Active `qr_codes` badge**; with no active badge the portal returns 404 and shows no QR. Revoking a badge revokes **all active badges** for that employee and invalidates every unused token; the portal then refuses to mint another (`403`). Reactivating or generating a badge restores access.
 - `employee_portal/attendance.html` renders the token in the existing QR card and refreshes it 30 seconds before expiry. There is no separate QR-only page.
 
 **Honest limit:** a browser cannot block the OS screenshot key or a second camera. The 120-second expiry and one-time use make a screenshot stale; true screen-capture blocking needs a native/managed kiosk (`FLAG_SECURE`). A token can still be relayed inside its 120-second window; the staffed face/photo check is still the authenticator.
