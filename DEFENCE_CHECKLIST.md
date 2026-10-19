@@ -53,6 +53,8 @@ Legend: `[ ]` to do · `[x]` verified done · ⚠️ = could cost marks if unadd
 - [x] **Portal payslips are Released-only** — `me_payslips.php` and `me_dashboard.php` filter
       `payroll_runs.status = 'Released'`; Draft/Submitted/Approved payslips, including direct `?id=`
       requests, are hidden until release.
+- [x] **Period status follows approval** — a processed period moves to `For Approval` while the run is
+      Submitted, `Returned` if returned, and becomes `Processed` only when the run is Approved or Released.
 - [x] **Screenshot limit is documented, not claimed fixed** — the token expires after 120 seconds
       and is single-use, so a screenshot is stale after that. A capture inside the window or a
       second camera still works; a native/managed kiosk is required for true blocking.

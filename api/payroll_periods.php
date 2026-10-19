@@ -118,8 +118,8 @@ if ($method === "PUT") {
     $stmt->execute([$id]);
     $current = $stmt->fetchColumn();
     if ($current === false) respond(false, "Payroll period not found.", null, 404);
-    if ($current === "Processed") {
-        respond(false, "Cannot edit a period that has already been processed.", null, 409);
+    if ($current !== "Open") {
+        respond(false, "Only Open periods can be edited. This one is $current.", null, 409);
     }
 
     $stmt = $pdo->prepare(
@@ -157,8 +157,8 @@ if ($method === "PATCH") {
     $stmt = $pdo->prepare("SELECT status FROM payroll_periods WHERE period_id = ?");
     $stmt->execute([$id]);
     $current = $stmt->fetchColumn();
-    if ($current === "Processed") {
-        respond(false, "Cannot change status of a processed period.", null, 409);
+    if (!in_array($current, ["Open", "Closed"], true)) {
+        respond(false, "Cannot change status of a period that is $current.", null, 409);
     }
 
     $stmt = $pdo->prepare("UPDATE payroll_periods SET status = ? WHERE period_id = ?");

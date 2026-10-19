@@ -439,6 +439,7 @@ td.col-center .btn { margin: 0 2px; }
 }
 .badge.active   { background: var(--green-lite); color: var(--green); }
 .badge.inactive { background: var(--red-lite);   color: var(--red);   }
+.badge.pending  { background: var(--yellow-lite); color: var(--yellow-dark); }
 
 /* =====================================================================
    BUTTONS

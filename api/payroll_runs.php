@@ -127,6 +127,8 @@ if ($method === "PATCH") {
                  WHERE run_id = ?"
             )->execute([$user["user_id"], $runId]);
             $message = "Payroll run approved.";
+            $pdo->prepare("UPDATE payroll_periods SET status = 'Processed' WHERE period_id = ?")
+                ->execute([$run["period_id"]]);
 
         } elseif ($action === "return") {
             if ($status !== "Submitted") {
@@ -146,6 +148,8 @@ if ($method === "PATCH") {
                  WHERE run_id = ?"
             )->execute([$user["user_id"], $remarks, $runId]);
             $message = "Payroll run returned to the maker for correction.";
+            $pdo->prepare("UPDATE payroll_periods SET status = 'Returned' WHERE period_id = ?")
+                ->execute([$run["period_id"]]);
 
         } elseif ($action === "release") {
             if ($status !== "Approved") {
@@ -158,6 +162,8 @@ if ($method === "PATCH") {
                  WHERE run_id = ?"
             )->execute([$user["user_id"], $runId]);
             $message = "Payment release authorised.";
+            $pdo->prepare("UPDATE payroll_periods SET status = 'Processed' WHERE period_id = ?")
+                ->execute([$run["period_id"]]);
 
         } else { // resubmit
             if ($status !== "Returned") {
@@ -170,6 +176,8 @@ if ($method === "PATCH") {
                  WHERE run_id = ?"
             )->execute([$user["user_id"], $runId]);
             $message = "Payroll run resubmitted for approval.";
+            $pdo->prepare("UPDATE payroll_periods SET status = 'For Approval' WHERE period_id = ?")
+                ->execute([$run["period_id"]]);
         }
 
         $pdo->commit();
@@ -274,7 +282,7 @@ if ($method === "POST") {
                 $generated++;
             }
 
-            $pdo->prepare("UPDATE payroll_periods SET status = 'Processed' WHERE period_id = ?")
+            $pdo->prepare("UPDATE payroll_periods SET status = 'For Approval' WHERE period_id = ?")
                 ->execute([$periodId]);
 
             $pdo->commit();
@@ -506,7 +514,7 @@ if ($method === "POST") {
             $generated++;
         }
 
-        $pdo->prepare("UPDATE payroll_periods SET status = 'Processed' WHERE period_id = ?")
+        $pdo->prepare("UPDATE payroll_periods SET status = 'For Approval' WHERE period_id = ?")
             ->execute([$periodId]);
 
         $pdo->commit();

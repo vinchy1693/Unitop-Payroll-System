@@ -414,6 +414,8 @@ Payroll Officer processes ──► Submitted
                 Released
 ```
 
+The **period** follows the run: `Open` → `For Approval` when the run is Submitted → `Returned` if the checker returns it → `For Approval` again on resubmit → **`Processed` only when the run is Approved or Released**. A Submitted/Returned period is not editable and cannot be re-run; the run page owns the next action.
+
 The portal exposes a payslip only when its payroll run is **`Released`**. `me_payslips.php` and `me_dashboard.php` filter on `payroll_runs.status = 'Released'`, so a Draft/Submitted/Approved run is invisible — including a direct `?id=` request.
 
 Once `Approved` or `Released`, any edit to payslips, deductions, allowances or loan payments is refused, and the **same date lock** now covers manual attendance, kiosk scans, and overtime create/edit/delete:

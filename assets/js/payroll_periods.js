@@ -24,9 +24,11 @@ async function loadRows() {
 
 function statusBadge(status) {
     const map = {
-        "Open":      { cls: "active",   label: "Open" },
-        "Processed": { cls: "active",   label: "Processed" },
-        "Closed":    { cls: "inactive", label: "Closed" },
+        "Open":         { cls: "active",   label: "Open" },
+        "For Approval": { cls: "pending",  label: "For Approval" },
+        "Returned":     { cls: "pending",  label: "Returned" },
+        "Processed":    { cls: "active",   label: "Processed" },
+        "Closed":       { cls: "inactive", label: "Closed" },
     };
     const s = map[status] || { cls: "inactive", label: status ?? "—" };
     return `<span class="badge ${s.cls}">${s.label}</span>`;
@@ -54,6 +56,8 @@ function renderRows(rows) {
         const isOpen      = r.status === "Open";
         const isProcessed = r.status === "Processed";
         const isClosed    = r.status === "Closed";
+        const isForApproval = r.status === "For Approval";
+        const isReturned  = r.status === "Returned";
 
         let actions = "";
         if (isOpen) {
@@ -67,6 +71,10 @@ function renderRows(rows) {
                 actions += `<a class="btn btn-primary" href="payslips.html?run_id=${r.run_id}">View Payslips</a>`;
             } else {
                 actions += `<span style="color:#888;font-size:12px;">Locked</span>`;
+            }
+        } else if (isForApproval || isReturned) {
+            if (r.run_id) {
+                actions += `<a class="btn btn-plain" href="payslips.html?run_id=${r.run_id}">View Payslips</a>`;
             }
         }
 
