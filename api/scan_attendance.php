@@ -12,18 +12,10 @@ if ($method !== "POST") {
 // Employees record attendance only by scanning at the office kiosk.
 requireRole(TEAM_QUEUE_ROLES);
 
-$in         = json_input();
-$tokenValue = trim((string) ($in["qr_token"] ?? ""));
-$codeValue  = trim((string) ($in["code_value"] ?? ""));
+$in        = json_input();
+$codeValue = trim($in["code_value"] ?? "");
 
-// The portal displays a short-lived token (UNITOP-T-...). A legacy printed
-// badge still sends the static code_value.
-if ($tokenValue === "" && str_starts_with($codeValue, "UNITOP-T-")) {
-    $tokenValue = $codeValue;
-}
-$isToken = $tokenValue !== "";
-
-if (!$isToken && $codeValue === "") {
+if ($codeValue === "") {
     respond(false, "QR code value is required.", null, 422);
 }
 
@@ -61,78 +53,26 @@ if ($isDemoMode) {
     }
 }
 
-// ---- 1. Look up the QR code / token --------------------------------
-$tokenId      = null;
-$tokenPurpose = null;
+// ---- 1. Look up the QR code ----
+$stmt = $pdo->prepare(
+    "SELECT q.qr_code_id, q.employee_id, q.status,
+            e.employee_number, e.is_active AS employee_active,
+            CONCAT(e.last_name, ', ', e.first_name) AS employee_name
+     FROM qr_codes q
+     JOIN employees e ON e.employee_id = q.employee_id
+     WHERE q.code_value = ? LIMIT 1"
+);
+$stmt->execute([$codeValue]);
+$qr = $stmt->fetch();
 
-if ($isToken) {
-    $tokenHash = hash("sha256", $tokenValue);
-
-    $stmt = $pdo->prepare(
-        "SELECT t.token_id, t.employee_id, t.purpose, t.expires_at, t.used_at,
-                (t.expires_at <= NOW()) AS expired,
-                e.employee_number, e.is_active AS employee_active,
-                (SELECT COUNT(*) FROM qr_codes qc WHERE qc.employee_id = t.employee_id) AS qr_total,
-                (SELECT COUNT(*) FROM qr_codes qc WHERE qc.employee_id = t.employee_id AND qc.status = 'Active') AS qr_active,
-                CONCAT(e.last_name, ', ', e.first_name) AS employee_name
-         FROM qr_tokens t
-         JOIN employees e ON e.employee_id = t.employee_id
-         WHERE t.token_hash = ?
-         LIMIT 1"
-    );
-    $stmt->execute([$tokenHash]);
-    $token = $stmt->fetch();
-
-    if (!$token) {
-        respond(false, "This QR code is invalid or has expired. Refresh your QR code and try again.", null, 401);
-    }
-    if ($token["used_at"] !== null) {
-        respond(false, "This QR code has already been used. Refresh your QR code.", null, 409);
-    }
-    if ((int) $token["expired"] === 1) {
-        respond(false, "This QR code has expired. Refresh your QR code and try again.", null, 409);
-    }
-    if ((int) $token["employee_active"] !== 1) {
-        respond(false, "This employee record is inactive.", null, 403);
-    }
-    if ((int) $token["qr_total"] > 0 && (int) $token["qr_active"] === 0) {
-        respond(false, "QR access has been revoked. Ask HR to generate a new QR code.", null, 403);
-    }
-
-    $qr = [
-        "qr_code_id"      => null,
-        "employee_id"     => $token["employee_id"],
-        "status"          => "Active",
-        "employee_name"   => $token["employee_name"],
-        "employee_number" => $token["employee_number"],
-    ];
-    $tokenId      = (int) $token["token_id"];
-    $tokenPurpose = (string) $token["purpose"];
-} else {
-    if (!ALLOW_LEGACY_QR) {
-        respond(false, "This is a legacy static QR code. Ask HR for a short-lived QR code.", null, 403);
-    }
-
-    $stmt = $pdo->prepare(
-        "SELECT q.qr_code_id, q.employee_id, q.status,
-                e.employee_number, e.is_active AS employee_active,
-                CONCAT(e.last_name, ', ', e.first_name) AS employee_name
-         FROM qr_codes q
-         JOIN employees e ON e.employee_id = q.employee_id
-         WHERE q.code_value = ? LIMIT 1"
-    );
-    $stmt->execute([$codeValue]);
-    $qr = $stmt->fetch();
-
-    if (!$qr) {
-        respond(false, "Unrecognized QR code.", null, 404);
-    }
-    if ($qr["status"] !== "Active") {
-        respond(false, "This QR code has been revoked.", null, 403);
-    }
-    if ((int) $qr["employee_active"] !== 1) {
-        respond(false, "This employee record is inactive.", null, 403);
-    }
+if (!$qr) {
+    respond(false, "Unrecognized QR code.", null, 404);
+}
+if ($qr["status"] !== "Active") {
+    respond(false, "This QR code has been revoked.", null, 403);
+}
+if ((int) $qr["employee_active"] !== 1) {
+    respond(false, "This employee record is inactive.", null, 403);
 }
 
 $empId   = (int) $qr["employee_id"];
@@ -185,13 +125,6 @@ $rememberScan = function (string $action) use ($finger, $guardKey) {
     $_SESSION[$guardKey] = ["fp" => $finger, "at" => microtime(true), "action" => $action];
 };
 
-$consumeToken = function () use ($pdo, $tokenId): void {
-    if ($tokenId !== null) {
-        $pdo->prepare("UPDATE qr_tokens SET used_at = NOW() WHERE token_id = ? AND used_at IS NULL")
-            ->execute([$tokenId]);
-    }
-};
-
 // ---- 4. Today's attendance row ----
 $stmt = $pdo->prepare(
     "SELECT attendance_id, time_in, time_out
@@ -201,25 +134,6 @@ $stmt = $pdo->prepare(
 );
 $stmt->execute([$empId, $today]);
 $existing = $stmt->fetch();
-
-// A time_in token must find no attendance yet; a time_out token must find an
-// open shift. This stops a stale in-token from clocking out (or vice versa).
-if ($isToken) {
-    if ($tokenPurpose === "time_in" && $existing) {
-        respond(false, "You are already clocked in for today. Refresh your QR code to clock out.", null, 409);
-    }
-    if ($tokenPurpose === "time_out"
-        && (!$existing || $existing["time_in"] === null || $existing["time_out"] !== null)) {
-        respond(false, "There is no open shift to clock out of. Refresh your QR code.", null, 409);
-    }
-    if ($tokenPurpose === "ot"
-        && (!$existing || $existing["time_out"] === null)) {
-        respond(false, "Complete your regular shift before using an overtime QR code.", null, 409);
-    }
-    if (!in_array($tokenPurpose, ["time_in", "time_out", "ot"], true)) {
-        respond(false, "This QR code is not valid for an attendance action.", null, 422);
-    }
-}
 
 // ---- 5. Clock IN ------------------------------------------------------
 if (!$existing) {
@@ -240,7 +154,6 @@ if (!$existing) {
     );
     $stmt->execute([$empId, $qr["qr_code_id"], $today, $nowTime, $minutesLate, $status]);
 
-    $consumeToken();
     $rememberScan("in");
     $guardData["action"]       = "in";
     $guardData["late_minutes"] = $minutesLate;
@@ -276,7 +189,6 @@ if ($existing["time_out"] === null) {
     );
     $stmt->execute([$nowTime, $hoursWorked, $status, $existing["attendance_id"]]);
 
-    $consumeToken();
     $rememberScan("out");
     $guardData["action"]       = "out";
     $guardData["hours_worked"] = $hoursWorked;
@@ -329,7 +241,6 @@ if (!$ot || $ot["status"] === "Completed"
     || ($ot["status"] === "Approved" && $ot["time_in"] !== null && $ot["time_out"] !== null)) {
     $otId = $fileRequest();
 
-    $consumeToken();
     $rememberScan("ot_request");
     $guardData["action"]       = "ot_request";
     $guardData["ot_id"]        = $otId;
@@ -354,7 +265,6 @@ if ($ot["status"] === "Pending") {
 if ($ot["status"] === "Rejected") {
     $otId = $fileRequest();
 
-    $consumeToken();
     $rememberScan("ot_rejected");
     $guardData["action"]       = "ot_rejected";
     $guardData["ot_id"]        = $otId;
@@ -376,7 +286,6 @@ if ($ot["status"] === "Approved" && $ot["time_in"] === null) {
     $pdo->prepare("UPDATE overtime_records SET time_in = ? WHERE ot_id = ?")
         ->execute([$nowTime, $ot["ot_id"]]);
 
-    $consumeToken();
     $rememberScan("ot_in");
     $guardData["action"] = "ot_in";
     $guardData["ot_id"]  = (int) $ot["ot_id"];
@@ -414,7 +323,6 @@ if ($ot["status"] === "Approved" && $ot["time_in"] !== null && $ot["time_out"] =
     );
     $stmt->execute([$nowTime, $hours, $ot["ot_id"]]);
 
-    $consumeToken();
     $rememberScan("ot_out");
     $guardData["action"]   = "ot_out";
     $guardData["ot_id"]    = (int) $ot["ot_id"];

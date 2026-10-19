@@ -76,12 +76,9 @@ if ($method === "PATCH") {
     $empId = (int) $row["employee_id"];
 
     if ($status === "Revoked") {
-        // Revoking a QR means revoking the employee's QR access, not just one
-        // printed badge. Kill any other active badge and every unused
-        // short-lived token already issued by the portal.
+        // Revoke every active badge for this employee, not just one row, so a
+        // second active code cannot keep the employee clocking in.
         $pdo->prepare("UPDATE qr_codes SET status = 'Revoked' WHERE employee_id = ? AND status = 'Active'")
-            ->execute([$empId]);
-        $pdo->prepare("UPDATE qr_tokens SET used_at = NOW() WHERE employee_id = ? AND used_at IS NULL")
             ->execute([$empId]);
     } else {
         // Keep exactly one active badge per employee.
