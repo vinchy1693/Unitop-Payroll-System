@@ -72,6 +72,8 @@ if ($isToken) {
         "SELECT t.token_id, t.employee_id, t.purpose, t.expires_at, t.used_at,
                 (t.expires_at <= NOW()) AS expired,
                 e.employee_number, e.is_active AS employee_active,
+                (SELECT COUNT(*) FROM qr_codes qc WHERE qc.employee_id = t.employee_id) AS qr_total,
+                (SELECT COUNT(*) FROM qr_codes qc WHERE qc.employee_id = t.employee_id AND qc.status = 'Active') AS qr_active,
                 CONCAT(e.last_name, ', ', e.first_name) AS employee_name
          FROM qr_tokens t
          JOIN employees e ON e.employee_id = t.employee_id
@@ -92,6 +94,9 @@ if ($isToken) {
     }
     if ((int) $token["employee_active"] !== 1) {
         respond(false, "This employee record is inactive.", null, 403);
+    }
+    if ((int) $token["qr_total"] > 0 && (int) $token["qr_active"] === 0) {
+        respond(false, "QR access has been revoked. Ask HR to generate a new QR code.", null, 403);
     }
 
     $qr = [

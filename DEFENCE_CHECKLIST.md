@@ -43,6 +43,9 @@ Legend: `[ ]` to do · `[x]` verified done · ⚠️ = could cost marks if unadd
       only its SHA-256 hash is stored in `qr_tokens`; the kiosk consumes it. `my_qr.html` refreshes
       before expiry, hides on background/print, and shows a countdown. The static badge is legacy
       fallback behind `ALLOW_LEGACY_QR`.
+- [x] **Revoke actually revokes QR access** — the QR screen revokes all active badges for the
+      employee, invalidates unused tokens, and the portal refuses to mint another until a badge is
+      generated/reactivated.
 - [x] **QR screenshot deterrence** — the QR-only page hides the code when backgrounded, blocks the
       context menu/selection/printing, and expires in 120 seconds. A web page cannot block the OS
       screenshot key or a second camera; a native/managed kiosk is required for that.
@@ -79,7 +82,7 @@ Legend: `[ ]` to do · `[x]` verified done · ⚠️ = could cost marks if unadd
 - [x] Tests that depended on employee id 3 or live leave data now build their own fixtures.
 - [x] `premium_undertime_test.php` — Sunday + Regular holiday premiums, 2.60 holiday OT, 60-minute undertime.
 - [x] `ot_window_test.php` — early/late OT in, early out, late out capped at the approved end (25/0).
-- [x] `qr_token_test.php` — 120-second token, one-time use, in/out/OT purpose, expiry, legacy badge (22/0).
+- [x] `qr_token_test.php` — 120-second token, one-time use, in/out/OT purpose, expiry, revoke blocks new tokens, legacy badge (30/0).
 - [x] `money_guard_test.php` — loan void reopens Paid loans, loan payment capped at net, period overlap/PUT, locked attendance/OT (35/0).
 - [x] `sod_guard_test.php` — Administrator cannot mint payroll roles, loans start Pending, self-approval blocked, salary checker-only (16/0).
 - [x] `manual_qr_test.php` — on-site enforcement: portal 403, no manual UI, staff kiosk 200, Employee kiosk 403.

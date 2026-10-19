@@ -67,8 +67,36 @@ if ($method === "PATCH") {
         respond(false, "Status must be Active or Revoked.", null, 422);
     }
 
-    $pdo->prepare("UPDATE qr_codes SET status = ? WHERE qr_code_id = ?")->execute([$status, $id]);
-    respond(true, $status === "Revoked" ? "QR code revoked." : "QR code reactivated.");
+    $stmt = $pdo->prepare("SELECT qr_code_id, employee_id FROM qr_codes WHERE qr_code_id = ?");
+    $stmt->execute([$id]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        respond(false, "QR code not found.", null, 404);
+    }
+    $empId = (int) $row["employee_id"];
+
+    if ($status === "Revoked") {
+        // Revoking a QR means revoking the employee's QR access, not just one
+        // printed badge. Kill any other active badge and every unused
+        // short-lived token already issued by the portal.
+        $pdo->prepare("UPDATE qr_codes SET status = 'Revoked' WHERE employee_id = ? AND status = 'Active'")
+            ->execute([$empId]);
+        $pdo->prepare("UPDATE qr_tokens SET used_at = NOW() WHERE employee_id = ? AND used_at IS NULL")
+            ->execute([$empId]);
+    } else {
+        // Keep exactly one active badge per employee.
+        $pdo->prepare(
+            "UPDATE qr_codes SET status = 'Revoked'
+             WHERE employee_id = ? AND qr_code_id <> ? AND status = 'Active'"
+        )->execute([$empId, $id]);
+        $pdo->prepare("UPDATE qr_codes SET status = 'Active' WHERE qr_code_id = ?")->execute([$id]);
+    }
+
+    respond(true, $status === "Revoked" ? "QR code revoked." : "QR code reactivated.", [
+        "qr_code_id"  => $id,
+        "employee_id" => $empId,
+        "status"      => $status,
+    ]);
 }
 
 respond(false, "Method not allowed.", null, 405);

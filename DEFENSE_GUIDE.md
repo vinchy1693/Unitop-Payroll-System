@@ -373,6 +373,7 @@ The portal no longer displays the static `qr_codes.code_value`. `employee_portal
 - `purpose` is `time_in` or `time_out`, derived from today's attendance; after both punches it returns `ot` so the same QR can file/continue the kiosk overtime state machine.
 - Only a SHA-256 hash is stored in `qr_tokens`; the token is marked used when the kiosk writes the punch.
 - The kiosk accepts it through `qr_token`, validates expiry/used/employee-active, and consumes it. The legacy static badge is still accepted while `ALLOW_LEGACY_QR` is true; flip that after the printed badges are replaced.
+- Revoking a badge in the QR screen revokes **all active badges** for that employee and invalidates every unused token; the portal then refuses to mint another (`403`). Reactivating or generating a badge restores access. If every `qr_codes` row is deleted, the system is token-only and the static gate is gone.
 - `employee_portal/my_qr.html` is the QR-only module: it auto-refreshes 30 seconds before expiry, hides the QR when the page is backgrounded, suppresses selection/context-menu/printing, and shows a countdown.
 
 **Honest limit:** a browser cannot block the OS screenshot key or a second camera. The 120-second expiry and one-time use make a screenshot stale; true screen-capture blocking needs a native/managed kiosk (`FLAG_SECURE`). A token can still be relayed inside its 120-second window; the staffed face/photo check is still the authenticator.
@@ -515,7 +516,7 @@ C:\xampp\php\php.exe C:\xampp\master_file_tests\premium_undertime_test.php   # d
 C:\xampp\php\php.exe C:\xampp\master_file_tests\ot_window_test.php            # approved OT window: early/late in/out + pay cap
 C:\xampp\php\php.exe C:\xampp\master_file_tests\money_guard_test.php          # loan void/cap, period overlap, post-lock writes
 C:\xampp\php\php.exe C:\xampp\master_file_tests\sod_guard_test.php            # admin role limit, loan Pending, self-approval, salary checker
-C:\xampp\php\php.exe C:\xampp\master_file_tests\qr_token_test.php             # expiring one-time QR token, replay, purpose, legacy badge
+C:\xampp\php\php.exe C:\xampp\master_file_tests\qr_token_test.php             # expiring one-time QR token, replay, purpose, revoke, legacy badge
 ```
 
 ---
