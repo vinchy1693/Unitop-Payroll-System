@@ -370,7 +370,7 @@ A **Demo mode** strip (collapsed by default, red when on) lets a demonstration s
 
 The portal no longer displays the static `qr_codes.code_value`. `employee_portal/api/me_qr.php` issues a **120-second, one-time, purpose-bound token** (`UNITOP-T-…`):
 
-- `purpose` is `time_in` or `time_out`, derived from today's attendance; after both punches it returns `complete` and no token.
+- `purpose` is `time_in` or `time_out`, derived from today's attendance; after both punches it returns `ot` so the same QR can file/continue the kiosk overtime state machine.
 - Only a SHA-256 hash is stored in `qr_tokens`; the token is marked used when the kiosk writes the punch.
 - The kiosk accepts it through `qr_token`, validates expiry/used/employee-active, and consumes it. The legacy static badge is still accepted while `ALLOW_LEGACY_QR` is true; flip that after the printed badges are replaced.
 - `employee_portal/my_qr.html` is the QR-only module: it auto-refreshes 30 seconds before expiry, hides the QR when the page is backgrounded, suppresses selection/context-menu/printing, and shows a countdown.
