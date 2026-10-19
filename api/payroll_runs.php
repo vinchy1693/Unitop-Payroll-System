@@ -194,19 +194,32 @@ if ($method === "POST") {
         respond(false, "period_id is required.", null, 422);
     }
 
-    $stmt = $pdo->prepare("SELECT period_id, start_date, end_date, period_type, status FROM payroll_periods WHERE period_id = ?");
-    $stmt->execute([$periodId]);
-    $period = $stmt->fetch();
-
-    if (!$period) respond(false, "Payroll period not found.", null, 404);
-    if ($period["status"] !== "Open") {
-        respond(false, "Only Open periods can be processed. This one is {$period['status']}.", null, 409);
-    }
-
     $maker = currentUser();
 
     try {
         $pdo->beginTransaction();
+
+        // Lock the period BEFORE deciding whether it can be processed. The old
+        // check ran before beginTransaction(), so two Process clicks could both
+        // read "Open", both insert a run, and the loser died on the unique key
+        // with a 500. SELECT ... FOR UPDATE serialises them: the first holds
+        // the row, marks the period Processed and commits; the second then
+        // reads the committed status and gets a clean 409.
+        $stmt = $pdo->prepare(
+            "SELECT period_id, start_date, end_date, period_type, status
+             FROM payroll_periods WHERE period_id = ? FOR UPDATE"
+        );
+        $stmt->execute([$periodId]);
+        $period = $stmt->fetch();
+
+        if (!$period) {
+            $pdo->rollBack();
+            respond(false, "Payroll period not found.", null, 404);
+        }
+        if ($period["status"] !== "Open") {
+            $pdo->rollBack();
+            respond(false, "Only Open periods can be processed. This one is {$period['status']}.", null, 409);
+        }
 
         // 13th Month branch
         if ($period["period_type"] === "13th Month") {
@@ -456,6 +469,17 @@ if ($method === "POST") {
         respond(true, "Payroll run submitted for approval. $generated payslip(s) generated, $skipped employee(s) skipped (no basic salary).",
             ["run_id" => $runId, "status" => "Submitted", "generated" => $generated, "skipped" => $skipped]);
 
+    } catch (PDOException $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        // Belt and braces: even if the period lock were bypassed, uq_runs_period
+        // stops a second run. Translate its duplicate-key error into the same
+        // clean 409 rather than a 500.
+        if ((int) ($e->errorInfo[1] ?? 0) === 1062) {
+            respond(false,
+                "This period already has a payroll run. Void the existing run first, then process the period again.",
+                null, 409);
+        }
+        respond(false, "Payroll run failed: " . $e->getMessage(), null, 500);
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         respond(false, "Payroll run failed: " . $e->getMessage(), null, 500);
