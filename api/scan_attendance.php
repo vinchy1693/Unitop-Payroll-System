@@ -196,6 +196,7 @@ if ($existing["time_out"] === null) {
 // another attendance row; it lives in overtime_records.
 $stmt = $pdo->prepare(
     "SELECT ot_id, employee_id, ot_date, hours, ot_type, rate_multiplier,
+            requested_start, requested_end,
             status, time_in, time_out, requested_at, approved_by, approved_at
      FROM overtime_records
      WHERE employee_id = ? AND ot_date = ?
@@ -269,6 +270,13 @@ if ($ot["status"] === "Rejected") {
 
 // 7d. Approved but not started: this scan starts the overtime.
 if ($ot["status"] === "Approved" && $ot["time_in"] === null) {
+    $window = overtimeWindowViolation($ot, $nowTime, "in");
+    if ($window !== null) {
+        $guardData["action"] = "ot_window";
+        $guardData["code"]   = $window["code"];
+        respond(false, $window["message"], $guardData, 409);
+    }
+
     $pdo->prepare("UPDATE overtime_records SET time_in = ? WHERE ot_id = ?")
         ->execute([$nowTime, $ot["ot_id"]]);
 
@@ -282,10 +290,21 @@ if ($ot["status"] === "Approved" && $ot["time_in"] === null) {
 
 // 7e. Approved and started but not ended: compute the overtime hours.
 if ($ot["status"] === "Approved" && $ot["time_in"] !== null && $ot["time_out"] === null) {
+    $window = overtimeWindowViolation($ot, $nowTime, "out");
+    if ($window !== null && $window["code"] === "ot_too_early_out") {
+        $guardData["action"] = "ot_window";
+        $guardData["code"]   = $window["code"];
+        respond(false, $window["message"], $guardData, 409);
+    }
+
+    // A late clock-out is recorded as-is, but the paid block stops at the
+    // approved end; the excess needs a new approved request.
+    $payTo = $window["cap_end"] ?? $nowTime;
+
     // Same meal-break rule as the regular shift: a block longer than five hours
     // loses one 60-minute meal break. computeOvertimeHours() also handles a
     // block that crosses midnight.
-    $hours = computeOvertimeHours((string) $ot["time_in"], $nowTime);
+    $hours = computeOvertimeHours((string) $ot["time_in"], $payTo);
 
     if ($hours <= 0) {
         respond(false, "Overtime clock-out must be at least 1 minute after overtime clock-in.", null, 422);
@@ -304,8 +323,13 @@ if ($ot["status"] === "Approved" && $ot["time_in"] !== null && $ot["time_out"] =
     $guardData["status"]   = "Completed";
     $guardData["hours"]    = $hours;
     $guardData["time_out"] = date("H:i", strtotime($nowTime));
+    $guardData["capped"]   = $window !== null && $window["code"] === "ot_pay_capped";
 
-    respond(true, "Overtime clock-out: " . number_format($hours, 2) . " hour(s).", $guardData);
+    $message = "Overtime clock-out: " . number_format($hours, 2) . " hour(s).";
+    if ($guardData["capped"]) {
+        $message .= " " . $window["message"];
+    }
+    respond(true, $message, $guardData);
 }
 
 // ---- 8. Anything else (unknown legacy state) files a fresh request ----

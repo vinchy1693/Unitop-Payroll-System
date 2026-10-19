@@ -36,6 +36,9 @@ Legend: `[ ]` to do · `[x]` verified done · ⚠️ = could cost marks if unadd
       shift; late arrival is not double-docked.
 - [x] **OT requests carry a reason and requested window**, and the day type/rate are derived on the server,
       never trusted from the client. The portal attendance page is the employee path.
+- [x] **The kiosk enforces the approved OT window** — clock-in >5 min early or after the end is 409;
+      clock-out >5 min early is 409; a late clock-out is recorded but paid only to the approved end.
+      The after-shift fallback has no requested end, so it keeps the old behaviour.
 - [x] **Meal break** — a span over 300 minutes loses 60 minutes for both the regular shift and OT.
 - [x] **Contribution bases** — SSS/PhilHealth/Pag-IBIG stay on basic salary per RA 1161 §8, RA 11223 and
       RA 9679 §4 (they exclude OT/allowances).
@@ -59,6 +62,8 @@ Legend: `[ ]` to do · `[x]` verified done · ⚠️ = could cost marks if unadd
 - [x] `nav_matrix_test.php` / `supervisor_scope_test.php` read the HTML by absolute path.
 - [x] Tests that depended on employee id 3 or live leave data now build their own fixtures.
 - [x] `premium_undertime_test.php` — Sunday + Regular holiday premiums, 2.60 holiday OT, 60-minute undertime.
+- [x] `ot_window_test.php` — early/late OT in, early out, late out capped at the approved end (25/0).
+- [x] `manual_qr_test.php` — on-site enforcement: portal 403, no manual UI, staff kiosk 200, Employee kiosk 403.
 - [x] `employee_portal_test.php` — the employee files an overtime request; the server derives the rest-day rate.
 - [ ] **Change every password before presenting.** The accounts use per-account demo passwords; do not ship the presentation credentials.
 - [ ] **Admin repo `main` is far behind `checking`** and is the GitHub default — fast-forward it or flip the default branch.

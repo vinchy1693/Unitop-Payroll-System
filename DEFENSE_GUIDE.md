@@ -356,6 +356,8 @@ AND time_in IS NOT NULL AND time_out IS NOT NULL
 
 The employee can also file the request from the **portal attendance page** with a date, requested window and reason — the preferred path for planned overtime. The kiosk remains the time clock: after approval, the employee scans for OT clock-in and clock-out. The day type and rate are derived on the server either way.
 
+**The kiosk enforces the approved window.** OT clock-in is refused more than 5 minutes before `requested_start` or after `requested_end`; OT clock-out is refused more than 5 minutes before `requested_end`. A clock-out after the approved end is recorded, but the paid hours stop at the approved end — the response carries `capped: true` and the message says so; the excess needs a new/extended request. Rows with no requested end (the kiosk's after-shift fallback) keep the old behaviour.
+
 The kiosk is **staff-operated and on-site**. Employees do **not** type their code in the portal: the old portal "Record attendance" fallback was removed, and `employee_portal/api/me_scan_attendance.php` now returns **403**. `api/scan_attendance.php` also requires a staff role (`TEAM_QUEUE_ROLES`), so an Employee who logs into the admin app cannot use `kiosk.html` from home either. The staff kiosk's manual code field remains for a broken camera at the office.
 
 A **Demo mode** strip (collapsed by default, red when on) lets a demonstration supply a date and time; both are validated. It is **maker-only** (`requireRole(MAKER_ROLES)`), so an Employee, Approver, Supervisor or Administrator gets **403**, and `ALLOW_DEMO_SCANS` in `api/_bootstrap.php` can disable it outright for a real deployment.
@@ -475,6 +477,7 @@ C:\xampp\php\php.exe C:\xampp\master_file_tests\payroll_approval_test.php   # ma
 C:\xampp\php\php.exe C:\xampp\master_file_tests\payroll_void_test.php       # void + reprocess + audit
 C:\xampp\php\php.exe C:\xampp\master_file_tests\security_test.php           # CSRF, cookie flags, audit redaction
 C:\xampp\php\php.exe C:\xampp\master_file_tests\premium_undertime_test.php   # day-type premium, 2.60 holiday OT, undertime
+C:\xampp\php\php.exe C:\xampp\master_file_tests\ot_window_test.php            # approved OT window: early/late in/out + pay cap
 ```
 
 ---
@@ -519,6 +522,8 @@ Public holidays in the `holidays` table are **excluded from expected working day
 |---|---|
 | Night differential is not computed | Art. 86 gives +10% for work between 22:00 and 06:00. Holiday/rest-day premiums are implemented; the night window is the remaining gap |
 | Overtime actually worked without approval is not paid | The kiosk refuses to record an unapproved block and payroll only pays Approved/Completed. Legally, work actually rendered is generally compensable; align the exception/approval policy before the defence |
+| The kiosk's after-shift fallback has no requested end | The third-scan request has a start but no end, so the window check does not apply to it; the actual block is still measured. Use the portal request for planned OT with a window |
+| Overnight OT windows are not window-checked | If `requested_end` is before `requested_start`, the kiosk skips the window check because OT is looked up by `ot_date`; after-midnight OT needs a separate design |
 | A holiday that falls on a rest day uses the holiday rate | The compounded “holiday on rest day” rate is not modelled; the holiday rate takes precedence |
 | The meal break is assumed, not scanned | Any span over 300 minutes loses 60 minutes; a shift that works through lunch is underpaid and a long OT block that takes a longer break is overpaid |
 | SSS uses the straight-line formula, not the official MSC bracket table | Identical above the ₱35,000 cap; the bracket lookup is a data change, not a logic change |

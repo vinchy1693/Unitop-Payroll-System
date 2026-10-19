@@ -115,6 +115,88 @@ function computeOvertimeHours(string $timeIn, string $timeOut): float {
     return round(max(0.0, $minutes) / 60.0, 2);
 }
 
+// Kiosk OT window tolerance. Clock-in may be scanned up to five minutes early
+// (a clock-skew allowance); clock-out may be scanned up to five minutes before
+// the approved end. A later clock-out is recorded, but paid only to the
+// approved end — the extra time needs an approved extension.
+const OT_CLOCK_IN_GRACE_MINUTES = 5;
+const OT_CLOCK_OUT_EARLY_GRACE_MINUTES = 5;
+
+/**
+ * Compare the kiosk scan time with the approved requested window.
+ *
+ * @param array  $ot      overtime_records row (requested_start/requested_end)
+ * @param string $nowTime current scan time, HH:MM[:SS]
+ * @param string $phase   "in" or "out"
+ * @return array|null     null when allowed; otherwise code/message, plus
+ *                        cap_end when a late clock-out must be paid only to
+ *                        the approved end
+ */
+function overtimeWindowViolation(array $ot, string $nowTime, string $phase): ?array {
+    $start = $ot["requested_start"] ?? null;
+    $end   = $ot["requested_end"] ?? null;
+
+    // Legacy rows and the kiosk's after-shift fallback have no requested end;
+    // they fall back to the old behaviour rather than blocking the employee.
+    if ($start === null || $start === "" || $end === null || $end === "") {
+        return null;
+    }
+
+    $startTs = strtotime((string) $start);
+    $endTs   = strtotime((string) $end);
+    $nowTs   = strtotime($nowTime);
+    if ($startTs === false || $endTs === false || $nowTs === false) {
+        return null;
+    }
+
+    // An end before the start is an overnight window. The kiosk looks the
+    // overtime row up by ot_date, so after-midnight scans are a separate gap;
+    // do not apply a same-day window check to those rows.
+    if ($endTs < $startTs) {
+        return null;
+    }
+
+    $hhmm = static fn (int $ts): string => date("H:i", $ts);
+
+    if ($phase === "in") {
+        $earliest = $startTs - OT_CLOCK_IN_GRACE_MINUTES * 60;
+        if ($nowTs < $earliest) {
+            return [
+                "code"    => "ot_not_started",
+                "message" => "Overtime is approved for " . $hhmm($startTs) . "–" . $hhmm($endTs)
+                    . ". You can clock in from " . $hhmm($earliest) . ".",
+            ];
+        }
+        if ($nowTs > $endTs) {
+            return [
+                "code"    => "ot_window_passed",
+                "message" => "The approved overtime window ended at " . $hhmm($endTs)
+                    . ". File a new request.",
+            ];
+        }
+        return null;
+    }
+
+    $earliestOut = $endTs - OT_CLOCK_OUT_EARLY_GRACE_MINUTES * 60;
+    if ($nowTs < $earliestOut) {
+        return [
+            "code"    => "ot_too_early_out",
+            "message" => "The approved overtime runs until " . $hhmm($endTs)
+                . ". You can clock out from " . $hhmm($earliestOut) . ".",
+        ];
+    }
+    if ($nowTs > $endTs) {
+        return [
+            "code"    => "ot_pay_capped",
+            "cap_end" => date("H:i:s", $endTs),
+            "message" => "Overtime clock-out after the approved end; hours are paid only to "
+                . $hhmm($endTs) . ".",
+        ];
+    }
+
+    return null;
+}
+
 /**
  * Premium pay for work actually recorded on rest days and holidays.
  *
