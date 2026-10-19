@@ -356,7 +356,7 @@ AND time_in IS NOT NULL AND time_out IS NOT NULL
 
 The employee can also file the request from the **portal attendance page** with a date, requested window and reason — the preferred path for planned overtime. The kiosk remains the time clock: after approval, the employee scans for OT clock-in and clock-out. The day type and rate are derived on the server either way.
 
-Every employee may also **type** the QR value ("Scanner not working?"), which is the practical path on a phone: browsers block camera access outside HTTPS/`localhost`.
+The kiosk is **staff-operated and on-site**. Employees do **not** type their code in the portal: the old portal "Record attendance" fallback was removed, and `employee_portal/api/me_scan_attendance.php` now returns **403**. `api/scan_attendance.php` also requires a staff role (`TEAM_QUEUE_ROLES`), so an Employee who logs into the admin app cannot use `kiosk.html` from home either. The staff kiosk's manual code field remains for a broken camera at the office.
 
 A **Demo mode** strip (collapsed by default, red when on) lets a demonstration supply a date and time; both are validated. It is **maker-only** (`requireRole(MAKER_ROLES)`), so an Employee, Approver, Supervisor or Administrator gets **403**, and `ALLOW_DEMO_SCANS` in `api/_bootstrap.php` can disable it outright for a real deployment.
 

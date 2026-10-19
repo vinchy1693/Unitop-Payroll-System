@@ -79,11 +79,12 @@ Legend: `[ ]` to do · `[x]` verified done · ⚠️ = could cost marks if unadd
 ## C. Demo script (in this order)
 
 1. [ ] **Login as `payroll`** → Departments, Positions, Employees (show bank + contact fields).
-2. [ ] **Kiosk** (`kiosk.html`) → scan or type the QR value.
+2. [ ] **Kiosk** (`kiosk.html`) as `payroll` — the kiosk is staff-only and on-site → scan or type the QR value.
    - clock in → clock out → **scan again = overtime request** → shows "awaiting approval".
    - **scan again = refused** ("still awaiting approval") — this is the strongest single demo.
+   - The Employee portal cannot record attendance (`me_scan_attendance.php` = 403); clocking in/out happens only here.
 3. [ ] **Overtime page as `payroll`** → approve.
-4. [ ] **Scan again as the employee** → overtime starts → scan again → hours computed.
+4. [ ] **Scan the employee's QR at the kiosk again** → overtime starts → scan again → hours computed.
 5. [ ] **Portal on the phone** → Attendance → **Request a correction** → file it → watch the table populate.
 6. [ ] **Corrections page as `payroll`** → approve → point out `minutes_late` recomputes to 0.
 7. [ ] **Payroll Periods** → the pay date auto-fills (20th / 5th next month) → **Process**.
@@ -109,7 +110,7 @@ Legend: `[ ]` to do · `[x]` verified done · ⚠️ = could cost marks if unadd
 - [ ] Overtime actually worked without approval is **not** paid — align with company policy.
 - [ ] SSS uses the straight `min(35,000, salary) × 5%` rather than the official MSC bracket table (identical above ₱35,000).
 - [ ] Rates are **2025 hard-coded** values; a change is a code edit, not configuration.
-- [ ] The phone **camera cannot work** over `http://<LAN-IP>` — browsers require HTTPS; use manual QR entry.
+- [ ] The phone **camera cannot work** over `http://<LAN-IP>` — browsers require HTTPS; use the **staff kiosk at the office** (its manual code field), not the portal. Portal clocking is disabled.
 - [ ] Administrator is technical-only by design and **cannot** run or approve payroll.
 
 ---

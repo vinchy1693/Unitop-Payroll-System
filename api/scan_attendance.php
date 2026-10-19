@@ -7,6 +7,11 @@ if ($method !== "POST") {
     respond(false, "Method not allowed.", null, 405);
 }
 
+// The kiosk is a staff-operated, on-site device. Without this guard an Employee
+// who logs into the admin app could open kiosk.html and clock in from anywhere.
+// Employees record attendance only by scanning at the office kiosk.
+requireRole(TEAM_QUEUE_ROLES);
+
 $in        = json_input();
 $codeValue = trim($in["code_value"] ?? "");
 

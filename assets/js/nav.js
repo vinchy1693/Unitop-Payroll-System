@@ -33,7 +33,8 @@
 // Users or Audit Log. Their API answers match - those
 // endpoints still require PAYROLL_ROLES, which does not include Supervisor -
 // and tests/nav_matrix_test.php proves the two agree page by page.
-// Users and Audit Log are Administrator only. The kiosk is open to everyone.
+// Users and Audit Log are Administrator only. The kiosk is staff-operated
+// (Payroll Officer, Approver, Supervisor); Employee accounts use the portal.
 //
 // data-page values are a FROZEN contract: assets/js/api.js highlightNav() and
 // the active-link styling depend on them, so entries below must match the
@@ -64,7 +65,7 @@ const NAV_ACCESS = {
     "reports.html":                ["Payroll Officer", "Approver"],
     "users.html":                  ["Administrator"],
     "audit.html":                  ["Administrator"],
-    "kiosk.html":                  ["Employee", "Payroll Officer", "Approver", "Supervisor", "Administrator"]
+    "kiosk.html":                  ["Payroll Officer", "Approver", "Supervisor"]
 };
 // NAV_ACCESS_END
 
