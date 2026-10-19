@@ -7,7 +7,7 @@
 <title>Dashboard — UNITOP Payroll System</title>
 <link rel="stylesheet" href="assets/css/style.css">
 </head>
-<body>
+<body class="page-dashboard">
 <nav class="sidebar nav-locked">
     <div class="sidebar-brand">
         <div class="brand-logo">U</div>
@@ -48,33 +48,42 @@
 </nav>
 <div class="container">
 
-    <h1>Dashboard</h1>
-    <p class="subtitle">Live overview of your payroll system.</p>
+    <header class="dash-head">
+        <div class="dash-head-text">
+            <h1>Dashboard</h1>
+            <p class="subtitle">Live overview of your payroll system.</p>
+        </div>
+    </header>
 
     <div id="msg" class="msg hidden"></div>
 
     <!-- ROW 1 — KPI tiles -->
     <div id="kpi-grid" class="kpi-grid">
-        <div class="kpi-tile"><div class="kpi-label">Loading…</div></div>
+        <div class="kpi-tile kpi-neutral"><div class="kpi-label">Loading…</div></div>
     </div>
 
     <!-- ROW 2 — Workflow cards -->
-    <div id="workflow-grid" class="workflow-grid" style="margin-top:24px;">
+    <div id="workflow-grid" class="workflow-grid">
         <div class="workflow-card"><div class="workflow-title">Loading…</div></div>
     </div>
 
     <!-- ROW 3 — Today's attendance -->
-    <div class="dash-row" style="margin-top:24px;">
+    <div class="dash-row">
         <div class="card" id="attendance-snapshot">
-            <div style="text-align:center;padding:20px;color:#888;">Loading…</div>
+            <div class="dash-placeholder">Loading…</div>
         </div>
     </div>
 
     <!-- ROW 4 — Recent runs -->
-    <div class="card" style="margin-top:0;">
-        <h3>Recent Payroll Runs</h3>
-        <div id="recent-runs">
-            <div style="text-align:center;padding:20px;color:#888;">Loading…</div>
+    <div class="dash-row">
+        <div class="card" id="recent-runs-card">
+            <div class="card-head">
+                <h3>Recent Payroll Runs</h3>
+                <a class="card-link" href="payroll_runs.html">Open payroll runs →</a>
+            </div>
+            <div id="recent-runs">
+                <div class="dash-placeholder">Loading…</div>
+            </div>
         </div>
     </div>
 
@@ -85,7 +94,7 @@
 <script src="assets/js/dialogs.js"></script>
 <script src="assets/js/api.js"></script>
 <script src="assets/js/nav.js" onerror="var nl=document.querySelectorAll('nav.sidebar');for(var i=0;i<nl.length;i++)nl[i].classList.remove('nav-locked');"></script>
-<script src="assets/js/dashboard.js?v=6"></script>
+<script src="assets/js/dashboard.js?v=7"></script>
 <script src="assets/js/theme.js"></script>
 </body>
 </html>

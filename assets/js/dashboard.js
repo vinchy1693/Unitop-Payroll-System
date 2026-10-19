@@ -16,11 +16,53 @@ function formatMoneyShort(n) {
     return "₱" + v.toFixed(2);
 }
 
+// ---------------------------------------------------------------------
+// Dates — the API sends plain "YYYY-MM-DD" strings, which read badly on a
+// dashboard. Formatting is done here (not by a stylesheet) so every panel
+// shows the same wording, and UTC parsing keeps the day from shifting.
+// ---------------------------------------------------------------------
+const DASH_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const DASH_WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function parseApiDate(value) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value == null ? "" : value));
+    if (!match) return null;
+    return { y: Number(match[1]), m: Number(match[2]), d: Number(match[3]) };
+}
+
+function pad2(n) {
+    return (n < 10 ? "0" : "") + n;
+}
+
+// "2025-08-18" -> "Mon, 18 Aug 2025"
+function formatLongDate(value) {
+    const p = parseApiDate(value);
+    if (!p) return String(value == null ? "" : value);
+    const weekday = DASH_WEEKDAYS[new Date(Date.UTC(p.y, p.m - 1, p.d)).getUTCDay()];
+    return weekday + ", " + pad2(p.d) + " " + DASH_MONTHS[p.m - 1] + " " + p.y;
+}
+
+// "2025-08-01", "2025-08-15" -> "01–15 Aug 2025"; a range that crosses a
+// month repeats the month, and one that crosses a year repeats the year.
+function formatPeriod(startValue, endValue) {
+    const s = parseApiDate(startValue);
+    const e = parseApiDate(endValue);
+    if (!s || !e) return startValue + " → " + endValue;
+    const sameMonth = s.m === e.m && s.y === e.y;
+    const startText = pad2(s.d) + (sameMonth ? "" : " " + DASH_MONTHS[s.m - 1]);
+    const endText = pad2(e.d) + " " + DASH_MONTHS[e.m - 1];
+    if (s.y !== e.y) {
+        return startText + " " + s.y + " – " + endText + " " + e.y;
+    }
+    return startText + "–" + endText + " " + s.y;
+}
+
 // Replace every dashboard panel with one short notice. Used when the session
 // is not allowed to read payroll-wide figures (for example an Employee).
 function renderDashboardNotice(message) {
     const tile = `
-        <div class="kpi-tile" style="grid-column: 1 / -1;">
+        <div class="kpi-tile kpi-neutral kpi-wide">
             <div class="kpi-label">Dashboard unavailable</div>
             <div class="kpi-note">${escapeHtml(message)}</div>
         </div>`;
@@ -82,7 +124,7 @@ function render(data) {
     // Row 1 — KPI tiles
     // =================================================================
     const latestPayrollLabel = latest_run
-        ? `Last Run #${latest_run.run_id} · ${formatMoney(latest_run.total_net)}`
+        ? `Run #${latest_run.run_id} · ${formatLongDate(latest_run.run_date)}`
         : "No payroll runs yet";
     const latestPayrollValue = latest_run
         ? formatMoneyShort(latest_run.total_net)
@@ -128,11 +170,13 @@ function render(data) {
     document.getElementById("kpi-grid").innerHTML = tiles.map((t) => {
         const tag = t.href ? "a" : "div";
         const hrefAttr = t.href ? `href="${t.href}"` : "";
+        const arrow = t.href ? '<span class="kpi-arrow" aria-hidden="true">→</span>' : "";
         return `
             <${tag} ${hrefAttr} class="kpi-tile kpi-${t.tone}">
                 <div class="kpi-label">${escapeHtml(t.label)}</div>
                 <div class="kpi-value">${escapeHtml(String(t.value))}</div>
                 <div class="kpi-note">${escapeHtml(t.note)}</div>
+                ${arrow}
             </${tag}>
         `;
     }).join("");
@@ -194,7 +238,7 @@ function render(data) {
     } else if (latest_run) {
         payrollStatus = "ok";
         payrollStatusLabel = "Up to Date";
-        payrollNote = `Last run #${latest_run.run_id} on ${latest_run.run_date} · ${latest_run.payslip_count} payslip${latest_run.payslip_count === 1 ? "" : "s"}.`;
+        payrollNote = `Last run #${latest_run.run_id} on ${formatLongDate(latest_run.run_date)} · ${latest_run.payslip_count} payslip${latest_run.payslip_count === 1 ? "" : "s"}.`;
         payrollCta = "View Latest Payslips";
         payrollCtaHref = `payslips.html?run_id=${latest_run.run_id}`;
     } else {
@@ -240,28 +284,51 @@ function render(data) {
     // =================================================================
     // Row 3 — Today's attendance snapshot
     // =================================================================
+    // Colour lives in the stylesheet (see .snap-* rules), never in this
+    // markup: the markup is shared by both themes, and inline colours would
+    // pin one of them. Only the proportions are inline, and those are unitless.
     const totalToday = today_attendance.present + today_attendance.late + today_attendance.absent;
+    const partOf = (n) => (totalToday > 0 ? Math.round((n / totalToday) * 10000) / 10000 : 0);
+    const shareOf = (n) => (totalToday > 0 ? Math.round((n / totalToday) * 100) : 0);
+
+    const trackHtml = totalToday > 0
+        ? [
+            `<span class="seg-present" style="flex:${partOf(today_attendance.present)}"></span>`,
+            `<span class="seg-late" style="flex:${partOf(today_attendance.late)}"></span>`,
+            `<span class="seg-absent" style="flex:${partOf(today_attendance.absent)}"></span>`,
+        ].join("")
+        : '<span class="snapshot-track-empty" style="flex:1"></span>';
+
+    const attendanceStats = [
+        { key: "present", label: "Present", value: today_attendance.present },
+        { key: "late",    label: "Late",    value: today_attendance.late },
+        { key: "absent",  label: "Absent",  value: today_attendance.absent },
+    ].map((s) => `
+        <div class="snapshot-item snap-${s.key}">
+            <div class="snapshot-label">${s.label}</div>
+            <div class="snapshot-value">${s.value}</div>
+            <div class="snapshot-share">${shareOf(s.value)}% of ${totalToday}</div>
+        </div>`).join("");
+
     document.getElementById("attendance-snapshot").innerHTML = `
         <div class="snapshot-header">
-            <h3 style="margin:0;">Today's Attendance</h3>
-            <span style="font-size:12.5px;color:var(--muted);">${escapeHtml(today)}</span>
+            <div class="snapshot-title">
+                <h3>Today's Attendance</h3>
+                <span class="snapshot-date">${escapeHtml(formatLongDate(today))}</span>
+            </div>
+            <span class="snapshot-total"><strong>${totalToday}</strong> on the roster</span>
+        </div>
+        <div class="snapshot-track"
+             role="img"
+             aria-label="Today: ${today_attendance.present} present, ${today_attendance.late} late, ${today_attendance.absent} absent">
+            ${trackHtml}
         </div>
         <div class="snapshot-bars">
-            <div class="snapshot-item">
-                <div class="snapshot-label">Present</div>
-                <div class="snapshot-value" style="color:var(--green);">${today_attendance.present}</div>
-            </div>
-            <div class="snapshot-item">
-                <div class="snapshot-label">Late</div>
-                <div class="snapshot-value" style="color:var(--yellow-dark);">${today_attendance.late}</div>
-            </div>
-            <div class="snapshot-item">
-                <div class="snapshot-label">Absent</div>
-                <div class="snapshot-value" style="color:var(--red);">${today_attendance.absent}</div>
-            </div>
-            <div class="snapshot-item">
+            ${attendanceStats}
+            <div class="snapshot-item snap-total">
                 <div class="snapshot-label">Total</div>
                 <div class="snapshot-value">${totalToday}</div>
+                <div class="snapshot-share">roster size</div>
             </div>
         </div>
     `;
@@ -281,22 +348,22 @@ function render(data) {
             <table>
                 <thead>
                     <tr>
-                        <th>Run #</th>
-                        <th>Period</th>
-                        <th>Type</th>
-                        <th class="col-center">Payslips</th>
-                        <th style="text-align:right;">Net Pay</th>
-                        <th class="col-center"></th>
+                        <th scope="col">Run</th>
+                        <th scope="col">Period covered</th>
+                        <th scope="col">Type</th>
+                        <th scope="col" class="col-center">Payslips</th>
+                        <th scope="col" class="col-num">Net pay</th>
+                        <th scope="col" class="col-center"><span class="sr-only">Actions</span></th>
                     </tr>
                 </thead>
                 <tbody>
                     ${recent_runs.map((r) => `
                         <tr>
-                            <td>#${r.run_id}</td>
-                            <td>${escapeHtml(r.start_date)} → ${escapeHtml(r.end_date)}</td>
-                            <td>${escapeHtml(r.period_type)}</td>
+                            <td><span class="run-id">#${r.run_id}</span></td>
+                            <td class="run-period">${escapeHtml(formatPeriod(r.start_date, r.end_date))}</td>
+                            <td><span class="run-type">${escapeHtml(r.period_type)}</span></td>
                             <td class="col-center">${r.payslip_count}</td>
-                            <td style="text-align:right;font-weight:600;">${formatMoney(r.total_net)}</td>
+                            <td class="col-num num-strong">${formatMoney(r.total_net)}</td>
                             <td class="col-center">
                                 <a class="btn btn-plain" href="payslips.html?run_id=${r.run_id}">View</a>
                             </td>
@@ -304,6 +371,10 @@ function render(data) {
                     `).join("")}
                 </tbody>
             </table>
+            <div class="card-foot">
+                <span>${recent_runs.length} most recent run${recent_runs.length === 1 ? "" : "s"} · net pay per run</span>
+                <a class="card-link" href="payroll_runs.html">Open payroll runs →</a>
+            </div>
         `;
     }
 }

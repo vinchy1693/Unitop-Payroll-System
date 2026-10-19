@@ -32,3 +32,9 @@ backups/
 *.app
 *.deb
 *.rpm
+
+# scratch artifacts from tooling runs (Chrome profile, screenshots, previews)
+_dashwork/
+dashboard-shots/
+_dash*.html
+kiosk_preview.html

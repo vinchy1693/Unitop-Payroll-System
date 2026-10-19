@@ -1562,3 +1562,466 @@ a.kpi-tile:hover {
     font-size: 13px;
     color: var(--muted, #6b7280);
 }
+
+/* =====================================================================
+   DASHBOARD POLISH — appended override blocks
+   ---------------------------------------------------------------------
+   Everything below is additive and sits after the rules it refines, so the
+   cascade applies it without a single earlier declaration being rewritten.
+   Static page chrome is scoped to .page-dashboard (body class on
+   index.html), so no other screen inherits these choices.
+
+   Dark mode: this page paints no inline colour anywhere. dashboard.js emits
+   class names and unitless proportions only, and index.html uses classes for
+   its loading state, so every colour below resolves to a token that the
+   html[data-theme="dark"] block already redefines — or to one of the
+   --dash-* tokens defined in block 1.
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   1. Tokens — the only literal colours the dashboard chrome contributes.
+   --------------------------------------------------------------------- */
+:root {
+    --dash-gap:          20px;
+    --dash-well:         #f6f8fc;
+    --dash-well-border:  #ecf0f7;
+    --dash-track:        #edf0f7;
+    --dash-chip-bg:      #eef2fa;
+    --dash-chip-text:    #4a5568;
+    --dash-chip-border:  #e1e7f3;
+    --dash-rule:         #eef1f6;
+    --dash-mono-bg:      #f2f5fb;
+    --dash-arrow:        #b6c0d4;
+    --dash-shadow:       0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.04);
+    --dash-shadow-lift:  0 12px 26px -14px rgba(16,24,40,.30), 0 2px 6px rgba(16,24,40,.06);
+    --dash-ring-green:   rgba(30,125,50,.18);
+    --dash-ring-yellow:  rgba(212,175,10,.24);
+    --dash-ring-blue:    rgba(0,56,168,.16);
+}
+
+html[data-theme="dark"] {
+    --dash-well:         #121a29;
+    --dash-well-border:  #202a40;
+    --dash-track:        #0f1728;
+    --dash-chip-bg:      #1e283b;
+    --dash-chip-text:    #a9b6cd;
+    --dash-chip-border:  #2a3750;
+    --dash-rule:         #232f46;
+    --dash-mono-bg:      #1c2638;
+    --dash-arrow:        #4d5b74;
+    --dash-shadow:       0 1px 2px rgba(0,0,0,.45), 0 1px 3px rgba(0,0,0,.35);
+    --dash-shadow-lift:  0 12px 28px -16px rgba(0,0,0,.80), 0 2px 8px rgba(0,0,0,.45);
+    --dash-ring-green:   rgba(95,208,122,.24);
+    --dash-ring-yellow:  rgba(255,217,74,.24);
+    --dash-ring-blue:    rgba(111,155,255,.28);
+}
+
+/* ---------------------------------------------------------------------
+   2. Page scaffold — one vertical rhythm, a masthead, shared card chrome
+   --------------------------------------------------------------------- */
+.page-dashboard .container {
+    padding: 0 28px 8px;
+}
+
+.dash-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px 24px;
+    flex-wrap: wrap;
+    margin-bottom: var(--dash-gap);
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--dash-rule);
+}
+.dash-head h1 {
+    font-size: 26px;
+    letter-spacing: -0.6px;
+    margin: 0 0 4px;
+}
+.dash-head .subtitle {
+    margin: 0;
+    font-size: 13px;
+    max-width: 62ch;
+}
+
+/* Rows share one gap instead of three separate inline margins. */
+.page-dashboard #workflow-grid { margin-top: var(--dash-gap); }
+.page-dashboard .dash-row {
+    display: grid;
+    gap: var(--dash-gap);
+    margin-top: var(--dash-gap);
+}
+.page-dashboard .dash-row > .card { margin-bottom: 0; }
+
+.page-dashboard .card {
+    padding: 22px 24px;
+    box-shadow: var(--dash-shadow);
+}
+
+/* Card header used by the Recent Runs panel */
+.card-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 0 0 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--dash-rule);
+}
+.card-head h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.1px;
+}
+.card-link {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--blue);
+    text-decoration: none;
+    white-space: nowrap;
+}
+.card-link:hover { text-decoration: underline; }
+
+.card-foot {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px 16px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid var(--dash-rule);
+    font-size: 11.5px;
+    color: var(--muted);
+}
+
+/* Loading state — token colour, so it is legible in both themes */
+.dash-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    padding: 28px 20px;
+    color: var(--muted);
+    font-size: 13px;
+}
+.dash-placeholder::before {
+    content: "";
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--border-mid);
+    border-top-color: var(--blue);
+    animation: dash-spin .8s linear infinite;
+}
+@keyframes dash-spin { to { transform: rotate(360deg); } }
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ---------------------------------------------------------------------
+   3. KPI tiles — tighter type, tabular figures, a hover cue on linked tiles
+   --------------------------------------------------------------------- */
+.kpi-grid { gap: 16px; }
+
+.kpi-tile {
+    position: relative;
+    min-height: 116px;
+    padding: 18px 18px 16px 20px;
+    box-shadow: var(--dash-shadow);
+    transition: box-shadow .16s ease, transform .14s ease, border-color .16s ease;
+}
+a.kpi-tile:hover {
+    box-shadow: var(--dash-shadow-lift);
+    transform: translateY(-3px);
+}
+
+.kpi-label {
+    font-size: 10.5px;
+    letter-spacing: .72px;
+    margin-bottom: 8px;
+}
+.kpi-value {
+    font-size: 28px;
+    line-height: 1.05;
+    letter-spacing: -0.8px;
+    margin-bottom: 8px;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+}
+a.kpi-tile .kpi-note { padding-right: 18px; }
+.kpi-note { line-height: 1.35; }
+
+/* Affordance for tiles that link somewhere; decorative, so aria-hidden. */
+.kpi-arrow {
+    position: absolute;
+    top: 17px;
+    right: 16px;
+    font-size: 13px;
+    line-height: 1;
+    color: var(--dash-arrow);
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: opacity .16s ease, transform .16s ease, color .16s ease;
+}
+a.kpi-tile:hover .kpi-arrow,
+a.kpi-tile:focus-visible .kpi-arrow {
+    opacity: 1;
+    transform: translateX(0);
+    color: var(--blue);
+}
+.kpi-wide { grid-column: 1 / -1; }
+
+/* ---------------------------------------------------------------------
+   4. Workflow cards — one neutral surface, status carried by strip and pill
+   --------------------------------------------------------------------- */
+.workflow-grid { gap: 16px; }
+
+.workflow-card {
+    min-height: 244px;
+    box-shadow: var(--dash-shadow);
+    transition: box-shadow .16s ease, transform .14s ease, border-color .16s ease;
+}
+.workflow-card:hover {
+    box-shadow: var(--dash-shadow-lift);
+    transform: translateY(-3px);
+}
+
+/* Every step shares the card surface. The warn card used to be filled with
+   --yellow-lite, which in dark mode turned the whole card muddy olive. */
+.workflow-card,
+.workflow-card.status-ok,
+.workflow-card.status-warn { background: var(--surface-1); }
+
+.workflow-card.status-ok:hover   { box-shadow: var(--dash-shadow-lift), inset 0 0 0 1px var(--dash-ring-green); }
+.workflow-card.status-warn:hover { box-shadow: var(--dash-shadow-lift), inset 0 0 0 1px var(--dash-ring-yellow); }
+.workflow-card.status-go:hover   { box-shadow: var(--dash-shadow-lift), inset 0 0 0 1px var(--dash-ring-blue); }
+
+/* Fixed-height slots so the CTA of every card sits on the same baseline,
+   whether or not the card has a two-line sublink row. */
+.workflow-note { flex-grow: 0; margin-bottom: 14px; }
+.workflow-sublinks { margin-top: auto; }
+.workflow-cta { margin-top: auto; }
+.workflow-sublinks + .workflow-cta { margin-top: 0; }
+
+.workflow-step-badge {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
+}
+.workflow-status-pill {
+    padding: 4px 10px 4px 8px;
+    letter-spacing: .55px;
+}
+.workflow-cta {
+    padding: 8px 15px;
+    border-radius: 7px;
+}
+.workflow-sublinks {
+    font-size: 11.5px;
+    row-gap: 4px;
+}
+.workflow-sublinks .sep { margin: 0 5px; }
+
+/* ---------------------------------------------------------------------
+   5. Attendance snapshot — one proportion meter plus three share wells
+   --------------------------------------------------------------------- */
+.snapshot-header {
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--dash-rule);
+}
+.snapshot-title {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.snapshot-title h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.1px;
+}
+.snapshot-date {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--dash-chip-text);
+    background: var(--dash-chip-bg);
+    border: 1px solid var(--dash-chip-border);
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-variant-numeric: tabular-nums;
+}
+.snapshot-total {
+    font-size: 12px;
+    color: var(--muted);
+}
+.snapshot-total strong {
+    color: var(--text);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Segmented meter: one flex item per status, sized by its share. */
+.snapshot-track {
+    display: flex;
+    gap: 3px;
+    height: 8px;
+    margin: 0 0 16px;
+}
+.snapshot-track span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    min-width: 2px;
+}
+.snapshot-track .seg-present { background: var(--green); }
+.snapshot-track .seg-late    { background: var(--yellow); }
+.snapshot-track .seg-absent  { background: var(--red); }
+.snapshot-track .snapshot-track-empty { background: var(--dash-track); }
+
+.snapshot-bars { gap: 12px; }
+.snapshot-item {
+    padding: 14px 10px 12px;
+    background: var(--dash-well);
+    border: 1px solid var(--dash-well-border);
+    border-radius: 10px;
+}
+.snapshot-label {
+    font-size: 10.5px;
+    letter-spacing: .7px;
+    margin-bottom: 6px;
+}
+.snapshot-value {
+    font-size: 24px;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+.snapshot-share {
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+}
+.snap-present .snapshot-value { color: var(--green); }
+.snap-late    .snapshot-value { color: var(--yellow-dark); }
+.snap-absent  .snapshot-value { color: var(--red); }
+.snapshot-item.snap-total {
+    background: transparent;
+    border-color: var(--dash-rule);
+}
+.snapshot-item.snap-total .snapshot-value { color: var(--text); }
+
+/* ---------------------------------------------------------------------
+   6. Recent runs — quiet table header, chips for run and type, aligned money
+   --------------------------------------------------------------------- */
+#recent-runs table { font-size: 13px; }
+#recent-runs th {
+    background: transparent;
+    color: var(--muted);
+    font-size: 10.5px;
+    letter-spacing: .7px;
+    font-weight: 700;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+}
+#recent-runs td {
+    padding: 12px;
+    border-bottom: 1px solid var(--dash-rule);
+}
+#recent-runs tbody tr:last-child td { border-bottom: none; }
+#recent-runs tbody tr:hover { background: var(--row-hover); }
+
+.run-id {
+    display: inline-block;
+    min-width: 36px;
+    padding: 1px 7px;
+    border-radius: 6px;
+    background: var(--dash-mono-bg);
+    color: var(--dash-chip-text);
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+.run-type {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: var(--dash-chip-bg);
+    border: 1px solid var(--dash-chip-border);
+    color: var(--dash-chip-text);
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.run-period,
+.col-num,
+.num-strong { font-variant-numeric: tabular-nums; }
+th.col-num, td.col-num { text-align: right; }
+td.num-strong { font-weight: 700; }
+
+#recent-runs .btn-plain {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 5px 12px;
+    font-size: 12px;
+}
+#recent-runs .btn-plain:hover {
+    background: var(--blue-lite);
+    border-color: var(--blue);
+    color: var(--blue);
+}
+
+.page-dashboard .empty-state {
+    background: var(--dash-well);
+    border: 1px dashed var(--dash-well-border);
+    border-radius: 10px;
+}
+
+/* ---------------------------------------------------------------------
+   7. Narrow widths and reduced motion
+   --------------------------------------------------------------------- */
+@media (max-width: 1150px) {
+    .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); }
+}
+
+@media (max-width: 900px) {
+    .page-dashboard .container { padding: 0 18px 8px; margin: 22px auto; }
+    .dash-head { align-items: flex-start; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .workflow-grid { grid-template-columns: 1fr; }
+    .snapshot-bars { grid-template-columns: repeat(2, 1fr); }
+    .workflow-card { min-height: 0; }
+}
+
+@media (max-width: 560px) {
+    .kpi-grid { grid-template-columns: 1fr; }
+    .snapshot-bars { grid-template-columns: 1fr 1fr; }
+    .dash-head h1 { font-size: 22px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dash-placeholder::before { animation: none; }
+    .kpi-tile,
+    a.kpi-tile:hover,
+    .kpi-arrow,
+    .workflow-card,
+    .workflow-card:hover,
+    .workflow-cta { transition: none; transform: none; }
+}
