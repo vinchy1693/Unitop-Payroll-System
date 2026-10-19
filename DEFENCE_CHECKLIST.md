@@ -60,7 +60,7 @@ Legend: `[ ]` to do · `[x]` verified done · ⚠️ = could cost marks if unadd
 - [x] Tests that depended on employee id 3 or live leave data now build their own fixtures.
 - [x] `premium_undertime_test.php` — Sunday + Regular holiday premiums, 2.60 holiday OT, 60-minute undertime.
 - [x] `employee_portal_test.php` — the employee files an overtime request; the server derives the rest-day rate.
-- [ ] **Change every password.** `admin`, `payroll`, `approver`, `vinchy`, `juan.delacruz` are all `test123`.
+- [ ] **Change every password before presenting.** The accounts use per-account demo passwords; do not ship the presentation credentials.
 - [ ] **Admin repo `main` is far behind `checking`** and is the GitHub default — fast-forward it or flip the default branch.
 
 ---
