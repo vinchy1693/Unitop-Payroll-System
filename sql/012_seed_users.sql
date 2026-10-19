@@ -1,24 +1,22 @@
 -- =====================================================================
 -- 012_seed_users.sql
 --
--- Standalone user accounts, for a database whose `users` table is empty (or
--- missing). Safe to re-run: existing usernames are updated rather than duplicated.
+-- Standalone user accounts for a database whose `users` table is empty OR
+-- missing. Safe to re-run: an existing username is updated, never duplicated.
 --
 -- PASSWORDS (change these after the first login):
 --     admin           Unitop#Admin26
 --     payroll         Unitop#Payroll26
 --     approver        Unitop#Approver26
---     vinchy          Unitop#Vinchy26        (employee 4)
---     juan.delacruz   Unitop#Juan26          (employee 5)
 --
--- IMPORTANT: if the WHOLE database is empty - no employees, no positions, no
--- payroll tables - this script is not enough. Restore the full dump instead:
+-- IF THE WHOLE DATABASE IS EMPTY this script alone is not enough. The
+-- application also needs employees, positions, departments and the payroll
+-- tables. Restore the full dump instead - schema AND data in one file:
 --
---     Get-Content sql\payroll_db_recovery.sql -Raw | C:\xampp\mysql\bin\mysql.exe -u root
+--   C:\xampp\mysql\bin\mysql.exe -u root < C:\xampp\htdocs\master_file_module_api\sql\payroll_db_recovery.sql
 --
--- The hashes below are bcrypt ($2y$10$) and were generated with PHP
--- password_hash(). Replace them by changing the password in the app, not by
--- editing this file.
+-- The hashes are bcrypt ($2y$10$), generated with PHP password_hash().
+-- Change a password in the application, not by editing this file.
 -- =====================================================================
 
 CREATE TABLE IF NOT EXISTS `users` (
@@ -33,8 +31,9 @@ CREATE TABLE IF NOT EXISTS `users` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- ---------------------------------------------------------------------
--- Staff accounts. These have no employee link: Administrator is a technical
--- account, and the maker/checker roles are staff positions, not employees.
+-- Staff accounts. No employee link: Administrator is technical, and the
+-- maker/checker roles are staff positions rather than employees.
+-- These three are enough to run and demonstrate the whole payroll.
 -- ---------------------------------------------------------------------
 INSERT INTO `users` (`username`, `employee_id`, `role`, `is_active`, `password_hash`) VALUES
   ('admin',    NULL, 'Administrator',   1, '$2y$10$Tiyjv9nBqe5SynBH/YQcI.DhvXad1kMBuXMuGzn8Z7mpVcRlBz/re'),
@@ -46,28 +45,24 @@ ON DUPLICATE KEY UPDATE
   `is_active`     = 1;
 
 -- ---------------------------------------------------------------------
--- Employee accounts. Only inserted when the employee row actually exists,
--- because users.employee_id is a foreign key.
+-- Employee accounts - RUN THESE ONLY IF employees 4 and 5 exist.
+-- users.employee_id is a foreign key, so an account pointing at a missing
+-- employee fails. Check first:
+--
+--     SELECT employee_id, employee_number, first_name, last_name FROM employees;
+--
+-- then uncomment the two statements below, adjusting the ids and hashes.
 -- ---------------------------------------------------------------------
-INSERT INTO `users` (`username`, `employee_id`, `role`, `is_active`, `password_hash`)
-SELECT 'vinchy', 4, 'Employee', 1, '$2y$10$lIt7Havfj.Lj7EmmtyCjle4WZCT.e3OwLs6j77D2pA9E1evWDWkTu'
-WHERE EXISTS (SELECT 1 FROM `employees` WHERE `employee_id` = 4)
-ON DUPLICATE KEY UPDATE
-  `password_hash` = VALUES(`password_hash`),
-  `employee_id`   = 4,
-  `role`          = 'Employee',
-  `is_active`     = 1;
-
-INSERT INTO `users` (`username`, `employee_id`, `role`, `is_active`, `password_hash`)
-SELECT 'juan.delacruz', 5, 'Employee', 1, '$2y$10$mBgr8X2fn0K49Qt1OdMRuePZ5ZfYCVHjpQuFBDb0yxQ9JoAAJluv2'
-WHERE EXISTS (SELECT 1 FROM `employees` WHERE `employee_id` = 5)
-ON DUPLICATE KEY UPDATE
-  `password_hash` = VALUES(`password_hash`),
-  `employee_id`   = 5,
-  `role`          = 'Employee',
-  `is_active`     = 1;
+-- INSERT INTO `users` (`username`, `employee_id`, `role`, `is_active`, `password_hash`) VALUES
+--   ('vinchy',        4, 'Employee', 1, '$2y$10$lIt7Havfj.Lj7EmmtyCjle4WZCT.e3OwLs6j77D2pA9E1evWDWkTu'),
+--   ('juan.delacruz', 5, 'Employee', 1, '$2y$10$mBgr8X2fn0K49Qt1OdMRuePZ5ZfYCVHjpQuFBDb0yxQ9JoAAJluv2')
+-- ON DUPLICATE KEY UPDATE
+--   `password_hash` = VALUES(`password_hash`),
+--   `employee_id`   = VALUES(`employee_id`),
+--   `role`          = 'Employee',
+--   `is_active`     = 1;
 
 -- ---------------------------------------------------------------------
--- Show what is now in place.
+-- Report what is now in place.
 -- ---------------------------------------------------------------------
 SELECT `user_id`, `username`, `role`, `employee_id`, `is_active` FROM `users` ORDER BY `user_id`;
