@@ -19,7 +19,7 @@ Legend: `[ ]` to do · `[x]` verified done · ⚠️ = could cost marks if unadd
 - [x] **Session cookie flags** — HttpOnly, SameSite=Lax, Secure on HTTPS (both apps).
 - [x] **`PDOException` text no longer reaches the client** — display_errors off, generic 500,
       detail logged.
-- [x] **Audit log redacts** QR values and bank / government numbers; `sql/012` scrubs old rows.
+- [x] Audit log redacts QR values, QR tokens and bank / government numbers; `sql/012` scrubs old rows.
 
 ### A2. Correctness
 
@@ -39,12 +39,16 @@ Legend: `[ ]` to do · `[x]` verified done · ⚠️ = could cost marks if unadd
 - [x] **The kiosk enforces the approved OT window** — clock-in >5 min early or after the end is 409;
       clock-out >5 min early is 409; a late clock-out is recorded but paid only to the approved end.
       The after-shift fallback has no requested end, so it keeps the old behaviour.
-- [x] **Revoking a QR actually revokes it** — the QR screen revokes all active badges for the
-      employee; a missing id is 404 and the scanner refuses a revoked badge.
-- [x] **Attendance QR privacy deterrence** — the portal attendance QR hides when the page is
-      backgrounded/blurred/printed and blocks selection/context-menu/drag. This is not true
-      screenshot prevention; the OS screenshot key/second camera is outside the browser, and a
-      native/managed kiosk is required for that.
+- [x] **Short-lived QR tokens** — `me_qr.php` issues a 120-second, one-time, purpose-bound token;
+      only its SHA-256 hash is stored in `qr_tokens`; the kiosk consumes it. The attendance page's
+      existing QR card renders the token and refreshes it before expiry. The static badge is legacy
+      fallback behind `ALLOW_LEGACY_QR`.
+- [x] **Revoke actually revokes** — the QR screen revokes all active badges for the employee and
+      invalidates unused tokens; a missing id is 404; the portal refuses to mint until a badge is
+      generated/reactivated.
+- [x] **Screenshot limit is documented, not claimed fixed** — the token expires after 120 seconds
+      and is single-use, so a screenshot is stale after that. A capture inside the window or a
+      second camera still works; a native/managed kiosk is required for true blocking.
 - [x] **OT is decided by the Approver or the team's Supervisor** — the Payroll Officer prepares it but
       PATCH returns 403; the UI hides the buttons for the maker.
 - [x] **Basic salary is checker-only** — `api/employee_salary.php` (Approver, reason >=10, audited);
@@ -78,7 +82,7 @@ Legend: `[ ]` to do · `[x]` verified done · ⚠️ = could cost marks if unadd
 - [x] Tests that depended on employee id 3 or live leave data now build their own fixtures.
 - [x] `premium_undertime_test.php` — Sunday + Regular holiday premiums, 2.60 holiday OT, 60-minute undertime.
 - [x] `ot_window_test.php` — early/late OT in, early out, late out capped at the approved end (25/0).
-- [x] `money_guard_test.php` — loan void reopens Paid loans, loan payment capped at net, period overlap/PUT, locked attendance/OT (34/0).
+- [x] `money_guard_test.php` — loan void reopens Paid loans, loan payment capped at net, period overlap/PUT, locked attendance/OT (35/0).
 - [x] `sod_guard_test.php` — Administrator cannot mint payroll roles, loans start Pending, self-approval blocked, salary checker-only (16/0).
 - [x] `manual_qr_test.php` — on-site enforcement: portal 403, no manual UI, staff kiosk 200, Employee kiosk 403.
 - [x] `employee_portal_test.php` — the employee files an overtime request; the server derives the rest-day rate.
@@ -91,7 +95,7 @@ Legend: `[ ]` to do · `[x]` verified done · ⚠️ = could cost marks if unadd
 
 - [ ] **Leave types** — only Maternity and Birthday exist. Add Vacation 5, Sick 5, Paternity 7 per the study's table.
 - [ ] **QR codes for all employees** — 0 static badges after the cleanup; generate as needed. The
-      attendance page shows the static QR; browser screenshots cannot be blocked, only deterred.
+      attendance page now issues a short-lived token, so a static badge is only a legacy/backup path.
 - [ ] **Bank accounts for all employees** — the bank file **refuses (422)** if any participant is missing one.
 - [ ] **Supervisor team links** — `UPDATE employees SET supervisor_id = <lead> WHERE employee_id IN (...)`; leave the lead's own `supervisor_id` NULL.
 - [ ] **Attendance for the demo period** — at least one full shift so overtime and payroll have inputs.
@@ -103,6 +107,7 @@ Legend: `[ ]` to do · `[x]` verified done · ⚠️ = could cost marks if unadd
 
 1. [ ] **Login as `payroll`** → Departments, Positions, Employees (show bank + contact fields).
 2. [ ] **Kiosk** (`kiosk.html`) as `payroll` — the kiosk is staff-only and on-site → scan or type the QR value.
+   - Phone: **Portal → Attendance → My QR** (120-second token) → scan at the kiosk.
    - clock in → clock out → **scan again = overtime request** → shows "awaiting approval".
    - **scan again = refused** ("still awaiting approval") — this is the strongest single demo.
    - The Employee portal cannot record attendance (`me_scan_attendance.php` = 403); clocking in/out happens only here.
@@ -188,7 +193,7 @@ C:\xampp\php\php.exe C:\xampp\master_file_tests\security_test.php
 - [x] CSRF token required on every mutation; JSON-only bodies (415 for forms)
 - [x] Session cookies are HttpOnly + SameSite=Lax (both apps)
 - [x] Errors are generic; PDOException detail stays in the server log
-- [x] Audit log redacts QR values and bank / government numbers
+- [x] Audit log redacts QR values, QR tokens and bank / government numbers
 - [x] Demo scanning is maker-only; `ALLOW_DEMO_SCANS` can disable it
 - [x] Database dumps, `tests/`, and `.git/` are no longer web-accessible (403)
 - [x] Maker cannot approve their own payroll (403, API-enforced)

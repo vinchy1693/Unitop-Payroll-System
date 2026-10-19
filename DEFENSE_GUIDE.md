@@ -362,11 +362,23 @@ The employee can also file the request from the **portal attendance page** with 
 
 The kiosk is **staff-operated and on-site**. Employees do **not** type their code in the portal: the old portal "Record attendance" fallback was removed, and `employee_portal/api/me_scan_attendance.php` now returns **403**. `api/scan_attendance.php` also requires a staff role (`TEAM_QUEUE_ROLES`), so an Employee who logs into the admin app cannot use `kiosk.html` from home either. The staff kiosk's manual code field remains for a broken camera at the office.
 
-The portal attendance page now hides the QR when the page is backgrounded/blurred or printed, and blocks selection/context-menu/dragging on it. That is **deterrence, not screenshot prevention**: a browser cannot block the OS screenshot key or a second camera. A screenshot taken while the QR is visible still works until the badge is revoked; a native/managed kiosk is the only true screen-capture block. Revoking a QR in the admin screen revokes every active badge for that employee; a missing id is a **404**, and a revoked badge is refused by the scanner.
-
 **Who decides OT:** the **Approver** or the employee's **Supervisor** (PATCH allows `CHECKER_ROLES + SUPERVISOR_ROLE`). The Payroll Officer prepares/edits the request but cannot approve it; the UI hides the buttons for that role.
 
 A **Demo mode** strip (collapsed by default, red when on) lets a demonstration supply a date and time; both are validated. It is **maker-only** (`requireRole(MAKER_ROLES)`), so an Employee, Approver, Supervisor or Administrator gets **403**, and `ALLOW_DEMO_SCANS` in `api/_bootstrap.php` can disable it outright for a real deployment.
+
+### Short-lived QR tokens
+
+The portal no longer displays the static `qr_codes.code_value`. `employee_portal/api/me_qr.php` issues a **120-second, one-time, purpose-bound token** (`UNITOP-T-…`):
+
+- `purpose` is `time_in` or `time_out`, derived from today's attendance; after both punches it returns `ot` so the same QR can file/continue the kiosk overtime state machine.
+- Only a SHA-256 hash is stored in `qr_tokens`; the token is marked used when the kiosk writes the punch.
+- The kiosk accepts it through `qr_token`, validates expiry/used/employee-active, and consumes it. The legacy static badge is still accepted while `ALLOW_LEGACY_QR` is true; flip that after the printed badges are replaced.
+- Revoking a badge in the QR screen revokes **all active badges** for that employee and invalidates every unused token; the portal then refuses to mint another (`403`). Reactivating or generating a badge restores access. If every `qr_codes` row is deleted, the system is token-only and the static gate is gone.
+- `employee_portal/attendance.html` renders the token in the existing QR card and refreshes it 30 seconds before expiry. There is no separate QR-only page.
+
+**Honest limit:** a browser cannot block the OS screenshot key or a second camera. The 120-second expiry and one-time use make a screenshot stale; true screen-capture blocking needs a native/managed kiosk (`FLAG_SECURE`). A token can still be relayed inside its 120-second window; the staffed face/photo check is still the authenticator.
+
+**Throughput:** the token is generated when the page loads/refreshes, not per kiosk scan. The kiosk validation is one small query; 50 phones refreshing every 90 seconds is well under one request per second. The camera/identity step, not token generation, is the line bottleneck.
 
 ---
 
@@ -557,8 +569,11 @@ Public holidays in the `holidays` table are **excluded from expected working day
 | 13th month uses current salary for all 12 months | A mid-year raise is not weighted |
 | `salary_rates` table exists but payroll reads `employees.basic_salary` | Redundant; either wire it or remove the table |
 | The kiosk `verify` credential check has no rate limiting | It verifies an existing staff password to exit kiosk mode; a lockout/backoff is still outstanding |
-| Attendance writes do not check the payroll lock | Only the corrections endpoint enforces it; the helper exists and needs to be called |
-| Browser QR pages cannot block OS screenshots | The attendance QR hides on background/blur/print and blocks selection/context-menu/drag; a screenshot taken while it is visible, or a second camera, still works. True blocking needs a native/managed kiosk (`FLAG_SECURE`). Revoking the badge invalidates it at the scanner |
+| Browser QR pages cannot block OS screenshots | The token expires after 120 seconds and is single-use, so a screenshot is stale after that; a capture inside the window or a second camera still works. True blocking needs a native/managed kiosk (`FLAG_SECURE`). No screenshot-prevention claim is made for the web page |
+| The legacy static QR is still accepted | `ALLOW_LEGACY_QR = true` keeps printed badges working during migration; a photograph of a static badge does not expire. Flip it to false once every employee uses the portal token |
+| QR tokens are not device-bound | A token can be relayed within its 120-second window; sharing a portal login can mint another. Hardware/device binding or the staffed face check is still needed |
+| Kiosk photo/face confirmation is not implemented yet | The kiosk shows the employee name after a scan but does not capture a photo/snapshot or require an operator confirmation. The token expiry is not a substitute for the identity gate |
+| Attendance/OT writes are locked only after Approval/Release | A `Submitted` run can still have its source attendance/OT changed while its payslips are frozen; the Submitted lock/recompute is the remaining state fix |
 | Supervisor team assignment has no UI | `employees.supervisor_id` must be set by SQL |
 
 ---
@@ -605,11 +620,12 @@ Public holidays in the `holidays` table are **excluded from expected working day
 | Leave rules, overlap, balance | `api/leave_requests.php`, `api/me_leave_requests.php` |
 | Attendance corrections + recompute | `api/attendance_corrections.php` |
 | Audit hook | `api/_bootstrap.php` → `respond()` |
-| Audit redaction (QR / bank / govt numbers) | `api/_bootstrap.php` → `audit_is_secret_key()`; `sql/012_scrub_audit_sensitive.sql` |
+| Audit redaction (QR / token / bank / govt numbers) | `api/_bootstrap.php` → `audit_is_secret_key()`; `sql/012_scrub_audit_sensitive.sql` |
 | CSRF, session cookie flags, safe errors | `api/_bootstrap.php` (admin) and `employee_portal/api/_bootstrap.php` |
+| Short-lived QR tokens | `employee_portal/api/me_qr.php`, `api/scan_attendance.php`, `employee_portal/attendance.html`; `sql/014_qr_tokens.sql` |
 | Exports | `api/bank_file.php` |
 | Schema | `sql/payroll_db_schema.sql` (structure), `sql/payroll_db_recovery.sql` (structure + data) |
-| Migrations 002–013 | `sql/00*.sql` |
+| Migrations 002–014 | `sql/00*.sql` |
 | Verification | `C:\xampp\master_file_tests\verify_computations.php` |
 
 ---
