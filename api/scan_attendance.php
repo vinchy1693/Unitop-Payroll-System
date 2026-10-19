@@ -114,7 +114,7 @@ if ($isToken) {
     }
 
     $stmt = $pdo->prepare(
-        "SELECT q.qr_code_id, q.employee_id, q.status,
+        "SELECT q.qr_code_id, q.employee_id, q.status, q.code_value,
                 e.employee_number, e.is_active AS employee_active,
                 CONCAT(e.last_name, ', ', e.first_name) AS employee_name
          FROM qr_codes q
@@ -149,17 +149,20 @@ if ($isDemoMode && $demoTime !== "") {
 assertAttendanceDateUnlocked($pdo, $today, "Attendance for this date");
 
 // ---- 3. Duplicate-scan guard -----------------------------------------
-// A kiosk camera can fire twice for one physical scan. Real scans by the
-// same employee inside 3 seconds are treated as one. Demo mode advances by
-// simulated times, so the same simulated timestamp is the duplicate test.
-$guardKey = "scan_guard_" . $empId;
-$guard    = $_SESSION[$guardKey] ?? null;
-$finger   = $today . " " . $nowTime;
+// A kiosk camera can fire twice for one physical scan. The guard is keyed by
+// the credential as well as the employee, so regenerating the QR starts a new
+// guard instead of inheriting the old scan's state. It also expires after 3
+// real seconds; deleting an attendance row and retrying must not be blocked
+// forever by a session fingerprint.
+$credentialKey = $isToken ? $tokenValue : (string) ($qr["code_value"] ?? $codeValue);
+$guardKey      = "scan_guard_" . $empId . "_" . substr(hash("sha256", $credentialKey), 0, 16);
+$guard         = $_SESSION[$guardKey] ?? null;
+$finger        = $today . " " . $nowTime;
 
 if ($guard !== null) {
     $elapsed = microtime(true) - (float) ($guard["at"] ?? 0);
     $same    = ($guard["fp"] ?? "") === $finger;
-    $dup     = $isDemoMode ? $same : ($elapsed < 3.0);
+    $dup     = $same && $elapsed < 3.0;
     if ($dup) {
         respond(false, "This scan was already recorded. Please wait a moment and scan again.", [
             "action"        => "duplicate",
