@@ -19,6 +19,20 @@
     var IGNORE_MS = 5000;   // ignore the same code again within this window
     var RESET_MS  = 6000;   // how long the result stays on screen
 
+    // The kiosk uses raw axios rather than the shared api.js client, so it must
+    // send the same double-submit CSRF header itself. Without it every scan and
+    // every Exit verification is rejected as "session token missing/expired".
+    function csrfToken() {
+        var match = document.cookie.match(/(?:^|; )admin_csrf=([^;]*)/);
+        return match ? decodeURIComponent(match[1]) : "";
+    }
+
+    function kioskPost(path, payload) {
+        return axios.post(API + path, payload, {
+            headers: { "X-CSRF-Token": csrfToken() }
+        });
+    }
+
     var el = {
         boot:      document.getElementById("boot"),
         signin:    document.getElementById("signin"),
@@ -119,7 +133,7 @@
             if (el.demoTime.value) { payload.demo_mode = true; payload.demo_time = el.demoTime.value; }
         }
 
-        axios.post(API + "scan_attendance.php", payload)
+        kioskPost("scan_attendance.php", payload)
             .then(function (res) {
                 var d = res.data.data || {};
                 if (d.action === "in") {
@@ -257,7 +271,7 @@
         var btn = el.unlockForm.querySelector('button[type="submit"]');
         btn.disabled = true;
 
-        axios.post(API + "auth.php?action=verify", {
+        kioskPost("auth.php?action=verify", {
             username: el.unlockUser.value.trim(),
             password: el.unlockPass.value
         }).then(function () {
