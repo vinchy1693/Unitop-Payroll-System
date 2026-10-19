@@ -50,6 +50,9 @@ Legend: `[ ]` to do · `[x]` verified done · ⚠️ = could cost marks if unadd
 - [x] **Revoke actually revokes** — the QR screen revokes all active badges for the employee and
       invalidates unused tokens; a missing id is 404; the portal refuses to mint until a badge is
       generated/reactivated.
+- [x] **Portal payslips are Released-only** — `me_payslips.php` and `me_dashboard.php` filter
+      `payroll_runs.status = 'Released'`; Draft/Submitted/Approved payslips, including direct `?id=`
+      requests, are hidden until release.
 - [x] **Screenshot limit is documented, not claimed fixed** — the token expires after 120 seconds
       and is single-use, so a screenshot is stale after that. A capture inside the window or a
       second camera still works; a native/managed kiosk is required for true blocking.

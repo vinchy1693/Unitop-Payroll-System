@@ -414,6 +414,8 @@ Payroll Officer processes ──► Submitted
                 Released
 ```
 
+The portal exposes a payslip only when its payroll run is **`Released`**. `me_payslips.php` and `me_dashboard.php` filter on `payroll_runs.status = 'Released'`, so a Draft/Submitted/Approved run is invisible — including a direct `?id=` request.
+
 Once `Approved` or `Released`, any edit to payslips, deductions, allowances or loan payments is refused, and the **same date lock** now covers manual attendance, kiosk scans, and overtime create/edit/delete:
 
 ```php
