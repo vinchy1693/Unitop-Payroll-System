@@ -68,7 +68,7 @@ if ($action !== "resubmit" && $run["submitted_by"] !== null
 | **SSS** | RA 11199, Social Security Act of 2018 | **5%** | Monthly Salary Credit | MSC **₱5,000 – ₱35,000** (Jan 2025 tranche) |
 | **PhilHealth** | RA 11223, Universal Health Care Act | **2.5%** | Monthly basic salary | floor **₱10,000**, ceiling **₱100,000** |
 | **Pag-IBIG** | RA 9679, HDMF Law of 2009 | **2%** | Monthly compensation | **Max Fund Salary ₱10,000** |
-| **Withholding tax** | RA 10963 (TRAIN) + BIR RR 11-2018 | progressive | Annualised **taxable** income | ₱250,000 exempt |
+| **Withholding tax** | RA 10963 (TRAIN) + BIR RR 11-2018 | progressive | Annualised **taxable** income — basic + overtime + taxable allowances, less attendance deductions and the three contributions | ₱250,000 exempt |
 | **Tardiness / absence** | Labor Code "no work, no pay" + company policy | — | daily rate | capped at remaining pay |
 | **Overtime premium** | Labor Code Art. 87 | **+25%** of hourly rate | hourly rate | — |
 | **13th month** | PD 851 | 1/12 of annual basic | — | first ₱90,000 exempt (TRAIN) |
@@ -115,7 +115,7 @@ Worked example — **Vinchy Fantonial, ₱60,000/month, period 2026-10-01 → 10
 
 | # | Step | Formula | Value |
 |---|---|---|---|
-| 1 | Working days `W` | Mon–Sat in the period | **13** (Oct 4 & 11 are Sundays) |
+| 1 | Working days `W` | Mon–Sat in the period, **less any public holiday** | **13** (Oct 4 & 11 are Sundays; no holiday falls in this period) |
 | 2 | Basic | monthly ÷ 2 | **30,000.00** |
 | 3 | Daily rate | basic ÷ W | **2,307.69** |
 | 4 | Present | attendance rows on working days | **12** |
@@ -177,6 +177,28 @@ $dailyRate    = $expectedDays > 0 ? ($semiBasic / $expectedDays) : 0.0;
 ```
 > The daily rate is **self-balancing**: the semi-monthly basic spread across the working days actually in *that* period. A fully absent period docks exactly the basic — never more. For a 5-day week this equals the old monthly ÷ 22.
 
+### Public holidays (Labor Code Art. 94)
+
+A **regular holiday is paid even when no work is performed**, so it must never be scored as an absence. The expected-day count is therefore reduced by every public holiday inside the period:
+
+```php
+// api/_payroll_helpers.php -> computeAttendanceDeductions()
+$holidayDays  = countHolidaysInRange($pdo, $startDate, $endDate);
+$expectedDays = max(0, countWorkingDays($startDate, $endDate) - $holidayDays);
+```
+
+```php
+function countHolidaysInRange(PDO $pdo, string $from, string $to): int {
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM holidays WHERE holiday_date BETWEEN ? AND ?");
+    $stmt->execute([$from, $to]);
+    return (int) $stmt->fetchColumn();
+}
+```
+
+The `holidays` table (`sql/009_holidays.sql`) is the calendar: `holiday_date`, `name` and `holiday_type` (`Regular` / `Special`). Twelve fixed-date 2026 holidays are loaded; **Holy Week, Eid'l Fitr and Eid'l Adha are not**, because their dates are proclaimed each year — they are data, not code.
+
+> This is why a holiday with no attendance row no longer docks pay. The absence test is `expected − present − excused`, and a holiday has already left `expected`.
+
 ### Day classification
 ```php
 $leaveStmt = $pdo->prepare(
@@ -226,6 +248,23 @@ if ($semiTaxable < 0) $semiTaxable = 0;
 $tax = computeWithholdingTax($semiTaxable);
 ```
 > `$additionalTaxable` carries **overtime**. This mattered: the base was previously `$semiBasic` alone, so overtime went untaxed and every payslip with OT under-withheld. On the example above the difference is **₱2,787.05 → ₱2,931.28**.
+
+### Taxable and non-taxable allowances
+
+Allowances are added *after* the payslip row exists, so the tax has to be recomputed when a line changes. `allowances.is_taxable` (migration `011_allowance_taxability.sql`) decides whether a line raises the tax base:
+
+```php
+// api/_payroll_helpers.php -> recomputePayslipTotals()
+$taxStmt = $pdo->prepare(
+    "SELECT COALESCE(SUM(amount), 0) FROM allowances WHERE payslip_id = ? AND is_taxable = 1"
+);
+$taxBase = round($basic + $ot + $taxableAllow - $attendanceDed - $statutoryOnly, 2);
+```
+
+- **Taxable** (the default): a rice allowance, a cash allowance, a taxable incentive — it raises gross **and** withholding tax.
+- **Non-taxable**: a de minimis benefit under BIR RR 11-2018 (rice, uniform, medical cash, laundry, meal) — it raises gross pay only.
+
+> The earlier behaviour taxed nothing that was added after creation, under-withholding on every allowance-bearing payslip. The base now matches the creation path exactly: basic + overtime + taxable allowances − attendance deductions − statutory contributions.
 
 ### Overtime
 ```php
@@ -302,6 +341,28 @@ const PAYROLL_LOCKED_RUN_STATUSES = ["Approved", "Released"];
 // … 409: "Payroll run #N is Approved and locked. … A formal adjustment is required."
 ```
 
+### Voiding a run — the formal adjustment
+
+"Formal adjustment required" used to be a dead end: an approved run could not be edited and nothing existed to unwind it. `api/payroll_void.php` is that path.
+
+- **Approver only** (`CHECKER_ROLES`). The maker cannot void their own payroll.
+- **Remarks are mandatory** — at least 10 characters, because a void removes the payslip rows.
+- A `Released` run is refused with **409**: payment has already been authorised, so it needs a reversing entry, not a void.
+- One transaction, with `SELECT … FOR UPDATE` on the run: delete the run's deduction / allowance / contribution / loan-payment / cash rows, delete the payslips, delete the run, then set its period back to `Open` so it can be processed again.
+- Audited by the same `respond()` hook as every other mutation, with the reason in the audit row.
+
+```php
+requireRole(CHECKER_ROLES);
+// body: { run_id, remarks }   remarks >= 10 characters
+if ($run["status"] === "Released") {
+    respond(false, "… payment has already been authorised. … needs a reversing adjustment.", null, 409);
+}
+// … delete payslip children, payslips, the run
+$pdo->prepare("UPDATE payroll_periods SET status = 'Open' WHERE period_id = ?")->execute([$periodId]);
+```
+
+> Flow: `Submitted / Approved ──void (Approver + reason)──► period Open ──Process again──► new run`. The wrong run is removed rather than silently overwritten; the audit trail keeps who voided what, when and why.
+
 ### Audit trail
 
 One hook in `api/_bootstrap.php`, inside `respond()`:
@@ -341,6 +402,8 @@ Other suites worth showing:
 C:\xampp\php\php.exe C:\xampp\master_file_tests\audit_log_test.php          # 78 / 0
 C:\xampp\php\php.exe C:\xampp\master_file_tests\bank_file_test.php          # 212 / 0
 C:\xampp\php\php.exe C:\xampp\master_file_tests\me_selfservice_test.php     # 116 / 0
+C:\xampp\php\php.exe C:\xampp\master_file_tests\full_payroll_test.php       # overtime, late, loan, 13th month
+C:\xampp\php\php.exe C:\xampp\master_file_tests\payroll_approval_test.php   # maker/checker + lock
 ```
 
 ---
@@ -366,13 +429,16 @@ Because taxable income is net of attendance deductions and mandatory contributio
 No. §2 — the API returns **403** with "Segregation of duties" if the submitter tries to approve. Demonstrate it.
 
 **"What happens if you change something after approval?"**
-**409**, "A formal adjustment is required." §8.
+**409**, "A formal adjustment is required." §8. The adjustment is a **void**: the Approver voids the run with a written reason, the period reopens, and payroll is processed again.
+
+**"The payroll was wrong after it was approved — can you fix it?"**
+Yes. `api/payroll_void.php`: Approver-only, mandatory reason (≥10 characters), one transaction, period back to `Open`, and an audit row. A **Released** run is refused (409) because payment is already authorised — that needs a reversing entry.
 
 **"How do you know the figures are right?"**
 §9 — a second, independent implementation agrees on all 36 checked values.
 
 **"What about holidays, rest days, night differential?"**
-Labor Code Arts. 86–94. **Not implemented**: overtime is priced flat at 1.25 because the system has no holiday calendar. Say this plainly — it is a scope boundary, not an oversight.
+Public holidays in the `holidays` table are **excluded from expected working days** (Art. 94), so a regular holiday never becomes an absence. **Premiums** are still flat: overtime is 1.25 on every day, so there is no +30% rest-day or holiday premium, and night differential (Art. 86) is not computed. Say this plainly — it is a scope boundary, not an oversight.
 
 ---
 
@@ -380,11 +446,11 @@ Labor Code Arts. 86–94. **Not implemented**: overtime is priced flat at 1.25 b
 
 | Limitation | Honest framing |
 |---|---|
-| Overtime has no rest-day / holiday premium | Needs a holiday calendar; flat 1.25 is the ordinary-day rate |
-| Allowances added after a payslip do not affect its tax | Known gap; the fix is recomputing tax when a line is added |
+| Overtime has no rest-day / holiday premium | Holiday **dates** are excluded from absences (Art. 94), but overtime is priced flat at 1.25 — no +30% for a rest day or a special/regular holiday |
+| SSS uses the straight-line formula, not the official MSC bracket table | Identical above the ₱35,000 cap; the bracket lookup is a data change, not a logic change |
 | No hire-date proration | An employee hired mid-period receives a full semi-monthly basic |
 | 13th month uses current salary for all 12 months | A mid-year raise is not weighted |
-| `salary_rates` table exists but payroll reads `employees.basic_salary` | Redundant; either wire it or remove it |
+| `salary_rates` table exists but payroll reads `employees.basic_salary` | Redundant; either wire it or remove the table |
 | No CSRF tokens; session cookies lack HttpOnly/SameSite | Hardening outstanding |
 | Attendance writes do not check the payroll lock | Only the corrections endpoint enforces it; the helper exists and needs to be called |
 | Supervisor team assignment has no UI | `employees.supervisor_id` must be set by SQL |
@@ -402,8 +468,9 @@ Labor Code Arts. 86–94. **Not implemented**: overtime is priced flat at 1.25 b
 7. **Process payroll** → show a payslip, and that the deduction lines **sum to the total**
 8. **Try to approve your own run as `payroll`** → **403 Segregation of duties**; log in as `approver` → approves
 9. **Edit a deduction on the approved run** → **409, formal adjustment required**
-10. **Exports** → bank file / register / remittance
-11. **Login `admin`** → Users + **Audit Log**, showing every action above — and no payroll access
+10. **Void the wrong run as `approver`** → period reopens → **process it again** (the void reason is in the Audit Log)
+11. **Exports** → bank file / register / remittance
+12. **Login `admin`** → Users + **Audit Log**, showing every action above — and no payroll access
 
 ---
 
@@ -416,14 +483,17 @@ Labor Code Arts. 86–94. **Not implemented**: overtime is priced flat at 1.25 b
 | SSS / PhilHealth / Pag-IBIG | `api/_payroll_helpers.php` → `computeSSS()`, `computePhilHealth()`, `computePagIbig()` |
 | TRAIN brackets | `api/_payroll_helpers.php` → `computeWithholdingTax()` |
 | Tax base, cap, zero-net floor | `api/_payroll_helpers.php` → `computePayslipDeductions()`, `recomputePayslipTotals()` |
+| Public holidays excluded from working days | `api/_payroll_helpers.php` → `countHolidaysInRange()`; `sql/009_holidays.sql` |
+| Taxable / non-taxable allowances | `api/_payroll_helpers.php` → `recomputePayslipTotals()`; `sql/011_allowance_taxability.sql` |
 | Payroll assembly, maker/checker, lock | `api/payroll_runs.php` |
+| Void + reprocess (the formal adjustment) | `api/payroll_void.php` |
 | Kiosk state machine | `api/scan_attendance.php` |
 | Leave rules, overlap, balance | `api/leave_requests.php`, `api/me_leave_requests.php` |
 | Attendance corrections + recompute | `api/attendance_corrections.php` |
 | Audit hook | `api/_bootstrap.php` → `respond()` |
 | Exports | `api/bank_file.php` |
 | Schema | `sql/payroll_db_schema.sql` (structure), `sql/payroll_db_recovery.sql` (structure + data) |
-| Migrations 001–008 | `sql/00*.sql` |
+| Migrations 002–011 | `sql/00*.sql` |
 | Verification | `C:\xampp\master_file_tests\verify_computations.php` |
 
 ---
@@ -439,7 +509,7 @@ Labor Code Arts. 86–94. **Not implemented**: overtime is priced flat at 1.25 b
 | 2 | **PhilHealth** | **RA 11223** — *Universal Health Care Act of 2019* | Sec. 10 (premium contributions) | **5%** of monthly basic salary (employee **2.5%**, employer 2.5%); income floor ₱10,000, ceiling ₱100,000 | Yes |
 | 3 | **Pag-IBIG** | **RA 9679** — *Home Development Mutual Fund Law of 2009* | Sec. 3 (rate of contribution) | **2%** employee + 2% employer of monthly compensation; **Maximum Fund Salary ₱10,000** | Yes |
 | 4 | **Withholding tax** | **RA 10963** — *Tax Reform for Acceleration and Inclusion (TRAIN) Act*, amending **RA 8424** (National Internal Revenue Code) | Sec. 24(A) — individual income tax rates; BIR **Revenue Regulations No. 11-2018** | Progressive rates on annualised taxable compensation; **first ₱250,000 exempt** | Yes |
-| 5 | **13th month pay** | **PD 851** — *Requiring All Employers to Pay Their Employees a 13th Month Pay* (1975) | Sec. 1–3 | One-twelfth of annual basic; **first ₱90,000 exempt** under RA 10963, Sec. 32(B)(7)(a) NIRC | Helper only |
+| 5 | **13th month pay** | **PD 851** — *Requiring All Employers to Pay Their Employees a 13th Month Pay* (1975) | Sec. 1–3 | One-twelfth of annual basic; **first ₱90,000 exempt** under RA 10963, Sec. 32(B)(7)(a) NIRC | Yes — a `13th Month` period run |
 | 6 | **Service Incentive Leave** | **PD 442** — *Labor Code of the Philippines* | **Art. 95** | ≥**5 days** paid leave after 1 year of service | Not auto-granted |
 | 7 | **Maternity leave** | **RA 11210** — *105-Day Expanded Maternity Leave Law* (2019) | Amends Labor Code Art. 133 | **105 days** paid (60 for miscarriage); +15 for solo parents | Leave type only |
 | 8 | **Paternity leave** | **RA 8187** — *Paternity Leave Act of 1996* | Sec. 3 | **7 days** paid, first **4** deliveries of legitimate spouse | Leave type only |
@@ -449,6 +519,7 @@ Labor Code Arts. 86–94. **Not implemented**: overtime is priced flat at 1.25 b
 | 12 | **Absences / tardiness** | **PD 442** — *Labor Code*; "no work, no pay" principle | Arts. 97(f) ("wage"), Art. 82; settled jurisprudence | No pay for time not worked | Yes |
 | 13 | **Data privacy** | **RA 10173** — *Data Privacy Act of 2012* | Sec. 11–13 (processing, security) | Government IDs, bank accounts are personal data; requires safeguards | Partly |
 | 14 | **Electronic records** | **RA 8792** — *E-Commerce Act of 2000* | Sec. 7–11 | Electronic payslips and records are legally recognised | Yes (electronic payslips) |
+| 15 | **Holiday pay (non-absence)** | **PD 442** — *Labor Code* | **Art. 94** | A regular holiday is paid even with no work, so it cannot be scored as an absence | Yes — `holidays` table, excluded from expected working days |
 
 ### Rate schedule authority — state it this way
 
@@ -463,10 +534,10 @@ Labor Code Arts. 86–94. **Not implemented**: overtime is priced flat at 1.25 b
 | Benefit | Law | Status |
 |---|---|---|
 | Night shift differential (+10%) | Labor Code **Art. 86** | Not implemented |
-| Rest day / holiday premiums | Labor Code **Arts. 93–94** | Not implemented (OT is flat 1.25) |
+| Rest day / holiday **premiums** | Labor Code **Arts. 93–94** | Not implemented (OT is flat 1.25). Holiday **dates** are excluded from absences |
 | Premium pay for special/regular holidays | Labor Code **Arts. 73–76** | Not implemented |
-| De minimis benefits (non-taxable) | BIR RR 11-2018, Sec. 2.78.1 | Not modelled |
+| De minimis benefits (non-taxable) | BIR RR 11-2018, Sec. 2.78.1 | Modelled as an `allowances.is_taxable = 0` line; the statutory limits are not auto-enforced |
 | Separation / retirement pay | Labor Code **Arts. 283–287** | Out of scope |
 | SSS sickness / unemployment benefits | RA 11199 | Out of scope |
 
-> Framing: *"The payslip covers the semi-monthly wage computation and the four mandatory contributions plus withholding tax. Premium pay for rest days and holidays, night differential, and statutory benefits like separation pay are outside this module because they need a holiday calendar and a benefits ledger respectively."*
+> Framing: *"The payslip covers the semi-monthly wage computation and the four mandatory contributions plus withholding tax. Holiday dates are already excluded from absences; premium rates for rest days and holidays, night differential, and statutory benefits like separation pay are outside this module."*
