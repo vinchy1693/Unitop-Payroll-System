@@ -18,7 +18,9 @@ These are fixtures, not setup-screen tests. The Supervisor OT flow cannot run wi
   C:\xampp\mysql\bin\mysqldump.exe -u root --databases --result-file=C:\xampp\master_file_tests\before_full_system_test.sql payroll_db
   ```
 - [ ] **P1. Assign Employee 4 to Supervisor 168** — Login `P` → Employees → Edit Vinchy → **Supervisor = supervisor famacion** → Save.
-- [ ] **P2. Create an Open payroll period covering the test date** — Payroll → New Period → e.g. `2026-10-16` to `2026-10-31`.
+- [ ] **P2. Only if you are testing the payroll-run path (A8): create an Open period covering the test date** — Payroll → New Period → e.g. `2026-10-16` to `2026-10-31`.
+  - Current fixture has **0 Open periods**; period #1 is `Processed` and run #1 is `Released`.
+  - If you skip P2, skip **A8.1–A8.7** and record “payroll run not tested”; you can still use run #1 for A8.8–A8.10, A9 and A10.
 - [ ] **P3. Confirm Employee 4 has an Active QR** — QR Codes page shows code `1`, status **Active**.
 - [ ] **P4. Confirm current date has no attendance row for Employee 4** — Attendance page, today’s date, 0 records.
 
@@ -33,7 +35,8 @@ Do not jump ahead. Each step assumes the previous one passed.
 ## A1. Login, dashboard and navigation
 
 - [ ] **A1.1** Login as `P` → Dashboard loads.
-- [ ] **A1.2** Dashboard shows **4 active employees**, **1 open period** (the new one), and the previous Released run.
+- [ ] **A1.2** Dashboard shows **4 active employees** and **0 Open periods** on the current fixture; period #1 is **Processed** and run #1 is **Released**.
+  - If P2 was completed, the dashboard should instead show **1 Open period**.
 - [ ] **A1.3** Sidebar links open without “You do not have access” for `P`.
 - [ ] **A1.4** Login as `A` in a second browser/profile → Dashboard loads; Approver sees approval queue.
 - [ ] **A1.5** Login as `S` → Dashboard/Overtime page loads; no salary/payroll menus.
@@ -97,6 +100,7 @@ Use a **future non-working test date** so it does not conflict with the payroll 
 ## A8. Payroll run → approval → release
 
 - [ ] **A8.1** `P` → Payroll → Process the Open period.
+  - **If P2 was skipped:** mark A8.1–A8.7 as “not tested — no Open period”, then continue at A8.8 using run #1.
 - [ ] **A8.2** Run status becomes **Submitted**; period status becomes **For Approval**.
 - [ ] **A8.3** Portal `E` → Payslips does **not** show this run yet.
 - [ ] **A8.4** `A` → Payroll Runs → **Approve** the run.
