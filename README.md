@@ -19,6 +19,8 @@ version into a proper split frontend/backend:
 - [DEFENCE_CHECKLIST.md](DEFENCE_CHECKLIST.md) — demo checklist.
 - [FEATURE_CODE_MAP.md](FEATURE_CODE_MAP.md) — where each feature is implemented
   (files, blocks and approximate line ranges; not a LOC claim).
+- [PAYROLL_BASIS.md](PAYROLL_BASIS.md) — legal basis, rates, formula order,
+  examples, policy assumptions and limitations.
 
 ## Setup
 
