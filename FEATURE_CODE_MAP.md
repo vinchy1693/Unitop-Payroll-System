@@ -36,6 +36,7 @@ This is a **map, not a line count**. It names the primary file, the function or 
 | Logout | `api/auth.php:14–27` (GET), `:77–89` (POST) | `api.js` injected link, `kiosk.js:279` |
 | Audit filters | `api/audit_log.php:27–60` | `assets/js/audit.js:131` |
 | Audit action labels | `assets/js/audit.js:52–117` | — |
+| Supervisor team dashboard | `api/dashboard.php` supervisor branch; `assets/js/dashboard.js` `renderSupervisor` | team counts, pending queues, today attendance, recent team OT; no salary/payroll-wide data |
 
 **Tables:** `users`, `audit_log`.
 

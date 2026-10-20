@@ -82,6 +82,10 @@ async function loadDashboard() {
     try {
         const { data: body } = await api.get("dashboard.php");
         if (!body.success) throw new Error(body.message || "Dashboard request failed.");
+        if (body.data && body.data.scope === "supervisor") {
+            renderSupervisor(body.data);
+            return;
+        }
         render(body.data);
     } catch (err) {
         const status = err?.response?.status;
@@ -90,6 +94,126 @@ async function loadDashboard() {
             return;
         }
         renderDashboardNotice("Failed to load dashboard: " + apiErrorMessage(err));
+    }
+}
+
+// ---------------------------------------------------------------------
+// Supervisor dashboard: team-scoped only, no salary/payroll-wide figures.
+// ---------------------------------------------------------------------
+function renderSupervisor(data) {
+    const counts = data.counts || {};
+    const att = data.today_attendance || { present: 0, late: 0, absent: 0 };
+    const recent = Array.isArray(data.recent_overtime) ? data.recent_overtime : [];
+
+    const subtitle = document.querySelector(".dash-head .subtitle");
+    if (subtitle) subtitle.textContent = "Team overview — attendance, overtime and requests.";
+
+    const tiles = [
+        { label: "Team Members", value: counts.employees || 0, note: "Active in your team", tone: "blue", href: "attendance.html" },
+        { label: "Pending Overtime", value: counts.pending_overtime || 0, note: "Awaiting review", tone: (counts.pending_overtime || 0) > 0 ? "yellow" : "neutral", href: "overtime.html" },
+        { label: "Pending Leave", value: counts.pending_leaves || 0, note: "Team requests", tone: (counts.pending_leaves || 0) > 0 ? "yellow" : "neutral", href: "leave.html" },
+        { label: "Pending Corrections", value: counts.pending_corrections || 0, note: "Attendance fixes", tone: (counts.pending_corrections || 0) > 0 ? "yellow" : "neutral", href: "attendance_corrections.html" },
+        { label: "Active Team Loans", value: counts.active_loans || 0, note: "Active records", tone: "neutral", href: "loans.html" },
+    ];
+
+    document.getElementById("kpi-grid").innerHTML = tiles.map((t) => `
+        <a href="${t.href}" class="kpi-tile kpi-${t.tone}">
+            <div class="kpi-label">${escapeHtml(t.label)}</div>
+            <div class="kpi-value">${escapeHtml(String(t.value))}</div>
+            <div class="kpi-note">${escapeHtml(t.note)}</div>
+            <span class="kpi-arrow" aria-hidden="true">→</span>
+        </a>
+    `).join("");
+
+    document.getElementById("workflow-grid").innerHTML =
+        workflowCard({
+            step: "1",
+            status: "go",
+            statusLabel: "Open",
+            title: "Team Attendance",
+            note: "View your team's attendance and today's log.",
+            sublinks: [
+                { label: "Attendance", href: "attendance.html" },
+                { label: "Corrections", href: "attendance_corrections.html" },
+            ],
+            ctaLabel: "Open Attendance",
+            ctaHref: "attendance.html",
+        }) +
+        workflowCard({
+            step: "2",
+            status: (counts.pending_overtime || 0) > 0 ? "warn" : "ok",
+            statusLabel: (counts.pending_overtime || 0) > 0 ? "Review" : "Clear",
+            title: "Overtime Requests",
+            note: (counts.pending_overtime || 0) > 0
+                ? `${counts.pending_overtime} pending request${counts.pending_overtime === 1 ? "" : "s"}.`
+                : "No pending overtime.",
+            sublinks: [{ label: "Overtime", href: "overtime.html" }],
+            ctaLabel: "Open Overtime",
+            ctaHref: "overtime.html",
+        }) +
+        workflowCard({
+            step: "3",
+            status: (counts.pending_leaves || 0) > 0 ? "warn" : "ok",
+            statusLabel: (counts.pending_leaves || 0) > 0 ? "Review" : "Clear",
+            title: "Team Leave",
+            note: (counts.pending_leaves || 0) > 0
+                ? `${counts.pending_leaves} pending leave request${counts.pending_leaves === 1 ? "" : "s"}.`
+                : "No pending leave.",
+            sublinks: [{ label: "Leave", href: "leave.html" }],
+            ctaLabel: "Open Leave",
+            ctaHref: "leave.html",
+        }) +
+        workflowCard({
+            step: "4",
+            status: "neutral",
+            statusLabel: "View",
+            title: "Team Loans",
+            note: "View team loan records and recommendations.",
+            sublinks: [{ label: "Loans", href: "loans.html" }],
+            ctaLabel: "Open Loans",
+            ctaHref: "loans.html",
+        });
+
+    const total = att.present + att.late + att.absent;
+    const share = (n) => total > 0 ? Math.round((n / total) * 100) : 0;
+    document.getElementById("attendance-snapshot").innerHTML = `
+        <div class="snapshot-header">
+            <div class="snapshot-title">
+                <h3>Today's Team Attendance</h3>
+                <span class="snapshot-date">${escapeHtml(formatLongDate(data.today))}</span>
+            </div>
+            <span class="snapshot-total"><strong>${total}</strong> on the roster</span>
+        </div>
+        <div class="snapshot-bars">
+            <div class="snapshot-item snap-present"><div class="snapshot-label">Present</div><div class="snapshot-value">${att.present}</div><div class="snapshot-share">${share(att.present)}% of ${total}</div></div>
+            <div class="snapshot-item snap-late"><div class="snapshot-label">Late</div><div class="snapshot-value">${att.late}</div><div class="snapshot-share">${share(att.late)}% of ${total}</div></div>
+            <div class="snapshot-item snap-absent"><div class="snapshot-label">Absent</div><div class="snapshot-value">${att.absent}</div><div class="snapshot-share">${share(att.absent)}% of ${total}</div></div>
+        </div>
+    `;
+
+    const recentCard = document.getElementById("recent-runs-card");
+    if (recentCard) {
+        recentCard.innerHTML = `
+            <div class="card-head">
+                <h3>Recent Team Overtime</h3>
+                <a class="card-link" href="overtime.html">Open overtime →</a>
+            </div>
+            <div id="recent-runs">
+                ${recent.length === 0
+                    ? '<div class="empty-state">No team overtime requests yet.</div>'
+                    : `<div class="table-wrap"><table>
+                        <thead><tr><th>Employee</th><th>Date</th><th>Requested</th><th>Status</th></tr></thead>
+                        <tbody>
+                        ${recent.map((r) => `<tr>
+                            <td>${escapeHtml(r.employee_name || "")}</td>
+                            <td>${escapeHtml(formatLongDate(r.ot_date))}</td>
+                            <td>${escapeHtml((r.requested_start || "—") + " – " + (r.requested_end || "—"))}</td>
+                            <td>${escapeHtml(r.status || "")}</td>
+                        </tr>`).join("")}
+                        </tbody>
+                    </table></div>`}
+            </div>
+        `;
     }
 }
 

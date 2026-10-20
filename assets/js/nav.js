@@ -27,12 +27,12 @@
 //   SUPERVISOR_ROLE  = Supervisor
 //   ADMIN_ROLES      = Administrator
 // Every page whose API requires PAYROLL_ROLES is visible to maker + checker.
-// A Supervisor is a team lead, so they get ONLY the five team screens
-// (Attendance, Overtime, Attendance Corrections, Leave, Loans) plus the kiosk:
-// never the Dashboard, Employees, Payroll Periods / Runs, Payslips, Reports,
-// Users or Audit Log. Their API answers match - those
-// endpoints still require PAYROLL_ROLES, which does not include Supervisor -
-// and tests/nav_matrix_test.php proves the two agree page by page.
+// A Supervisor is a team lead, so they get a team-scoped Dashboard plus the
+// five team screens (Attendance, Overtime, Attendance Corrections, Leave,
+// Loans) and the kiosk: never Employees, Payroll Periods / Runs, Payslips,
+// Reports, Users or Audit Log. Their API answers match - dashboard.php returns
+// a reduced team payload, and the payroll-only endpoints still require
+// PAYROLL_ROLES, which does not include Supervisor.
 // Users and Audit Log are Administrator only. The kiosk is staff-operated
 // (Payroll Officer, Approver, Supervisor); Employee accounts use the portal.
 //
@@ -46,7 +46,7 @@
 
 // NAV_ACCESS_BEGIN
 const NAV_ACCESS = {
-    "index.html":                  ["Payroll Officer", "Approver"],
+    "index.html":                  ["Payroll Officer", "Approver", "Supervisor"],
     "departments.html":            ["Payroll Officer", "Approver"],
     "positions.html":              ["Payroll Officer", "Approver"],
     "employees.html":              ["Payroll Officer", "Approver"],

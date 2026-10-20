@@ -1,11 +1,9 @@
 <?php
 require __DIR__ . "/_bootstrap.php";
 
-// The dashboard exposes company-wide payroll figures, so only payroll staff
-// (the maker and the checker) may read it - the Administrator is technical
-// only. The kiosk does not call this endpoint (it uses auth.php and
-// scan_attendance.php), so kiosk mode is unaffected.
-requireRole(PAYROLL_ROLES);
+// Payroll staff see the payroll-wide dashboard. A Supervisor gets a separate,
+// team-scoped dashboard with no salary, payslip or company payroll figures.
+requireRole(array_merge(PAYROLL_ROLES, [SUPERVISOR_ROLE]));
 
 if ($_SERVER["REQUEST_METHOD"] !== "GET") {
     respond(false, "Method not allowed.", null, 405);
@@ -13,6 +11,77 @@ if ($_SERVER["REQUEST_METHOD"] !== "GET") {
 
 try {
     $today = date("Y-m-d");
+
+    if (isSupervisor()) {
+        $team = supervisorScopeIds($pdo);
+        $team = $team ?? [];
+        $teamCount = 0;
+        $pendingOt = 0;
+        $pendingLeave = 0;
+        $pendingCorrections = 0;
+        $activeLoans = 0;
+        $todayAttendance = ["present" => 0, "late" => 0, "absent" => 0];
+        $recentOt = [];
+
+        if ($team !== []) {
+            $in = implode(",", array_map("intval", $team));
+
+            $teamCount = (int) $pdo->query(
+                "SELECT COUNT(*) FROM employees WHERE is_active = 1 AND employee_id IN ($in)"
+            )->fetchColumn();
+
+            $pendingOt = (int) $pdo->query(
+                "SELECT COUNT(*) FROM overtime_records WHERE status = 'Pending' AND employee_id IN ($in)"
+            )->fetchColumn();
+
+            $pendingLeave = (int) $pdo->query(
+                "SELECT COUNT(*) FROM leave_requests WHERE status = 'Pending' AND employee_id IN ($in)"
+            )->fetchColumn();
+
+            $pendingCorrections = (int) $pdo->query(
+                "SELECT COUNT(*) FROM attendance_corrections WHERE status = 'Pending' AND employee_id IN ($in)"
+            )->fetchColumn();
+
+            $activeLoans = (int) $pdo->query(
+                "SELECT COUNT(*) FROM loans WHERE status = 'Active' AND employee_id IN ($in)"
+            )->fetchColumn();
+
+            $att = $pdo->query(
+                "SELECT
+                    SUM(CASE WHEN minutes_late = 0 THEN 1 ELSE 0 END) AS present,
+                    SUM(CASE WHEN minutes_late > 0 THEN 1 ELSE 0 END) AS late,
+                    COUNT(*) AS total
+                 FROM attendance WHERE work_date = " . $pdo->quote($today) . "
+                   AND employee_id IN ($in)"
+            )->fetch();
+            $todayAttendance["present"] = (int) ($att["present"] ?? 0);
+            $todayAttendance["late"]    = (int) ($att["late"] ?? 0);
+            $todayAttendance["absent"]  = max(0, $teamCount - (int) ($att["total"] ?? 0));
+
+            $recentOt = $pdo->query(
+                "SELECT ot.ot_id, ot.ot_date, ot.status, ot.requested_start, ot.requested_end,
+                        CONCAT(e.last_name, ', ', e.first_name) AS employee_name
+                 FROM overtime_records ot
+                 JOIN employees e ON e.employee_id = ot.employee_id
+                 WHERE ot.employee_id IN ($in)
+                 ORDER BY ot.ot_id DESC LIMIT 5"
+            )->fetchAll();
+        }
+
+        respond(true, "", [
+            "scope"            => "supervisor",
+            "today"            => $today,
+            "counts"           => [
+                "employees"           => $teamCount,
+                "pending_overtime"    => $pendingOt,
+                "pending_leaves"      => $pendingLeave,
+                "pending_corrections" => $pendingCorrections,
+                "active_loans"        => $activeLoans,
+            ],
+            "today_attendance" => $todayAttendance,
+            "recent_overtime"  => $recentOt,
+        ]);
+    }
 
     // ---- Master counts ----
     $counts = [];

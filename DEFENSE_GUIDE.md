@@ -28,7 +28,7 @@ They are **separate deployments** with **separate PHP sessions** (`admin_sid` / 
 | **Payroll Officer** (maker) | Employees, attendance, leave, overtime queue viewing, loans preparation, payroll periods/runs, payslips, exports | File or approve overtime; **approve overtime or loans**; assign Payroll/Approver roles; open Users or Audit Log |
 | **Approver** (checker) | Approve / return / release payroll; **approve overtime and loans**; approve team requests; view reports | **Edit any amount**; file overtime; run payroll; create Payroll/Approver accounts |
 | **Administrator** (technical) | Create/disable users, assign Employee/Supervisor/Administrator roles, Audit Log | **Any payroll or salary data**; file overtime; assign a Payroll Officer or Approver role; set a payroll-role password |
-| **Supervisor** | **File overtime for their own team**; decide a team overtime request they did **not** file; approve corrections/leave **for their team**; **recommend** loans | Approve their own filed overtime; approve loans; see salaries; approve own requests |
+| **Supervisor** | **Team-scoped Dashboard**; **File overtime for their own team**; decide a team overtime request they did **not** file; approve corrections/leave **for their team**; **recommend** loans | Approve their own filed overtime; approve loans; see salaries; approve own requests |
 | **Employee** | Own data via the portal | The admin app entirely; **filing overtime** |
 
 **Basis:** this is committee-style segregation of duties — the person who *prepares* cannot *approve*.
