@@ -198,7 +198,7 @@ async function initFileForm() {
         const { data } = await api.get("employees_lookup.php");
         const rows = Array.isArray(data.data) ? data.data : [];
         if (!rows.length) {
-            fileEmployee.innerHTML = `<option value="">No team members assigned</option>`;
+            fileEmployee.innerHTML = `<option value="">No team members assigned — ask Payroll to assign your team</option>`;
             fileSubmit.disabled = true;
             return;
         }
