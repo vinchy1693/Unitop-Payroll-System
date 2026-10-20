@@ -13,6 +13,14 @@ Each file is run **exactly once**. Do not re-run old files.
 | 006_employee_bank_fields.sql | Employee payment details for the bank file export: bank_name, bank_account_name, bank_account_number | Applied |
 | 007_attendance_corrections.sql | Attendance correction requests: the queue an employee files into and the maker approves, so a wrong or missing record can be fixed | Applied |
 | 008_supervisor_teams.sql | The Supervisor role: `employees.supervisor_id` (team membership) + `loans.recommended_by/at/recommendation_remarks` (advice only, status untouched) | Applied |
+| 009_holidays.sql | Holiday calendar used for day type, premium pay and holiday OT rates | Applied |
+| 010_one_run_per_period.sql | One payroll run per period | Applied |
+| 011_allowance_taxability.sql | Taxable / non-taxable allowance flag | Applied |
+| 012_scrub_audit_sensitive.sql | Audit redaction for QR values, tokens, bank and government numbers | Applied |
+| 012_seed_users.sql | Seeded demo staff accounts | Applied |
+| 013_premium_ot_request_undertime.sql | Premium pay, overtime request fields and undertime | Applied |
+| 014_qr_tokens.sql | Short-lived, one-time QR tokens for the attendance QR card | Applied |
+| 015_ot_requested_by.sql | `overtime_records.requested_by`: records the Supervisor who filed an OT request | Applied |
 
 ## Payroll approval workflow (005)
 
@@ -317,8 +325,9 @@ with `success: true`.
 | `GET attendance_corrections.php` | full queue | **200**, team only (a filter, not a 403) |
 | `PATCH attendance_corrections.php` | maker decides | **200** for a team member; 403 for another team / own request / no employee link |
 | `GET overtime_records.php` | full queue | **200**, team only (all five query shapes) |
-| `PATCH overtime_records.php` | maker decides | **200** for a team member; 403 otherwise |
-| `POST/PUT/DELETE overtime_records.php` | maker only | **403** |
+| `POST overtime_records.php` | **403** (no filing) | **200** for a team member; 403 for another team / own request / no employee link |
+| `PATCH overtime_records.php` | Approver decides | **200** for a team member's request they did not file; 403 for another team, own request, or a request they filed |
+| `PUT/DELETE overtime_records.php` | maker only | **403** |
 | `GET leave_requests.php` | every request | **200**, team only |
 | `PATCH leave_requests.php` | maker decides | **200** for a team member; 403 otherwise |
 | `POST/PUT/DELETE leave_requests.php` | maker only | **403** |

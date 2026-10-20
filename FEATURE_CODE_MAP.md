@@ -47,7 +47,8 @@ This is a **map, not a line count**. It names the primary file, the function or 
 |---|---|---|---|
 | Departments | `departments.html` | `api/departments.php` | GET `:9`; POST `:36`; PUT `:52`; PATCH `:69` |
 | Positions | `positions.html` | `api/positions.php` | GET `:9`; POST `:31`; PUT `:47`; PATCH `:64` |
-| Employees | `employees.html`, `assets/js/employees.js` | `api/employees.php` | GET `:20`; POST `:43`; PUT `:71`; PATCH `:110` |
+| Employees | `employees.html`, `assets/js/employees.js` | `api/employees.php` | GET `:20`; POST `:43`; PUT `:71`; PATCH `:110`; supervisor_id field |
+| Supervisor team assignment | `employees.html` Supervisor dropdown; `employees.js:9–90` | `api/supervisors_lookup.php`; `employees.php` validation | assigns `employees.supervisor_id` |
 | Salary checker | `employees.html` salary card; `employees.js:32–52` | `api/employee_salary.php:13` | Approver-only; reason ≥10; audited |
 | Users | `users.html`, `users.js` | `api/users.php` | GET `:9`; POST `:22`; PUT `:60`; PATCH `:123` |
 | QR records | `qr_codes.html`, `qr_codes.js` | `api/qr_codes.php` | GET `:9`; POST `:25`; PATCH `:58` |
@@ -83,13 +84,15 @@ This is a **map, not a line count**. It names the primary file, the function or 
 
 | Feature | Primary code | Block |
 |---|---|---|
-| Employee filing | `employee_portal/api/me_overtime_requests.php` | constants `:24–33`; POST `:114`; demo mode `:122–140`; date/window checks `:150–190`; insert/audit `:200+` |
-| Portal form | `employee_portal/attendance.html` OT section; `assets/js/attendance.js` | form/checkbox; submit `:385`; `demo_mode` payload |
+| Employee history (read-only) | `employee_portal/api/me_overtime_requests.php` | GET-only `:10–80`; POST returns 403; `requested_by_name` join |
+| Employee OT history UI | `employee_portal/attendance.html` OT section; `employee_portal/assets/js/attendance.js` | history table `:354–425`; no filing form |
+| Supervisor files a request | `overtime.html` File Overtime Request form; `assets/js/overtime.js:188–258` | `POST api/overtime_records.php`; team selector via `employees_lookup.php` |
 | Admin list / detail | `api/overtime_records.php` | decorate `:29`; select `:72`; GET `:110` |
-| Admin create/update/delete | `api/overtime_records.php` | POST `:207`; PUT `:275`; DELETE `:389` |
-| Approve / reject | `api/overtime_records.php` | PATCH `:342`; Approver/Supervisor; lock check |
-| Kiosk actual OT | `api/scan_attendance.php` | OT branch `:291–435`; window check in helpers |
+| Supervisor POST / create | `api/overtime_records.php` | role `:191–197`; team guard + insert `:209–285`; stores `requested_by` |
+| Approve / reject | `api/overtime_records.php` | PATCH `:360+`; Approver or team Supervisor, but not the requester; lock check |
+| Kiosk actual OT | `api/scan_attendance.php` | OT branch `:291–420`; no auto-filing (`ot_none` / `ot_rejected`) |
 | Window/pay cap | `api/_payroll_helpers.php` | constants `:122–123`; `overtimeWindowViolation :135`; `computeOvertimeHours :109` |
+| Requester provenance | `sql/015_ot_requested_by.sql` | `overtime_records.requested_by` |
 
 **Tables:** `overtime_records`; payslip `overtime_pay`.
 
@@ -222,7 +225,7 @@ All in `api/_payroll_helpers.php`:
 | Payslips (Released only) | `employee_portal/payslips.html`, `employee_portal/assets/js/payslips.js` | `employee_portal/api/me_payslips.php:10–24` list; `:27–59` detail |
 | Attendance history | `employee_portal/attendance.html`, `employee_portal/assets/js/attendance.js` | `employee_portal/api/me_attendance.php` |
 | QR token | `employee_portal/attendance.html` QR card | `employee_portal/api/me_qr.php` |
-| Overtime filing | `employee_portal/attendance.html` OT form, `employee_portal/assets/js/attendance.js:385` | `employee_portal/api/me_overtime_requests.php` |
+| Overtime history | `employee_portal/attendance.html` OT section, `employee_portal/assets/js/attendance.js:354–425` | `employee_portal/api/me_overtime_requests.php` GET-only; POST 403 |
 | Leave | `employee_portal/leave.html`, `employee_portal/assets/js/leave.js` | `employee_portal/api/me_leave_requests.php`, `me_leave_balances.php` |
 | Loans | `employee_portal/loans.html`, `employee_portal/assets/js/loans.js` | `employee_portal/api/me_loans.php` |
 | Corrections | `employee_portal/attendance.html` correction form | `employee_portal/api/me_attendance_corrections.php` |
@@ -251,6 +254,7 @@ All in `api/_payroll_helpers.php`:
 | `012_seed_users.sql` | Seeded demo users |
 | `013_premium_ot_request_undertime.sql` | Premium/OT request/undertime |
 | `014_qr_tokens.sql` | Short-lived QR tokens |
+| `015_ot_requested_by.sql` | Supervisor requester provenance for overtime |
 | `payroll_db_schema.sql` | Current schema snapshot |
 | `payroll_db_recovery.sql` | Schema + data recovery dump |
 

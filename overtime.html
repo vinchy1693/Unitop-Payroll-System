@@ -4,7 +4,7 @@
 <script>(function(){try{var t=localStorage.getItem('unitop-theme');if(!t){t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';}document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Overtime Approvals - UNITOP Payroll System</title>
+<title>Overtime - UNITOP Payroll System</title>
 <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
@@ -43,15 +43,55 @@
 
         <div class="nav-section">Administration</div>
         <a href="audit.html" data-page="audit.html">Audit Log</a>
-        <button type="button" class="theme-toggle" data-theme-toggle>🌙 Dark</button>
+        <button type="button" class="theme-toggle" data-theme-toggle>ðŸŒ™ Dark</button>
     </div>
 </nav>
 <div class="container">
 
-    <h1>Overtime Approvals</h1>
-    <p class="subtitle">Approve or reject overtime requests. Employees file the request from the portal (or the kiosk after clocking out); once approved, the employee clocks overtime in and out, and the hours are computed when they clock out of it.</p>
+    <h1>Overtime</h1>
+    <p class="subtitle">Supervisors file overtime requests for their team. The Approver reviews them; once approved, the employee clocks overtime in and out, and the hours are computed when they clock out.</p>
 
     <div id="msg" class="msg hidden"></div>
+
+    <div class="card hidden" id="file-ot-card">
+        <div class="card-head">
+            <div>
+                <h2 class="card-title">File Overtime Request</h2>
+                <p class="card-sub">Supervisor only. Pick a team member, the overtime date/window and a reason. The employee cannot file overtime from the portal.</p>
+            </div>
+        </div>
+        <form id="file-ot-form">
+            <div class="form-grid">
+                <div class="field">
+                    <label class="field-label" for="file-ot-employee">Employee</label>
+                    <select id="file-ot-employee" required>
+                        <option value="">Loading teamâ€¦</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label class="field-label" for="file-ot-date">Overtime date</label>
+                    <input type="date" id="file-ot-date" required>
+                </div>
+                <div class="field">
+                    <label class="field-label" for="file-ot-start">Requested start</label>
+                    <input type="time" id="file-ot-start" value="18:00" required>
+                </div>
+                <div class="field">
+                    <label class="field-label" for="file-ot-end">Requested end</label>
+                    <input type="time" id="file-ot-end" value="20:00" required>
+                </div>
+            </div>
+            <div class="field" style="margin-bottom:16px;">
+                <label class="field-label" for="file-ot-reason">Reason</label>
+                <textarea id="file-ot-reason" rows="3" maxlength="500" required
+                          placeholder="At least 10 characters, e.g. finishing the month-end close."></textarea>
+            </div>
+            <div class="form-actions">
+                <button class="btn btn-primary" type="submit" id="file-ot-submit">File request</button>
+                <p class="form-note">The day type and rate are derived from the date. The Approver must approve before the employee can clock OT in at the kiosk.</p>
+            </div>
+        </form>
+    </div>
 
     <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;">
         <div>
@@ -60,8 +100,8 @@
             <span style="font-size:13px;color:var(--muted);">pending overtime request(s)</span>
         </div>
         <div style="max-width:520px;font-size:13px;color:var(--muted);line-height:1.55;">
-            Flow: employee files a request from the portal (or the kiosk after clocking out) &rarr; you approve or reject it &rarr; the employee clocks overtime in and out &rarr; the hours become payable.
-            A Pending or Rejected request never reaches payroll. The day type and rate are derived from the date, not typed by the employee.
+            Flow: a Supervisor files a request for a team member &rarr; the Approver decides it &rarr; the employee clocks overtime in and out &rarr; the hours become payable.
+            A Pending or Rejected request never reaches payroll. The day type and rate are derived from the date, not typed by the requester.
         </div>
     </div>
 
@@ -115,7 +155,7 @@
 <script src="assets/js/dialogs.js"></script>
 <script src="assets/js/api.js?v=20261019logout"></script>
 <script src="assets/js/nav.js" onerror="var nl=document.querySelectorAll('nav.sidebar');for(var i=0;i<nl.length;i++)nl[i].classList.remove('nav-locked');"></script>
-<script src="assets/js/overtime.js"></script>
+<script src="assets/js/overtime.js?v=20261020supervisorot2"></script>
 <script src="assets/js/theme.js"></script>
 </body>
 </html>

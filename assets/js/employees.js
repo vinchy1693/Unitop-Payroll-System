@@ -7,7 +7,7 @@ let editId  = null;
 let currentRole = "";
 
 const FIELDS = ["employee_number", "first_name", "last_name", "birth_date", "civil_status",
-                "position_id", "department_id", "date_hired", "employment_status",
+                "position_id", "department_id", "supervisor_id", "date_hired", "employment_status",
                 "basic_salary",
                 "tin_number", "sss_number", "philhealth_number", "pagibig_number",
                 // Payment details: read by the Bank file export. They are only
@@ -55,21 +55,26 @@ function formatMoney(n) {
 
 async function loadDropdowns() {
     try {
-        const [posRes, deptRes] = await Promise.all([
+        const [posRes, deptRes, supRes] = await Promise.all([
             api.get("positions.php", { params: { simple: 1 } }),
             api.get("departments.php", { params: { simple: 1 } }),
+            api.get("supervisors_lookup.php"),
         ]);
         const posSel = document.getElementById("position_id");
         const deptSel = document.getElementById("department_id");
-        const posVal = posSel.value, deptVal = deptSel.value;
+        const supSel = document.getElementById("supervisor_id");
+        const posVal = posSel.value, deptVal = deptSel.value, supVal = supSel.value;
         posSel.innerHTML = `<option value="">-- Select --</option>` +
             posRes.data.data.map((p) => `<option value="${p.id}">${escapeHtml(p.label)}</option>`).join("");
         deptSel.innerHTML = `<option value="">-- Select --</option>` +
             deptRes.data.data.map((d) => `<option value="${d.id}">${escapeHtml(d.label)}</option>`).join("");
+        supSel.innerHTML = `<option value="">-- None --</option>` +
+            (supRes.data.data || []).map((s) => `<option value="${s.id}">${escapeHtml(s.label)}</option>`).join("");
         if (posVal) posSel.value = posVal;
         if (deptVal) deptSel.value = deptVal;
+        if (supVal) supSel.value = supVal;
     } catch (err) {
-        showToast("Could not load position/department lists: " + apiErrorMessage(err), "error");
+        showToast("Could not load dropdown lists: " + apiErrorMessage(err), "error");
     }
 }
 

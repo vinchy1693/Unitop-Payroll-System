@@ -290,7 +290,8 @@ if ($existing["time_out"] === null) {
 
 // ---- 7. Overtime states (only after the shift has ended) --------------
 // The shift is over, so this scan is about overtime. Overtime NEVER creates
-// another attendance row; it lives in overtime_records.
+// another attendance row; it lives in overtime_records. Only a Supervisor may
+// file an overtime request - the kiosk never files one for the employee.
 $stmt = $pdo->prepare(
     "SELECT ot_id, employee_id, ot_date, hours, ot_type, rate_multiplier,
             requested_start, requested_end,
@@ -302,47 +303,20 @@ $stmt = $pdo->prepare(
 $stmt->execute([$empId, $today]);
 $ot = $stmt->fetch();
 
-$fileRequest = function () use ($pdo, $empId, $today, $nowTime) {
-    // The kiosk request is after the shift, so it has no requested end; the
-    // actual block is measured by the OT clock-in/clock-out. The day type and
-    // rate are still derived from the date, not hardcoded to an ordinary day.
-    $dayType    = dayTypeForDate($pdo, $today);
-    $multiplier = overtimeMultiplierForDayType($dayType);
-
-    // A request has no hours and no time_in: those only exist once an admin
-    // has approved it AND the employee has actually started/finished.
-    $stmt = $pdo->prepare(
-        "INSERT INTO overtime_records
-         (employee_id, ot_date, hours, ot_type, rate_multiplier, reason,
-          requested_start, requested_end, day_type, status, time_in, time_out,
-          requested_at, approved_by, approved_at)
-         VALUES (?, ?, NULL, ?, ?, ?, ?, NULL, ?, 'Pending', NULL, NULL, ?, NULL, NULL)"
-    );
-    $requestedAt = $today . " " . $nowTime;
-    $stmt->execute([
-        $empId, $today, $dayType, $multiplier,
-        "Kiosk overtime request filed after the shift.",
-        $nowTime, $dayType, $requestedAt,
-    ]);
-    return (int) $pdo->lastInsertId();
-};
-
-// 7a. No request yet, or the last block is finished: file a new request.
+// 7a. No request yet, or the last block is finished: never create one here.
 if (!$ot || $ot["status"] === "Completed"
     || ($ot["status"] === "Approved" && $ot["time_in"] !== null && $ot["time_out"] !== null)) {
-    $otId = $fileRequest();
-
-    $consumeToken();
-    $rememberScan("ot_request");
-    $guardData["action"]       = "ot_request";
-    $guardData["ot_id"]        = $otId;
-    $guardData["status"]       = "Pending";
-    $guardData["requested_at"] = $today . " " . $nowTime;
-
-    respond(true, "Overtime request submitted - waiting for approval.", $guardData);
+    $rememberScan("ot_none");
+    $guardData["action"] = "ot_none";
+    respond(
+        false,
+        "No approved overtime request for this date. Ask your supervisor to file one.",
+        $guardData,
+        409
+    );
 }
 
-// 7b. Still waiting for the admin: refuse, and never start overtime.
+// 7b. Still waiting for the Approver: refuse, and never start overtime.
 if ($ot["status"] === "Pending") {
     $rememberScan("ot_pending");
     $guardData["action"] = "ot_pending";
@@ -352,19 +326,20 @@ if ($ot["status"] === "Pending") {
     respond(false, "Your overtime request is still awaiting approval.", $guardData, 409);
 }
 
-// 7c. Rejected: never start overtime, but let the employee file a fresh
-// request with this same scan so a rejection is not a dead end.
+// 7c. Rejected: never start overtime. The kiosk cannot re-file it; only the
+// employee's Supervisor can submit a new request.
 if ($ot["status"] === "Rejected") {
-    $otId = $fileRequest();
-
-    $consumeToken();
     $rememberScan("ot_rejected");
-    $guardData["action"]       = "ot_rejected";
-    $guardData["ot_id"]        = $otId;
-    $guardData["rejected_ot_id"] = (int) $ot["ot_id"];
-    $guardData["status"]       = "Pending";
+    $guardData["action"]          = "ot_rejected";
+    $guardData["rejected_ot_id"]  = (int) $ot["ot_id"];
+    $guardData["status"]          = "Rejected";
 
-    respond(true, "Your overtime request was not approved. A new request has been submitted - waiting for approval.", $guardData);
+    respond(
+        false,
+        "This overtime request was rejected. Ask your supervisor to file a new one.",
+        $guardData,
+        409
+    );
 }
 
 // 7d. Approved but not started: this scan starts the overtime.
@@ -433,13 +408,12 @@ if ($ot["status"] === "Approved" && $ot["time_in"] !== null && $ot["time_out"] =
     respond(true, $message, $guardData);
 }
 
-// ---- 8. Anything else (unknown legacy state) files a fresh request ----
-$otId = $fileRequest();
-
-$rememberScan("ot_request");
-$guardData["action"]       = "ot_request";
-$guardData["ot_id"]        = $otId;
-$guardData["status"]       = "Pending";
-$guardData["requested_at"] = $today . " " . $nowTime;
-
-respond(true, "Overtime request submitted - waiting for approval.", $guardData);
+// ---- 8. Anything else (unknown legacy state) is not created by the kiosk ----
+$rememberScan("ot_unknown");
+$guardData["action"] = "ot_unknown";
+respond(
+    false,
+    "No actionable overtime request for this date. Ask your supervisor to file one.",
+    $guardData,
+    409
+);

@@ -15,17 +15,36 @@ require __DIR__ . "/_bootstrap.php";
 
 // The technical admin needs this to assign roles; the payroll roles already
 // have the full employees.php.
-requireRole(array_merge(ADMIN_ROLES, PAYROLL_ROLES));
+// The technical admin needs this to assign roles; the payroll roles already
+// have the full employees.php. A Supervisor may use it to file overtime, but
+// only sees their own team (the scope is applied below).
+requireRole(array_merge(ADMIN_ROLES, PAYROLL_ROLES, [SUPERVISOR_ROLE]));
 
 if ($_SERVER["REQUEST_METHOD"] !== "GET") {
     respond(false, "Method not allowed.", null, 405);
 }
 
-$rows = $pdo->query(
-    "SELECT employee_id, employee_number, first_name, last_name, is_active
-     FROM employees
-     ORDER BY last_name, first_name"
-)->fetchAll();
+if (isSupervisor()) {
+    $scope = supervisorScopeIds($pdo);
+    if ($scope === []) {
+        respond(true, "", []);
+    }
+    $placeholders = implode(",", array_fill(0, count($scope), "?"));
+    $stmt = $pdo->prepare(
+        "SELECT employee_id, employee_number, first_name, last_name, is_active
+         FROM employees
+         WHERE employee_id IN ($placeholders) AND is_active = 1
+         ORDER BY last_name, first_name"
+    );
+    $stmt->execute($scope);
+    $rows = $stmt->fetchAll();
+} else {
+    $rows = $pdo->query(
+        "SELECT employee_id, employee_number, first_name, last_name, is_active
+         FROM employees
+         ORDER BY last_name, first_name"
+    )->fetchAll();
+}
 
 $out = [];
 foreach ($rows as $r) {

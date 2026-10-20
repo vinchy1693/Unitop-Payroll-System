@@ -1,10 +1,10 @@
 // =====================================================================
 // assets/js/overtime.js
-// Admin overtime approval queue.
+// Admin overtime page.
 //
-// This page no longer creates overtime by hand. It lists the requests
-// employees file from the kiosk and lets an admin approve or reject the
-// Pending ones. Hours are filled in by the employee's overtime clock-out.
+// A Supervisor files a request for a team member; the Approver approves or
+// rejects it. Employees cannot file overtime. Hours are filled in by the
+// employee's overtime clock-out at the kiosk.
 // =====================================================================
 
 const rowsEl        = document.getElementById("rows");
@@ -13,16 +13,27 @@ const pendingEl     = document.getElementById("pending-count");
 const filterStatus  = document.getElementById("filter-status");
 const filterDate    = document.getElementById("filter-date");
 const clearDateBtn  = document.getElementById("clear-date");
+const fileCard      = document.getElementById("file-ot-card");
+const fileForm      = document.getElementById("file-ot-form");
+const fileEmployee  = document.getElementById("file-ot-employee");
+const fileDate      = document.getElementById("file-ot-date");
+const fileStart     = document.getElementById("file-ot-start");
+const fileEnd       = document.getElementById("file-ot-end");
+const fileReason    = document.getElementById("file-ot-reason");
+const fileSubmit    = document.getElementById("file-ot-submit");
 
 let currentRows = [];
 let currentRole = "";
+let currentUsername = "";
 
 async function loadCurrentRole() {
     try {
         const { data } = await api.get("auth.php?action=me");
         currentRole = data.data?.role || "";
+        currentUsername = data.data?.username || "";
     } catch (_) {
         currentRole = "";
+        currentUsername = "";
     }
 }
 
@@ -77,9 +88,13 @@ function renderRows(rows) {
 
     rowsEl.innerHTML = rows.map((r) => {
         const canDecide = r.status === "Pending"
-            && (currentRole === "Approver" || currentRole === "Supervisor");
+            && (currentRole === "Approver"
+                || (currentRole === "Supervisor" && r.requested_by_name !== currentUsername));
         const decidedBy = r.approved_by_name
             ? `<div style="font-size:11px;color:var(--muted);">by ${escapeHtml(r.approved_by_name)}</div>`
+            : "";
+        const filedBy = r.requested_by_name
+            ? `<div style="font-size:11px;color:var(--muted);">filed by ${escapeHtml(r.requested_by_name)}</div>`
             : "";
         const actions = canDecide
             ? `<button class="btn btn-restore" data-approve="${r.ot_id}">Approve</button>
@@ -95,6 +110,7 @@ function renderRows(rows) {
             <td class="col-center" style="white-space:nowrap;">${escapeHtml(r.day_type || r.ot_type)}<br><span style="color:var(--muted);font-size:11px;">${Number(r.rate_multiplier).toFixed(2)}x</span></td>
             <td class="col-center" style="white-space:nowrap;">${formatTime(r.requested_start)} &ndash; ${formatTime(r.requested_end)}
                 <div style="margin-top:3px;font-size:11px;color:var(--muted);">filed ${formatDateTime(r.requested_at)}</div>
+                ${filedBy}
             </td>
             <td class="col-center">${formatTime(r.time_in)}</td>
             <td class="col-center">${formatTime(r.time_out)}</td>
@@ -144,7 +160,7 @@ async function decide(id, action) {
     const verb = action === "approve" ? "Approve" : "Reject";
     const detail = action === "approve"
         ? "The employee will then be able to start and end the overtime with their QR code."
-        : "It stays visible as Rejected and is excluded from payroll. The employee can file a new request.";
+        : "It stays visible as Rejected and is excluded from payroll. The Supervisor can file a new request.";
 
     if (!await confirmDialog(
         `${verb} ${row.employee_name}'s overtime request for ${row.ot_date}?\n\n${detail}`,
@@ -160,6 +176,92 @@ async function decide(id, action) {
     }
 }
 
+function ymd(date) {
+    return [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, "0"),
+        String(date.getDate()).padStart(2, "0"),
+    ].join("-");
+}
+
+async function initFileForm() {
+    if (!fileCard) return;
+    if (currentRole !== "Supervisor") {
+        fileCard.classList.add("hidden");
+        return;
+    }
+
+    fileCard.classList.remove("hidden");
+    fileDate.value = ymd(new Date());
+
+    try {
+        const { data } = await api.get("employees_lookup.php");
+        const rows = Array.isArray(data.data) ? data.data : [];
+        if (!rows.length) {
+            fileEmployee.innerHTML = `<option value="">No team members assigned</option>`;
+            fileSubmit.disabled = true;
+            return;
+        }
+        fileEmployee.innerHTML = `<option value="">Select a team member</option>` +
+            rows.map((e) => `<option value="${e.employee_id}">${escapeHtml(e.label)}</option>`).join("");
+        fileSubmit.disabled = false;
+    } catch (err) {
+        fileEmployee.innerHTML = `<option value="">Failed to load team: ${escapeHtml(apiErrorMessage(err))}</option>`;
+        fileSubmit.disabled = true;
+    }
+}
+
+if (fileForm) {
+    fileForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const employeeId = Number(fileEmployee.value || 0);
+        const otDate     = fileDate.value;
+        const start      = fileStart.value;
+        const end        = fileEnd.value;
+        const reason     = (fileReason.value || "").trim();
+
+        if (!employeeId || !otDate || !start || !end) {
+            await alertDialog("Pick the team member, overtime date, start and end.", "warning");
+            return;
+        }
+        if (end <= start) {
+            await alertDialog("The requested end must be after the requested start.", "warning");
+            return;
+        }
+        if (reason.length < 10) {
+            await alertDialog("Please describe the reason in at least 10 characters.", "warning");
+            return;
+        }
+
+        const employeeLabel = fileEmployee.options[fileEmployee.selectedIndex]?.text || "this employee";
+        if (!await confirmDialog(
+            `File overtime for ${employeeLabel} on ${otDate}, ${start} to ${end}?`,
+            { title: "File Overtime Request", icon: "question", confirmText: "File Request" }
+        )) return;
+
+        fileSubmit.disabled = true;
+        try {
+            const { data } = await api.post("overtime_records.php", {
+                employee_id: employeeId,
+                ot_date: otDate,
+                requested_start: start,
+                requested_end: end,
+                reason: reason,
+            });
+            showToast(data.message, "success");
+            fileForm.reset();
+            fileDate.value = ymd(new Date());
+            fileStart.value = "18:00";
+            fileEnd.value = "20:00";
+            await Promise.all([loadRows(), loadPendingCount()]);
+        } catch (err) {
+            showToast(apiErrorMessage(err), "error");
+        } finally {
+            fileSubmit.disabled = false;
+        }
+    });
+}
+
 filterStatus.addEventListener("change", loadRows);
 filterDate.addEventListener("change", () => {
     clearDateBtn.classList.toggle("hidden", !filterDate.value);
@@ -173,6 +275,7 @@ clearDateBtn.addEventListener("click", () => {
 
 document.addEventListener("DOMContentLoaded", async () => {
     await loadCurrentRole();
+    await initFileForm();
     loadPendingCount();
     loadRows();
 });

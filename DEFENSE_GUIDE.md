@@ -25,11 +25,11 @@ They are **separate deployments** with **separate PHP sessions** (`admin_sid` / 
 
 | Role | Can | **Cannot** |
 |---|---|---|
-| **Payroll Officer** (maker) | Employees, attendance, leave, overtime preparation, loans preparation, payroll periods/runs, payslips, exports | Approve payroll; **approve overtime or loans**; assign Payroll/Approver roles; open Users or Audit Log |
-| **Approver** (checker) | Approve / return / release payroll; **approve overtime and loans**; approve team requests; view reports | **Edit any amount**; run payroll; create Payroll/Approver accounts |
-| **Administrator** (technical) | Create/disable users, assign Employee/Supervisor/Administrator roles, Audit Log | **Any payroll or salary data**; assign a Payroll Officer or Approver role; set a payroll-role password |
-| **Supervisor** | Approve corrections/overtime/leave **for their own team only**; **recommend** loans | Approve loans; see salaries; approve own requests |
-| **Employee** | Own data via the portal | The admin app entirely |
+| **Payroll Officer** (maker) | Employees, attendance, leave, overtime queue viewing, loans preparation, payroll periods/runs, payslips, exports | File or approve overtime; **approve overtime or loans**; assign Payroll/Approver roles; open Users or Audit Log |
+| **Approver** (checker) | Approve / return / release payroll; **approve overtime and loans**; approve team requests; view reports | **Edit any amount**; file overtime; run payroll; create Payroll/Approver accounts |
+| **Administrator** (technical) | Create/disable users, assign Employee/Supervisor/Administrator roles, Audit Log | **Any payroll or salary data**; file overtime; assign a Payroll Officer or Approver role; set a payroll-role password |
+| **Supervisor** | **File overtime for their own team**; decide a team overtime request they did **not** file; approve corrections/leave **for their team**; **recommend** loans | Approve their own filed overtime; approve loans; see salaries; approve own requests |
+| **Employee** | Own data via the portal | The admin app entirely; **filing overtime** |
 
 **Basis:** this is committee-style segregation of duties — the person who *prepares* cannot *approve*.
 
@@ -348,25 +348,25 @@ AND time_in IS NOT NULL AND time_out IS NOT NULL
 |---|---|---|
 | 1 | no attendance today | **clock IN** |
 | 2 | clocked in, no clock-out | **clock OUT** |
-| 3 | already clocked out | **overtime REQUEST** — `Pending`, no attendance row |
+| 3 | already clocked out, no OT request | **refused** — "No approved overtime request… ask your supervisor" |
 | 3b | request still Pending | **refused** — "still awaiting approval", no duplicate |
-| 3c | request Rejected | refuses the clock-in, files a **fresh** request |
+| 3c | request Rejected | **refused** — the kiosk never re-files; the Supervisor must file a new request |
 | 4 | request **Approved** | **overtime clock-IN** |
 | 5 | approved + started | **overtime clock-OUT** — hours computed, `Completed` |
 
 > **Approval gates the work, not just the payment.** Hours are measured only from the approved block's `time_in` to `time_out` — staying late without approval is not recorded or paid. That is the system's control; legally, work actually rendered is generally compensable, so this is the one control to align with company policy (see §11).
 
-The employee can also file the request from the **portal attendance page** with a date, requested window and reason — the preferred path for planned overtime. The kiosk remains the time clock: after approval, the employee scans for OT clock-in and clock-out. The day type and rate are derived on the server either way.
+**Only a Supervisor files overtime**, and only for a member of their own team, from **Admin → Overtime → File Overtime Request**. The employee portal is read-only: it lists the requests filed for the employee, but `POST me_overtime_requests.php` returns **403**. The kiosk never creates an overtime request after clock-out; it only consumes an already-approved request.
 
-**The kiosk enforces the approved window.** OT clock-in is refused more than 5 minutes before `requested_start` or after `requested_end`; OT clock-out is refused more than 5 minutes before `requested_end`. A clock-out after the approved end is recorded, but the paid hours stop at the approved end — the response carries `capped: true` and the message says so; the excess needs a new/extended request. Rows with no requested end (the kiosk's after-shift fallback) keep the old behaviour.
+**The kiosk enforces the approved window.** OT clock-in is refused more than 5 minutes before `requested_start` or after `requested_end`; OT clock-out is refused more than 5 minutes before `requested_end`. A clock-out after the approved end is recorded, but the paid hours stop at the approved end — the response carries `capped: true` and the message says so; the excess needs a new/extended request.
 
 The kiosk is **staff-operated and on-site**. Employees do **not** type their code in the portal: the old portal "Record attendance" fallback was removed, and `employee_portal/api/me_scan_attendance.php` now returns **403**. `api/scan_attendance.php` also requires a staff role (`TEAM_QUEUE_ROLES`), so an Employee who logs into the admin app cannot use `kiosk.html` from home either. The staff kiosk's manual code field remains for a broken camera at the office.
 
-**Who decides OT:** the **Approver** or the employee's **Supervisor** (PATCH allows `CHECKER_ROLES + SUPERVISOR_ROLE`). The Payroll Officer prepares/edits the request but cannot approve it; the UI hides the buttons for that role.
+**Who decides OT:** the **Approver**, or a **Supervisor for a team request they did not file**. The Supervisor who filed it cannot approve it; the Payroll Officer cannot file or approve it. The UI hides the Approve/Reject buttons for everyone else, and for a Supervisor's own filed row.
 
 A **Demo mode** strip (collapsed by default, red when on) lets a demonstration supply a date and time; both are validated. It is **maker-only** (`requireRole(MAKER_ROLES)`), so an Employee, Approver, Supervisor or Administrator gets **403**, and `ALLOW_DEMO_SCANS` in `api/_bootstrap.php` can disable it outright for a real deployment.
 
-The portal overtime form has a separate **Demo mode** checkbox for a same-day window that has already passed, or a past date up to 30 days back. It is accepted only while `ALLOW_DEMO_OT` is true in `employee_portal/api/me_overtime_requests.php`; set it to **false** in production, otherwise an employee can file retroactive overtime. Normal reason/time/order/open-request checks still apply.
+The employee portal no longer has an overtime filing form or a demo-OT checkbox. `employee_portal/api/me_overtime_requests.php` is **GET-only** for the employee's history and returns **403** on POST: the Supervisor must file the request in the admin Overtime page.
 
 The attendance page also has a **Demo date** field for the QR card. It sends `demo_date` to `employee_portal/api/me_qr.php` so the portal can show **Clock out** after a kiosk Demo Mode clock-in on that simulated date. It is accepted only while `ALLOW_DEMO_QR_DATE` is true in `me_qr.php`; set it to **false** in production. The date must match the kiosk's Demo Mode date.
 
@@ -472,7 +472,7 @@ One hook in `api/_bootstrap.php`, inside `respond()`:
 | **Session cookies** | `HttpOnly`, `SameSite=Lax`, and `Secure` whenever the site is on HTTPS. `admin_sid` and `portal_sid` are separate names. |
 | **Errors** | `display_errors=0`; uncaught exceptions and PDO failures return a neutral **500** and the detail goes to the server log. No SQL, schema or credential text reaches the browser. |
 | Demo scans | Maker-only, and `ALLOW_DEMO_SCANS` can turn the branch off. |
-| Portal OT demo mode | `ALLOW_DEMO_OT` must be **false** in production; when true, an employee can file a past overtime date/window (up to 30 days back) for testing. |
+| OT filing | Supervisor-only; the portal has no OT POST and the kiosk never creates an OT request. |
 
 ### Maker cannot approve their own payroll
 
@@ -591,8 +591,8 @@ Public holidays in the `holidays` table are **excluded from expected working day
 
 1. **Login `payroll`** → Employees (contact + bank fields), Payroll Periods (pay date auto-fills: 20th / 5th next month)
 2. **Kiosk** → scan or type QR → **clock in → clock out** (the time clock)
-3. **Portal on the phone → Attendance → Request overtime** → date, requested window, reason → **the server shows the day type and rate** (e.g. 2026-12-25 = Regular Holiday, 2.60x)
-4. **Overtime page as `approver`** → approve; the row shows the reason, requested window and derived day type. (The Payroll Officer can prepare it but gets 403 on approve.)
+3. **Login `supervisor`** → Overtime → **File Overtime Request** → pick the team member, date, requested window and reason → **the server shows the day type and rate** (e.g. 2026-12-25 = Regular Holiday, 2.60x)
+4. **Login `approver`** → Overtime → approve the request; the row shows who filed it, the reason, requested window and derived day type. (The Supervisor who filed it gets 403 on approve.)
 5. **Kiosk** → **overtime clock-in → overtime clock-out** → hours computed
 6. **Portal → Attendance → Request a correction** → submit
 7. **Corrections page as `payroll`** → approve → `minutes_late` recomputes
@@ -617,7 +617,7 @@ Public holidays in the `holidays` table are **excluded from expected working day
 | Public holidays excluded from working days | `api/_payroll_helpers.php` → `countHolidaysInRange()`; `sql/009_holidays.sql` |
 | Day types, premium pay, day-type OT multiplier | `api/_payroll_helpers.php` → `dayTypeForDate()`, `computePremiumPay()`, `overtimeMultiplierForDayType()`; `sql/013_premium_ot_request_undertime.sql` |
 | Undertime deduction | `api/_payroll_helpers.php` → `computeAttendanceDeductions()` |
-| OT request reason / window / portal form | `api/overtime_records.php`, `employee_portal/api/me_overtime_requests.php` |
+| OT request reason / window / supervisor filing | `api/overtime_records.php` (POST Supervisor-only); `employee_portal/api/me_overtime_requests.php` (GET-only) |
 | Taxable / non-taxable allowances | `api/_payroll_helpers.php` → `recomputePayslipTotals()`; `sql/011_allowance_taxability.sql` |
 | Payroll assembly, maker/checker, lock | `api/payroll_runs.php` |
 | Void + reprocess (the formal adjustment) | `api/payroll_void.php` |

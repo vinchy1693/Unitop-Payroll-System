@@ -6,7 +6,7 @@ requireRole(PAYROLL_ROLES);   // maker + checker may read
 $method = $_SERVER["REQUEST_METHOD"];
 
 $fields = ["employee_number", "first_name", "last_name", "birth_date", "civil_status",
-           "position_id", "department_id", "date_hired", "employment_status",
+           "position_id", "department_id", "supervisor_id", "date_hired", "employment_status",
            "basic_salary",
            "tin_number", "sss_number", "philhealth_number", "pagibig_number",
            // Payment details: used by api/bank_file.php?format=bank. MAKER-writable
@@ -51,6 +51,15 @@ if ($method === "POST") {
     if ($vals["basic_salary"] === "" || (float) $vals["basic_salary"] <= 0) {
         respond(false, "Basic Salary is required and must be greater than zero.", null, 422);
     }
+    if ($vals["supervisor_id"] !== "") {
+        $sup = $pdo->prepare(
+            "SELECT 1 FROM users WHERE employee_id = ? AND role = 'Supervisor' AND is_active = 1"
+        );
+        $sup->execute([(int) $vals["supervisor_id"]]);
+        if (!$sup->fetchColumn()) {
+            respond(false, "The selected supervisor is not an active Supervisor account.", null, 422);
+        }
+    }
 
     try {
         $placeholders = implode(",", array_fill(0, count($fields), "?"));
@@ -79,6 +88,18 @@ if ($method === "PUT") {
     }
     if ($vals["basic_salary"] === "" || (float) $vals["basic_salary"] <= 0) {
         respond(false, "Basic Salary is required and must be greater than zero.", null, 422);
+    }
+    if ($vals["supervisor_id"] !== "") {
+        if ((int) $vals["supervisor_id"] === $id) {
+            respond(false, "An employee cannot be their own supervisor.", null, 422);
+        }
+        $sup = $pdo->prepare(
+            "SELECT 1 FROM users WHERE employee_id = ? AND role = 'Supervisor' AND is_active = 1"
+        );
+        $sup->execute([(int) $vals["supervisor_id"]]);
+        if (!$sup->fetchColumn()) {
+            respond(false, "The selected supervisor is not an active Supervisor account.", null, 422);
+        }
     }
 
     $currentStmt = $pdo->prepare("SELECT basic_salary FROM employees WHERE employee_id = ?");
