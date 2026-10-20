@@ -24,6 +24,8 @@ function formatMoney(n) {
 }
 
 function isSupervisor() { return !!currentUser && currentUser.role === "Supervisor"; }
+function isMaker() { return !!currentUser && currentUser.role === "Payroll Officer"; }
+function isApprover() { return !!currentUser && currentUser.role === "Approver"; }
 
 function getEmployeeLabel() {
     const sel = document.getElementById("employee_id");
@@ -77,17 +79,21 @@ function renderRows(rows) {
 
         let actions = "";
         if (isActive) {
-            actions = `
-                <button class="btn btn-edit" data-edit="${r.loan_id}">Edit</button>
-                <button class="btn btn-delete" data-cancel="${r.loan_id}">Cancel</button>
-            `;
+            actions = isMaker()
+                ? `<button class="btn btn-edit" data-edit="${r.loan_id}">Edit</button>
+                   <button class="btn btn-delete" data-cancel="${r.loan_id}">Cancel</button>`
+                : `<span style="color:#888;font-size:12px;">&mdash;</span>`;
         } else if (r.status === "Cancelled") {
-            actions = `<button class="btn btn-restore" data-restore="${r.loan_id}">Reactivate</button>`;
+            actions = isMaker()
+                ? `<button class="btn btn-restore" data-restore="${r.loan_id}">Reactivate</button>`
+                : `<span style="color:#888;font-size:12px;">&mdash;</span>`;
         } else if (r.status === "Pending" && isSupervisor()) {
             // Advice only: the Approver still decides.
             actions = `<button class="btn btn-edit" data-recommend="${r.loan_id}">Recommend</button>`;
+        } else if (r.status === "Pending" && isApprover()) {
+            actions = `<button class="btn btn-restore" data-approve="${r.loan_id}">Approve</button>`;
         } else {
-            actions = `<span style="color:#888;font-size:12px;">Closed</span>`;
+            actions = `<span style="color:#888;font-size:12px;">&mdash;</span>`;
         }
 
         const recommendation = r.has_recommendation
@@ -120,6 +126,9 @@ function renderRows(rows) {
     });
     rowsEl.querySelectorAll("[data-recommend]").forEach((btn) => {
         btn.addEventListener("click", () => recommendLoan(Number(btn.dataset.recommend)));
+    });
+    rowsEl.querySelectorAll("[data-approve]").forEach((btn) => {
+        btn.addEventListener("click", () => approveLoan(Number(btn.dataset.approve)));
     });
 }
 
@@ -232,6 +241,27 @@ async function recommendLoan(loanId) {
     }
 }
 
+async function approveLoan(loanId) {
+    const row = (await api.get("loans.php")).data.data.find((r) => Number(r.loan_id) === loanId);
+    const who = row ? `${row.employee_name} (${row.loan_type}, ${formatMoney(row.principal_amount)})` : "this loan";
+
+    if (!await confirmDialog(
+        `Approve ${who}? It will become Active and will be deducted from future payroll runs.`,
+        { title: "Approve Loan", icon: "question", confirmText: "Approve" }
+    )) return;
+
+    try {
+        const { data } = await api.patch("loans.php", {
+            loan_id: loanId,
+            action: "approve",
+        });
+        showToast(data.message, "success");
+        await loadRows();
+    } catch (err) {
+        showToast(apiErrorMessage(err), "error");
+    }
+}
+
 async function setStatus(id, status) {
     const isCancel = status === "Cancelled";
     const verb = isCancel ? "Cancel" : "Reactivate";
@@ -266,13 +296,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         currentUser = null;
     }
 
-    if (isSupervisor()) {
-        // A Supervisor cannot create or edit loans, and employees.php is
-        // closed to them, so the add form and its employee lookup are hidden.
+    if (isMaker()) {
+        loadEmployeeOptions();
+    } else {
+        // The add/edit form is maker-only; Approver and Supervisor use actions
+        // on the queue instead.
         const addCard = formTitle ? formTitle.closest(".card") : null;
         if (addCard) addCard.classList.add("hidden");
-    } else {
-        loadEmployeeOptions();
     }
 
     await loadRows();
