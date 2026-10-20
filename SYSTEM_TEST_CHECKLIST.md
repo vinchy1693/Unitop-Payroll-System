@@ -3,7 +3,7 @@
 **Scope:** everything except master-data setup (Departments, Positions, Employees, Users).
 **Order:** Part A happy path → Part B error tests → Part C locks → Part D “if this / then that”.
 
-**Current fixture:** Employee **4 — Vinchy Fantonial**, QR code **1 Active**, period **#1 Processed**, run **#1 Released**, no OT/leave/loan rows, **no supervisor team link**.
+**Current fixture:** Employee **4 — Vinchy Fantonial**, **no QR codes**, **no periods/runs/payslips**, **no attendance**, no OT/leave/loan rows, **no supervisor team link**.
 
 Legend: `P` = Payroll Officer, `A` = Approver, `S` = Supervisor, `E` = Employee, `Adm` = Administrator.
 
@@ -18,10 +18,10 @@ These are fixtures, not setup-screen tests. The Supervisor OT flow cannot run wi
   C:\xampp\mysql\bin\mysqldump.exe -u root --databases --result-file=C:\xampp\master_file_tests\before_full_system_test.sql payroll_db
   ```
 - [ ] **P1. Assign Employee 4 to Supervisor 168** — Login `P` → Employees → Edit Vinchy → **Supervisor = supervisor famacion** → Save.
-- [ ] **P2. Only if you are testing the payroll-run path (A8): create an Open period covering the test date** — Payroll → New Period → e.g. `2026-10-16` to `2026-10-31`.
-  - Current fixture has **0 Open periods**; period #1 is `Processed` and run #1 is `Released`.
-  - If you skip P2, skip **A8.1–A8.7** and record “payroll run not tested”; you can still use run #1 for A8.8–A8.10, A9 and A10.
-- [ ] **P3. Confirm Employee 4 has an Active QR** — QR Codes page shows code `1`, status **Active**.
+- [ ] **P2. Create an Open period covering the test date — required for A8** — Payroll → New Period → e.g. `2026-10-16` to `2026-10-31`.
+  - Current fixture has **0 periods and 0 runs** after the reset.
+- [ ] **P3. Generate an Active QR for Employee 4** — QR Codes → Generate → status **Active**.
+  - Current fixture has **0 QR codes** after the reset.
 - [ ] **P4. Confirm current date has no attendance row for Employee 4** — Attendance page, today’s date, 0 records.
 
 > If your test date is not 2026-10-20, use that date everywhere below and create the period around it.
@@ -35,7 +35,8 @@ Do not jump ahead. Each step assumes the previous one passed.
 ## A1. Login, dashboard and navigation
 
 - [ ] **A1.1** Login as `P` → Dashboard loads.
-- [ ] **A1.2** Dashboard shows **4 active employees** and **0 Open periods** on the current fixture; period #1 is **Processed** and run #1 is **Released**.
+- [ ] **A1.2** Dashboard shows **4 active employees**, **0 Open periods**, and **no payroll runs** on the reset fixture.
+  - After P2, it should show **1 Open period**.
   - If P2 was completed, the dashboard should instead show **1 Open period**.
 - [ ] **A1.3** Sidebar links open without “You do not have access” for `P`.
 - [ ] **A1.4** Login as `A` in a second browser/profile → Dashboard loads; Approver sees approval queue.
@@ -100,7 +101,7 @@ Use a **future non-working test date** so it does not conflict with the payroll 
 ## A8. Payroll run → approval → release
 
 - [ ] **A8.1** `P` → Payroll → Process the Open period.
-  - **If P2 was skipped:** mark A8.1–A8.7 as “not tested — no Open period”, then continue at A8.8 using run #1.
+  - There is no existing run after the reset, so this step requires P2.
 - [ ] **A8.2** Run status becomes **Submitted**; period status becomes **For Approval**.
 - [ ] **A8.3** Portal `E` → Payslips does **not** show this run yet.
 - [ ] **A8.4** `A` → Payroll Runs → **Approve** the run.
@@ -346,4 +347,4 @@ Do these **after** the payroll run is at least **Approved**. Repeat key ones aft
   ```powershell
   C:\xampp\mysql\bin\mysql.exe -u root payroll_db < C:\xampp\master_file_tests\before_full_system_test.sql
   ```
-- [ ] **E5.** Confirm final counts/states: employees 4, users 6, QR code 1 Active, one Released run, no unintended test rows.
+- [ ] **E5.** Confirm final counts/states. If you restored the backup, employees 4, users 6, and the pre-test state; otherwise record the tested rows (attendance, QR, period/run/payslip) and confirm no unintended fixtures remain.
