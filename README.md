@@ -13,6 +13,13 @@ version into a proper split frontend/backend:
   the API with **axios** and render the DOM in JavaScript. No page
   reloads for create/update/deactivate/restore.
 
+## Documentation
+
+- [DEFENSE_GUIDE.md](DEFENSE_GUIDE.md) — defence script, formulas and limitations.
+- [DEFENCE_CHECKLIST.md](DEFENCE_CHECKLIST.md) — demo checklist.
+- [FEATURE_CODE_MAP.md](FEATURE_CODE_MAP.md) — where each feature is implemented
+  (files, blocks and approximate line ranges; not a LOC claim).
+
 ## Setup
 
 1. Make sure your base payroll schema (the `CREATE TABLE ...` script

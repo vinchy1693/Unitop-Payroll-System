@@ -627,6 +627,7 @@ Public holidays in the `holidays` table are **excluded from expected working day
 | Leave rules, overlap, balance | `api/leave_requests.php`, `api/me_leave_requests.php` |
 | Attendance corrections + recompute | `api/attendance_corrections.php` |
 | Audit hook | `api/_bootstrap.php` → `respond()` |
+| Feature → code map | `FEATURE_CODE_MAP.md` |
 | Audit redaction (QR / token / bank / govt numbers) | `api/_bootstrap.php` → `audit_is_secret_key()`; `sql/012_scrub_audit_sensitive.sql` |
 | CSRF, session cookie flags, safe errors | `api/_bootstrap.php` (admin) and `employee_portal/api/_bootstrap.php` |
 | Short-lived QR tokens | `employee_portal/api/me_qr.php`, `api/scan_attendance.php`, `employee_portal/attendance.html`; `sql/014_qr_tokens.sql` |
