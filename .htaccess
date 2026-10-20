@@ -15,3 +15,6 @@
     RewriteEngine On
     RewriteRule ^(backups|tests|sql|reports|\.git)(/|$) - [F,L,NC]
 </IfModule>
+
+# Serve HTML/JS/CSS as UTF-8 even when Apache has no charset in the header.
+AddDefaultCharset UTF-8

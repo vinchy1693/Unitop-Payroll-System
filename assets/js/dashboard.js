@@ -43,6 +43,17 @@ function formatLongDate(value) {
     return weekday + ", " + pad2(p.d) + " " + DASH_MONTHS[p.m - 1] + " " + p.y;
 }
 
+// "18:00:00" -> "6:00 PM"
+function formatClock(value) {
+    if (!value) return "—";
+    const m = String(value).match(/^(\d{1,2}):(\d{2})/);
+    if (!m) return String(value);
+    let h = Number(m[1]);
+    const suffix = h >= 12 ? "PM" : "AM";
+    h = h % 12 || 12;
+    return h + ":" + m[2] + " " + suffix;
+}
+
 // "2025-08-01", "2025-08-15" -> "01–15 Aug 2025"; a range that crosses a
 // month repeats the month, and one that crosses a year repeats the year.
 function formatPeriod(startValue, endValue) {
@@ -207,7 +218,7 @@ function renderSupervisor(data) {
                         ${recent.map((r) => `<tr>
                             <td>${escapeHtml(r.employee_name || "")}</td>
                             <td>${escapeHtml(formatLongDate(r.ot_date))}</td>
-                            <td>${escapeHtml((r.requested_start || "—") + " – " + (r.requested_end || "—"))}</td>
+                            <td>${escapeHtml(formatClock(r.requested_start) + " – " + formatClock(r.requested_end))}</td>
                             <td>${escapeHtml(r.status || "")}</td>
                         </tr>`).join("")}
                         </tbody>
