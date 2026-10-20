@@ -209,15 +209,33 @@ async function approveCorrection(id) {
         ? `The existing record will be updated and its hours worked and late minutes recomputed.`
         : `No attendance record exists for that date yet, so one will be created.`;
 
-    if (!await confirmDialog(
-        `Approve ${row.employee_name}'s correction for ${row.work_date}?\n\n${detail}`,
-        { title: "Approve Correction", icon: "question", confirmText: "Approve" }
-    )) return;
+    const result = await Swal.fire({
+        title: "Approve Correction",
+        html: `<div style="font-size:13px;text-align:left;margin-bottom:10px;">
+                 Approve <strong>${escapeHtml(row.employee_name)}</strong>'s correction for
+                 <strong>${escapeHtml(row.work_date)}</strong>.
+                 ${escapeHtml(detail)}
+               </div>`,
+        input: "textarea",
+        inputPlaceholder: "Optional remarks for the employee…",
+        inputAttributes: { maxlength: 500, rows: 3 },
+        showCancelButton: true,
+        confirmButtonText: "Approve",
+        cancelButtonText: "Cancel",
+        confirmButtonColor: "#0038A8",
+        cancelButtonColor: "#6b7280",
+        reverseButtons: true,
+        inputValidator: (value) => (String(value || "").length <= 500)
+            ? undefined
+            : "Remarks must be at most 500 characters.",
+    });
+    if (!result.isConfirmed) return;
 
     try {
         const { data } = await api.patch("attendance_corrections.php", {
             correction_id: row.correction_id,
             action: "approve",
+            remarks: String(result.value || "").trim(),
         });
         showToast(data.message, "success");
         await refresh();
