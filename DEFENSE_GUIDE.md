@@ -70,7 +70,7 @@ The same own-request rule is enforced for OT, leave, corrections and loans by `a
 | **SSS** | RA 11199, Social Security Act of 2018 | **5%** | Monthly Salary Credit | MSC **₱5,000 – ₱35,000** (Jan 2025 tranche) |
 | **PhilHealth** | RA 11223, Universal Health Care Act | **2.5%** | Monthly basic salary | floor **₱10,000**, ceiling **₱100,000** |
 | **Pag-IBIG** | RA 9679, HDMF Law of 2009 | **2%** | Monthly compensation | **Max Fund Salary ₱10,000** |
-| **Withholding tax** | RA 10963 (TRAIN) + BIR RR 11-2018 | progressive | Annualised **taxable** income — basic + overtime + taxable allowances, less attendance deductions and the three contributions | ₱250,000 exempt |
+| **Withholding tax** | RA 10963 (TRAIN) + BIR RR 11-2018 | progressive | **Semi-monthly taxable** income — basic + overtime + taxable allowances, less attendance deductions and the three contributions | ₱10,417 exempt per cutoff |
 | **Tardiness / absence** | Labor Code "no work, no pay" + company policy | — | daily rate | capped at remaining pay |
 | **Overtime premium** | Labor Code Arts. 87, 93, 94 | **+25%** ordinary; **+30%** rest day; holiday rates | hourly rate | — |
 | **13th month** | PD 851 | 1/12 of annual basic | — | first ₱90,000 exempt (TRAIN) |
@@ -97,7 +97,7 @@ For Juan Dela Cruz (₱45,000/month, ₱22,500 semi-monthly):
 | SSS | 5% | ₱35,000 (capped) | 1,750.00 | 875.00 | **3.9%** |
 | PhilHealth | 2.5% | ₱45,000 (full) | 1,125.00 | 562.50 | **2.5%** |
 | Pag-IBIG | 2% | ₱10,000 (capped) | 200.00 | 100.00 | **0.4%** |
-| Tax | progressive | taxable income | — | — | **7.8%** |
+| Tax | progressive | taxable income | — | — | **7.98%** |
 
 ```
 5% × (35,000 ÷ 45,000) = 3.9%   ← capped
@@ -127,16 +127,13 @@ Worked example — **Vinchy Fantonial, ₱60,000/month, period 2026-10-01 → 10
 | 8 | Late deduction | `minutes_late × (daily ÷ 480)` = 11 × 4.8077 | **52.88** |
 | 9 | Overtime | `hours × multiplier × (daily ÷ 8)` = 2.0 × 1.25 × 288.4615 | **721.15** |
 | 10 | Gross | basic + OT + allowances | **30,721.15** |
-| 11 | SSS | 5% of clamp(60,000, 5k, 35k) ÷ 2 | **875.00** |
+| 11 | SSS | 5% of MSC bracket(60,000) ÷ 2 | **875.00** |
 | 12 | PhilHealth | 2.5% of clamp(60,000, 10k, 100k) ÷ 2 | **750.00** |
 | 13 | Pag-IBIG | 2% of min(60,000, 10k) ÷ 2 | **100.00** |
 | 14 | **Taxable base** | gross − attendance deductions − statutory | **26,635.58** |
-| 15 | Annualised | × 24 | **639,253.92** |
-| 16 | TRAIN | 22,500 + 20% of excess over 400,000 | **70,350.78** |
-| 17 | Withholding tax | ÷ 24 | **2,931.28** |
-| 18 | Loan amortisation | monthly ÷ 2 (₱1,000 → per cutoff) | **500.00** |
-| 19 | Total deductions | 875 + 750 + 100 + 2,931.28 + 2,307.69 + 52.88 + 500 | **7,516.85** |
-| 20 | **Net pay** | gross − total deductions | **23,204.30** |
+| 15 | Semi-monthly tax | 937.50 + 20% of excess over 16,667 | **2,931.22** |
+| 16 | Total deductions | 875 + 750 + 100 + 2,931.22 + 2,307.69 + 52.88 + 500 | **7,516.79** |
+| 17 | **Net pay** | gross − total deductions | **23,204.36** |
 
 These are the actual stored values — see §9 for the command that proves it.
 
@@ -215,8 +212,12 @@ $absentDays = max(0, $expectedDays - $presentDays - $leaveDays);
 
 ### SSS / PhilHealth / Pag-IBIG
 ```php
+function sssMonthlySalaryCredit(float $monthlySalary): float {
+    $msc = floor(($monthlySalary + 250.0) / 500.0) * 500.0;
+    return max(5000.0, min(35000.0, $msc));
+}
 function computeSSS(float $monthlySalary): array {
-    $msc = max(5000.0, min(35000.0, $monthlySalary));
+    $msc = sssMonthlySalaryCredit($monthlySalary);
     return ["ee" => round($msc * 0.05, 2), "er" => round($msc * 0.10, 2)];
 }
 function computePhilHealth(float $monthlySalary): array {
@@ -232,14 +233,13 @@ function computePagIbig(float $monthlySalary): array {
 ### Withholding tax and its base
 ```php
 function computeWithholdingTax(float $semiMonthlyTaxable): float {
-    $annual = $semiMonthlyTaxable * 24.0;
-    if ($annual <= 250000)      $annualTax = 0.0;
-    elseif ($annual <= 400000)  $annualTax = ($annual - 250000) * 0.15;
-    elseif ($annual <= 800000)  $annualTax = 22500 + ($annual - 400000) * 0.20;
-    elseif ($annual <= 2000000) $annualTax = 102500 + ($annual - 800000) * 0.25;
-    elseif ($annual <= 8000000) $annualTax = 402500 + ($annual - 2000000) * 0.30;
-    else                        $annualTax = 2202500 + ($annual - 8000000) * 0.35;
-    return round($annualTax / 24, 2);
+    if ($semiMonthlyTaxable <= 10417)       $tax = 0.0;
+    elseif ($semiMonthlyTaxable <= 16666)   $tax = 0.15 * ($semiMonthlyTaxable - 10417);
+    elseif ($semiMonthlyTaxable <= 33332)   $tax = 937.50 + 0.20 * ($semiMonthlyTaxable - 16667);
+    elseif ($semiMonthlyTaxable <= 83332)   $tax = 4270.70 + 0.25 * ($semiMonthlyTaxable - 33333);
+    elseif ($semiMonthlyTaxable <= 333332)  $tax = 16770.70 + 0.30 * ($semiMonthlyTaxable - 83333);
+    else                                     $tax = 91770.70 + 0.35 * ($semiMonthlyTaxable - 333333);
+    return round($tax, 2);
 }
 ```
 ```php
@@ -249,7 +249,7 @@ $semiTaxable = round($semiBasic + $additionalTaxable - $preTaxDeductions
 if ($semiTaxable < 0) $semiTaxable = 0;
 $tax = computeWithholdingTax($semiTaxable);
 ```
-> `$additionalTaxable` carries **overtime**. This mattered: the base was previously `$semiBasic` alone, so overtime went untaxed and every payslip with OT under-withheld. On the example above the difference is **₱2,787.05 → ₱2,931.28**.
+> `$additionalTaxable` carries **overtime**. This mattered: the base was previously `$semiBasic` alone, so overtime went untaxed and every payslip with OT under-withheld. On the example above the difference is **₱2,787.05 → ₱2,931.22**.
 
 ### Taxable and non-taxable allowances
 
@@ -650,7 +650,7 @@ Public holidays in the `holidays` table are **excluded from expected working day
 | 1 | **SSS** | **RA 11199** — *Social Security Act of 2018* | Sec. 4, amending Sec. 18 of RA 1161 (as amended by RA 8282) | Total contribution **15%** (employee **5%**, employer 10%); Monthly Salary Credit **₱5,000–₱35,000** from Jan 2025 | Yes |
 | 2 | **PhilHealth** | **RA 11223** — *Universal Health Care Act of 2019* | Sec. 10 (premium contributions) | **5%** of monthly basic salary (employee **2.5%**, employer 2.5%); income floor ₱10,000, ceiling ₱100,000 | Yes |
 | 3 | **Pag-IBIG** | **RA 9679** — *Home Development Mutual Fund Law of 2009* | Sec. 3 (rate of contribution) | **2%** employee + 2% employer of monthly compensation; **Maximum Fund Salary ₱10,000** | Yes |
-| 4 | **Withholding tax** | **RA 10963** — *Tax Reform for Acceleration and Inclusion (TRAIN) Act*, amending **RA 8424** (National Internal Revenue Code) | Sec. 24(A) — individual income tax rates; BIR **Revenue Regulations No. 11-2018** | Progressive rates on annualised taxable compensation; **first ₱250,000 exempt** | Yes |
+| 4 | **Withholding tax** | **RA 10963** — *Tax Reform for Acceleration and Inclusion (TRAIN) Act*, amending **RA 8424** (National Internal Revenue Code) | Sec. 24(A) — individual income tax rates; BIR **Revenue Regulations No. 11-2018** | Progressive **semi-monthly** rates on taxable compensation; **first ₱10,417 exempt per cutoff** (₱250,000 annual equivalent) | Yes |
 | 5 | **13th month pay** | **PD 851** — *Requiring All Employers to Pay Their Employees a 13th Month Pay* (1975) | Sec. 1–3 | One-twelfth of annual basic; **first ₱90,000 exempt** under RA 10963, Sec. 32(B)(7)(a) NIRC | Yes — a `13th Month` period run |
 | 6 | **Service Incentive Leave** | **PD 442** — *Labor Code of the Philippines* | **Art. 95** | ≥**5 days** paid leave after 1 year of service | Not auto-granted |
 | 7 | **Maternity leave** | **RA 11210** — *105-Day Expanded Maternity Leave Law* (2019) | Amends Labor Code Art. 133 | **105 days** paid (60 for miscarriage); +15 for solo parents | Leave type only |

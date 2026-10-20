@@ -146,23 +146,22 @@ taxable = 30,000.00 − (4,615.38 + 216.35) − 1,725.00
         = 23,443.27
 ```
 
-BIR TRAIN withholding, annualised ×24 and divided by 24:
+BIR TRAIN withholding, standard semi-monthly table (not annualised):
 
 ```
-annual = 23,443.27 × 24 = 562,638.48
-        (400,000–800,000 bracket: 22,500 + 20% of excess over 400,000)
-annual tax = 22,500 + (562,638.48 − 400,000) × 0.20
-           = 22,500 + 162,638.48 × 0.20
-           = 22,500 + 32,527.696
-           = 55,027.696
-withholding tax = 55,027.696 / 24 = 2,292.820666...  -> 2,292.82
+taxable = 23,443.27
+        (16,667–33,332 bracket: 937.50 + 20% of excess over 16,667)
+withholding tax = 937.50 + (23,443.27 − 16,667) × 0.20
+                = 937.50 + 6,776.27 × 0.20
+                = 937.50 + 1,355.254
+                = 2,292.754  -> 2,292.75
 ```
 
 Totals:
 
 ```
-total_deductions = 1,725.00 + 2,292.82 + 4,615.38 + 216.35 = 8,849.55
-net_pay          = 31,831.73 − 8,849.55 = 22,982.18
+total_deductions = 1,725.00 + 2,292.75 + 4,615.38 + 216.35 = 8,849.48
+net_pay          = 31,831.73 − 8,849.48 = 22,982.25
 ```
 
 No capping was applied: the attendance deductions (4,831.73) are below the
@@ -186,9 +185,9 @@ remaining room after statutory deductions (30,000.00 + 1,831.73 − 4,017.82 =
 | SSS EE | 875.00 | 875.00 |
 | PhilHealth EE | 750.00 | 750.00 |
 | Pag-IBIG EE | 100.00 | 100.00 |
-| withholding tax | 2,292.82 | 2,292.82 |
-| total_deductions | 8,849.55 | 8,849.55 |
-| **net_pay** | **22,982.18** | **22,982.18** |
+| withholding tax | 2,292.75 | 2,292.75 |
+| total_deductions | 8,849.48 | 8,849.48 |
+| **net_pay** | **22,982.25** | **22,982.25** |
 
 The generated payslip has exactly two non-government deduction lines:
 
@@ -215,8 +214,8 @@ The database is already in the demo state. In the browser:
    → confirm. You should see “Payroll run completed. 1 payslip(s) generated…”.
 4. **Payslips** (`payslips.html`) → **View** on the new payslip. It shows Basic
    Pay 30,000.00, Overtime Pay 1,831.73, Gross 31,831.73, the statutory
-   contributions (875.00 / 750.00 / 100.00), withholding tax 2,292.82, the two
-   attendance deduction lines, Total Deductions 8,849.55 and Net Pay 22,982.18.
+   contributions (875.00 / 750.00 / 100.00), withholding tax 2,292.75, the two
+   attendance deduction lines, Total Deductions 8,849.48 and Net Pay 22,982.25.
 
 ### One screen that disagrees — say this before the panel asks
 
@@ -267,8 +266,8 @@ the period (it deletes that run’s payslip) and re-verifies.
 3. **Overtime** uses the rounded daily rate / 8 in the app. Here that yields
    1,831.73, identical to the unrounded-rate result at 2 dp, so the ambiguity
    is immaterial in this sample.
-4. **Tax** is rounded once, at the monthly figure (`round(annualTax / 24, 2)`),
-   giving 2,292.82. Annual tax 55,027.696 is kept at full precision until that
+4. **Tax** is rounded once, at the semi-monthly figure (`round($tax, 2)`),
+   giving 2,292.75. The bracket arithmetic is kept at full precision until that
    last step.
 5. **Absence and late deductions** are each rounded to 2 dp before being summed
    into `total_deductions` (4,615.38 + 216.35), which is what the app stores.
@@ -281,7 +280,7 @@ the period (it deletes that run’s payslip) and re-verifies.
 - The absence deduction is **4,615.38**, about **15.4%** of the 30,000.00
   semi-monthly basic. That is large but not unreasonable, and it is exactly the
   rule: two missing working days out of thirteen. The employee still nets
-  **22,982.18** (72.2% of gross).
+  **22,982.25** (72.2% of gross).
 - The late deduction is only **216.35** (0.68% of gross) even though the employee
   was late twice, because lateness is charged per minute (daily rate / 480).
 - The period looks slightly “busy”: 2 absences and 2 late days in 13 working

@@ -261,8 +261,16 @@ function computePremiumPay(
 }
 
 // ---- SSS (2025): 15% total, 5% EE / 10% ER, MSC ₱5,000 – ₱35,000 ----
+// The MSC is a BRACKET, not the raw salary: the standard table uses ₱500
+// steps with each bracket starting ₱250 above the previous MSC. Using the raw
+// salary gave a non-existent MSC (e.g. ₱20,250 instead of ₱20,500).
+function sssMonthlySalaryCredit(float $monthlySalary): float {
+    $msc = floor(($monthlySalary + 250.0) / 500.0) * 500.0;
+    return max(5000.0, min(35000.0, $msc));
+}
+
 function computeSSS(float $monthlySalary): array {
-    $msc = max(5000.0, min(35000.0, $monthlySalary));
+    $msc = sssMonthlySalaryCredit($monthlySalary);
     return ["ee" => round($msc * 0.05, 2), "er" => round($msc * 0.10, 2)];
 }
 
@@ -278,18 +286,25 @@ function computePagIbig(float $monthlySalary): array {
     return ["ee" => round($base * 0.02, 2), "er" => round($base * 0.02, 2)];
 }
 
-// ---- BIR Withholding Tax (TRAIN Law) ----
+// ---- BIR Withholding Tax: standard semi-monthly TRAIN table ----
+// Thresholds and bases are the BIR semi-monthly values; the old annual ×24
+// method was mathematically close but differed by a few centavos at brackets.
 function computeWithholdingTax(float $semiMonthlyTaxable): float {
-    $annual = $semiMonthlyTaxable * 24.0;
+    if ($semiMonthlyTaxable <= 10417.0) {
+        $tax = 0.0;
+    } elseif ($semiMonthlyTaxable <= 16666.0) {
+        $tax = 0.0 + 0.15 * ($semiMonthlyTaxable - 10417.0);
+    } elseif ($semiMonthlyTaxable <= 33332.0) {
+        $tax = 937.50 + 0.20 * ($semiMonthlyTaxable - 16667.0);
+    } elseif ($semiMonthlyTaxable <= 83332.0) {
+        $tax = 4270.70 + 0.25 * ($semiMonthlyTaxable - 33333.0);
+    } elseif ($semiMonthlyTaxable <= 333332.0) {
+        $tax = 16770.70 + 0.30 * ($semiMonthlyTaxable - 83333.0);
+    } else {
+        $tax = 91770.70 + 0.35 * ($semiMonthlyTaxable - 333333.0);
+    }
 
-    if ($annual <= 250000)          $annualTax = 0.0;
-    elseif ($annual <= 400000)      $annualTax = ($annual - 250000) * 0.15;
-    elseif ($annual <= 800000)      $annualTax = 22500 + ($annual - 400000) * 0.20;
-    elseif ($annual <= 2000000)     $annualTax = 102500 + ($annual - 800000) * 0.25;
-    elseif ($annual <= 8000000)     $annualTax = 402500 + ($annual - 2000000) * 0.30;
-    else                            $annualTax = 2202500 + ($annual - 8000000) * 0.35;
-
-    return round($annualTax / 24.0, 2);
+    return round($tax, 2);
 }
 
 // ---- One-shot calculation for a semi-monthly payslip ----
