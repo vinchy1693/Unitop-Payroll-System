@@ -368,6 +368,8 @@ A **Demo mode** strip (collapsed by default, red when on) lets a demonstration s
 
 The portal overtime form has a separate **Demo mode** checkbox for a same-day window that has already passed, or a past date up to 30 days back. It is accepted only while `ALLOW_DEMO_OT` is true in `employee_portal/api/me_overtime_requests.php`; set it to **false** in production, otherwise an employee can file retroactive overtime. Normal reason/time/order/open-request checks still apply.
 
+The attendance page also has a **Demo date** field for the QR card. It sends `demo_date` to `employee_portal/api/me_qr.php` so the portal can show **Clock out** after a kiosk Demo Mode clock-in on that simulated date. It is accepted only while `ALLOW_DEMO_QR_DATE` is true in `me_qr.php`; set it to **false** in production. The date must match the kiosk's Demo Mode date.
+
 ### Short-lived QR tokens
 
 The portal no longer displays the static `qr_codes.code_value`. `employee_portal/api/me_qr.php` issues a **120-second, one-time, purpose-bound token** (`UNITOP-T-…`):

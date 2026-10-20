@@ -62,8 +62,8 @@ This is a **map, not a line count**. It names the primary file, the function or 
 
 | Feature | Primary code | Block / symbol |
 |---|---|---|
-| QR token issuance | `employee_portal/api/me_qr.php` | TTL `:21`; active-badge gate `:36–47`; purpose `:60–75`; complete/no token `:86–97`; insert token `:99–107` |
-| Portal QR display | `employee_portal/attendance.html` QR card; `assets/js/attendance.js` | `loadMyQR` `:22`; refresh/label; token in QR |
+| QR token issuance | `employee_portal/api/me_qr.php` | TTL `:21`; demo date `:26–35`; active-badge gate `:52–63`; purpose `:65–91`; complete/no token `:102–113`; insert token `:120–122` |
+| Portal QR display | `employee_portal/attendance.html` QR card; `employee_portal/assets/js/attendance.js` | demo-date init `:9–49`; `loadMyQR` `:59`; token in QR |
 | Static QR fallback | `api/qr_codes.php` | POST `:25`; PATCH revoke `:58` |
 | Kiosk UI | `kiosk.html`, `assets/js/kiosk.js` | CSRF helper `:25–34`; scan post `:136`; exit verify `:274`; boot `:292` |
 | Kiosk scan validation | `api/scan_attendance.php` | token/static lookup `:64`; expiry/used/active checks `:84–140`; duplicate guard `:151`; attendance state `:198` |
