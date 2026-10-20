@@ -8,8 +8,8 @@ This is a **map, not a line count**. It names the primary file, the function or 
 |---|---|
 | Admin app | `C:\xampp\htdocs\master_file_module_api` |
 | Employee portal | `C:\xampp\htdocs\employee_portal` |
-| Verified against admin commit | `35b2c24` |
-| Verified against portal commit | `6417ed0` |
+| Verified against admin commit | `619ff6a` |
+| Verified against portal commit | `9c49fda` |
 | Snapshot date | 2026-10-20 |
 
 > Use the symbol first:
