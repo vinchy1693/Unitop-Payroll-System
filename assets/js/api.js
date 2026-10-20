@@ -166,10 +166,21 @@ async function injectNavUser() {
                 <span class="nav-user-name">${escapeHtml(user.username)}</span>
                 <span class="nav-user-role">${escapeHtml(user.role || "")}</span>
             </span>
-            <a href="api/auth.php?action=logout" class="nav-logout" id="nav-logout-btn"
-               onclick="return confirm('Log out of the payroll system?');">Log out</a>
+            <a href="api/auth.php?action=logout" class="nav-logout" id="nav-logout-btn">Log out</a>
         `;
         nav.appendChild(wrap);
+
+        wrap.querySelector("#nav-logout-btn").addEventListener("click", async (e) => {
+            e.preventDefault();
+            const href = e.currentTarget.getAttribute("href");
+            const ok = typeof confirmDialog === "function"
+                ? await confirmDialog(
+                    "You will be returned to the login page.",
+                    { title: "Log out of the payroll system?", icon: "question", confirmText: "Log out" }
+                )
+                : window.confirm("Log out of the payroll system?");
+            if (ok) window.location.href = href;
+        });
     } catch (err) {
         // 401 handled by interceptor
     }
