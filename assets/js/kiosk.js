@@ -15,6 +15,32 @@
 (function () {
     "use strict";
 
+    // -----------------------------------------------------------------
+    // Browser-side navigation lock (best effort).
+    //
+    // A web page cannot remove the browser's Back button, address bar or
+    // close control. This keeps the kiosk on its own history entry and blocks
+    // Alt+Left / Backspace so an ordinary Back press does not reveal the
+    // previous admin page. The real control is launching Chrome with
+    // --kiosk, or using Windows Assigned Access (see KIOSK_SETUP.md).
+    // -----------------------------------------------------------------
+    (function lockKioskHistory() {
+        try {
+            history.pushState({ unitopKiosk: true }, "", location.href);
+            window.addEventListener("popstate", function () {
+                history.pushState({ unitopKiosk: true }, "", location.href);
+            });
+        } catch (_) {}
+
+        document.addEventListener("keydown", function (e) {
+            var tag = (document.activeElement && document.activeElement.tagName) || "";
+            var editable = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+            if ((e.altKey && e.key === "ArrowLeft") || (!editable && e.key === "Backspace")) {
+                e.preventDefault();
+            }
+        });
+    })();
+
     var API = "api/";
     var IGNORE_MS = 5000;   // ignore the same code again within this window
     var RESET_MS  = 6000;   // how long the result stays on screen
