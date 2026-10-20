@@ -3,7 +3,7 @@
 **Scope:** everything except master-data setup (Departments, Positions, Employees, Users).
 **Order:** Part A happy path → Part B error tests → Part C locks → Part D “if this / then that”.
 
-**Current fixture:** Employee **4 — Vinchy Fantonial**, **no QR codes**, **no periods/runs/payslips**, **no attendance**, no OT/leave/loan rows, **no supervisor team link**.
+**Current fixture:** Employee **4 — Vinchy Fantonial**, assigned to **Supervisor 168**, **no QR codes**, **no periods/runs/payslips**, **no attendance**, no OT/leave/loan rows.
 
 Legend: `P` = Payroll Officer, `A` = Approver, `S` = Supervisor, `E` = Employee, `Adm` = Administrator.
 
@@ -17,7 +17,7 @@ These are fixtures, not setup-screen tests. The Supervisor OT flow cannot run wi
   ```powershell
   C:\xampp\mysql\bin\mysqldump.exe -u root --databases --result-file=C:\xampp\master_file_tests\before_full_system_test.sql payroll_db
   ```
-- [ ] **P1. Assign Employee 4 to Supervisor 168** — Login `P` → Employees → Edit Vinchy → **Supervisor = supervisor famacion** → Save.
+- [x] **P1. Employee 4 is assigned to Supervisor 168** — verify in Employees: **Supervisor = supervisor famacion**.
 - [ ] **P2. Create an Open period covering the test date — required for A8** — Payroll → New Period → e.g. `2026-10-16` to `2026-10-31`.
   - Current fixture has **0 periods and 0 runs** after the reset.
 - [ ] **P3. Generate an Active QR for Employee 4** — QR Codes → Generate → status **Active**.
@@ -37,7 +37,6 @@ Do not jump ahead. Each step assumes the previous one passed.
 - [ ] **A1.1** Login as `P` → Dashboard loads.
 - [ ] **A1.2** Dashboard shows **4 active employees**, **0 Open periods**, and **no payroll runs** on the reset fixture.
   - After P2, it should show **1 Open period**.
-  - If P2 was completed, the dashboard should instead show **1 Open period**.
 - [ ] **A1.3** Sidebar links open without “You do not have access” for `P`.
 - [ ] **A1.4** Login as `A` in a second browser/profile → Dashboard loads; Approver sees approval queue.
 - [ ] **A1.5** Login as `S` → Dashboard/Overtime page loads; no salary/payroll menus.
@@ -47,18 +46,18 @@ Do not jump ahead. Each step assumes the previous one passed.
 
 - [ ] **A2.1** Login as `E` (`vinchy`) in the employee portal → Attendance page loads.
 - [ ] **A2.2** My QR card shows **Clock in**, with an expiry time.
-- [ ] **A2.3** Login as `P` → Kiosk → **Demo Mode ON**, date = today, time `08:00` → scan the employee QR (or type the token).
+- [ ] **A2.3** Login as `P` → Kiosk → **Demo Mode ON**, date = today, time **8:00 AM** → scan the employee QR (or type the token).
 - [ ] **A2.4** Kiosk says the employee **clocked in**; no duplicate warning.
 - [ ] **A2.5** Refresh the portal QR → it now says **Clock out**.
-- [ ] **A2.6** Kiosk Demo Mode, today, `17:00` → scan again.
+- [ ] **A2.6** Kiosk Demo Mode, today, **5:00 PM** → scan again.
 - [ ] **A2.7** Kiosk says **clocked out**; portal QR disappears / attendance complete.
-- [ ] **A2.8** Portal → Attendance history shows today’s row: `08:00–17:00`, `8.00` hours, `Present`.
+- [ ] **A2.8** Portal → Attendance history shows today’s row: **8:00 AM–5:00 PM**, `8.00` hours, `Present`.
 
 ## A3. Supervisor files overtime
 
 - [ ] **A3.1** Portal `E` → Attendance → **Overtime history** has no request; no filing form is present.
 - [ ] **A3.2** Login as `S` → Overtime → **File Overtime Request** card is visible.
-- [ ] **A3.3** `S` selects **Vinchy**, date today, `18:00–20:00`, reason ≥10 chars → File request.
+- [ ] **A3.3** `S` selects **Vinchy**, date today, **6:00 PM–8:00 PM**, reason ≥10 chars → File request.
 - [ ] **A3.4** Overtime queue shows the request as **Pending**, with **filed by supervisor**.
 - [ ] **A3.5** Portal `E` → Overtime history shows the **Pending** request and the requested window.
 - [ ] **A3.6** `A` → Overtime → approve the request.
@@ -67,9 +66,9 @@ Do not jump ahead. Each step assumes the previous one passed.
 ## A4. Overtime clock in/out
 
 - [ ] **A4.1** Portal QR now shows **Overtime** (because an approved OT is open for today).
-- [ ] **A4.2** Kiosk Demo Mode, today, `18:00` → scan → **Overtime started**.
-- [ ] **A4.3** Kiosk Demo Mode, today, `20:00` → scan → **Overtime clock-out 2.00 hour(s)**.
-- [ ] **A4.4** Portal Overtime history shows **Completed**, actual `18:00–20:00`, 2.00 hours.
+- [ ] **A4.2** Kiosk Demo Mode, today, **6:00 PM** → scan → **Overtime started**.
+- [ ] **A4.3** Kiosk Demo Mode, today, **8:00 PM** → scan → **Overtime clock-out 2.00 hour(s)**.
+- [ ] **A4.4** Portal Overtime history shows **Completed**, actual **6:00 PM–8:00 PM**, 2.00 hours.
 - [ ] **A4.5** No extra attendance row was created for OT.
 
 ## A5. Leave request → supervisor approval → balance
@@ -84,7 +83,7 @@ Use a **future non-working test date** so it does not conflict with the payroll 
 
 ## A6. Attendance correction
 
-- [ ] **A6.1** Portal `E` → Attendance → Request a correction for today (e.g. clock-out `17:05`), reason ≥10 chars.
+- [ ] **A6.1** Portal `E` → Attendance → Request a correction for today (e.g. clock-out **5:05 PM**), reason ≥10 chars.
 - [ ] **A6.2** Correction queue as `P` shows **Pending**.
 - [ ] **A6.3** `P` approves the correction.
 - [ ] **A6.4** Attendance row updates to the corrected time; status/hours recompute.
