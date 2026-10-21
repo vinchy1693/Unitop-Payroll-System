@@ -34,13 +34,13 @@ $demoDate   = trim($in["demo_date"] ?? "");   // "YYYY-MM-DD"
 
 // Demo mode writes attendance on a caller-chosen date and time, so it must not
 // be a feature every kiosk user can reach. The kiosk itself stays open to every
-// role; only the demo branch is restricted - to the maker - and the deployment
-// switch ALLOW_DEMO_SCANS can disable it outright.
+// role; the demo branch is available to Payroll/HR and team Managers, and the
+// deployment switch ALLOW_DEMO_SCANS can disable it outright.
 if ($isDemoMode) {
     if (!ALLOW_DEMO_SCANS) {
         respond(false, "Demo scanning is disabled on this deployment.", null, 403);
     }
-    requireRole(MAKER_ROLES);
+    requireRole(array_merge(MAKER_ROLES, [MANAGER_ROLE]));
 }
 
 // Validate the demo inputs. Without this a malformed value went straight into the
