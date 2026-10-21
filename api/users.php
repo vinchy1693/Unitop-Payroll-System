@@ -35,7 +35,7 @@ if ($method === "POST") {
     }
     if (in_array($role, array_merge(MAKER_ROLES, CHECKER_ROLES), true)) {
         respond(false,
-            "Payroll Officer and Approver accounts are provisioned outside the Administrator screen. "
+            "Payroll/HR accounts are provisioned outside the Administrator screen. "
             . "The Administrator must not create the role that can approve payroll.",
             null, 403);
     }
@@ -90,7 +90,7 @@ if ($method === "PUT") {
     if ($password !== "" && (in_array($currentRole, $payrollRoles, true)
         || in_array($role, $payrollRoles, true))) {
         respond(false,
-            "The Administrator cannot set a password for a Payroll Officer or Approver. "
+            "The Administrator cannot set a password for a Payroll/HR. "
             . "The user must change their own password.",
             null, 403);
     }

@@ -196,7 +196,7 @@ if ($method === "GET") {
         // Team scope: a Supervisor's summary lists only their own team. The
         // maker and the checker keep every active employee. A Supervisor with
         // an empty team matches nobody (`AND 1=0`) instead of erroring.
-        $scope         = supervisorScopeIds($pdo);
+        $scope         = teamScopeIds($pdo);
         $employeeScope = $scope === null
             ? ""
             : ($scope
@@ -287,7 +287,7 @@ if ($method === "GET") {
         $date = trim($_GET["date"]);
 
         // Team scope: a Supervisor's day view lists only their own team.
-        $scope  = supervisorScopeIds($pdo);
+        $scope  = teamScopeIds($pdo);
         $params = [$date];
         $sql    = "SELECT a.*, e.employee_number,
                           CONCAT(e.last_name, ', ', e.first_name) AS employee_name,
@@ -329,7 +329,7 @@ if ($method === "GET") {
 }
 
 // ---- POST (Time In only, or full log) ----
-requireRole(MAKER_ROLES);   // only the Payroll Officer may write attendance
+requireRole(array_merge(MAKER_ROLES, [MANAGER_ROLE]));   // Payroll/HR or a team Manager
 
 if ($method === "POST") {
     $in      = json_input();
@@ -340,6 +340,9 @@ if ($method === "POST") {
 
     if ($empId === 0 || $workDay === "" || $timeIn === "") {
         respond(false, "Employee, Date, and Time In are required.", null, 422);
+    }
+    if (isManager()) {
+        assertManages($pdo, $empId, "manage attendance for this employee");
     }
 
     $dateCheck = DateTime::createFromFormat("!Y-m-d", $workDay);
@@ -401,6 +404,9 @@ if ($method === "PATCH") {
     if ($empId === 0 || $workDay === "" || $timeOut === "") {
         respond(false, "Employee, Date, and Time Out are required.", null, 422);
     }
+    if (isManager()) {
+        assertManages($pdo, $empId, "manage attendance for this employee");
+    }
 
     $dateCheck = DateTime::createFromFormat("!Y-m-d", $workDay);
     if (!$dateCheck || $dateCheck->format("Y-m-d") !== $workDay) {
@@ -454,6 +460,9 @@ if ($method === "PUT") {
 
     if ($id === 0 || $empId === 0 || $workDay === "" || $timeIn === "") {
         respond(false, "Employee, Date, and Time In are required.", null, 422);
+    }
+    if (isManager()) {
+        assertManages($pdo, $empId, "manage attendance for this employee");
     }
 
     $dateCheck = DateTime::createFromFormat("!Y-m-d", $workDay);
@@ -510,12 +519,16 @@ if ($method === "DELETE") {
     $id = (int) ($_GET["id"] ?? 0);
     if ($id === 0) respond(false, "Missing attendance_id.", null, 422);
 
-    $stmt = $pdo->prepare("SELECT work_date FROM attendance WHERE attendance_id = ?");
+    $stmt = $pdo->prepare("SELECT employee_id, work_date FROM attendance WHERE attendance_id = ?");
     $stmt->execute([$id]);
-    $workDate = $stmt->fetchColumn();
-    if ($workDate === false) {
+    $row = $stmt->fetch();
+    if (!$row) {
         respond(false, "Attendance record not found.", null, 404);
     }
+    if (isManager()) {
+        assertManages($pdo, (int) $row["employee_id"], "manage attendance for this employee");
+    }
+    $workDate = $row["work_date"];
     assertAttendanceDateUnlocked($pdo, (string) $workDate, "Attendance for this date");
 
     $pdo->prepare("DELETE FROM attendance WHERE attendance_id = ?")->execute([$id]);

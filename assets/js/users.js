@@ -172,7 +172,7 @@ toggleLink.addEventListener("click", (e) => {
 // ---------------------------------------------------------------------
 const roleSelect       = document.getElementById("role");
 const employeeLinkHint = document.getElementById("employee-link-hint");
-const EMPLOYEE_LINKED_ROLES = ["Employee", "Supervisor"];
+const EMPLOYEE_LINKED_ROLES = ["Employee", "Manager", "Supervisor"];
 
 function applyRoleHint() {
     if (!roleSelect || !employeeLinkHint) return;

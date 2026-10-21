@@ -18,14 +18,14 @@ require __DIR__ . "/_bootstrap.php";
 // The technical admin needs this to assign roles; the payroll roles already
 // have the full employees.php. A Supervisor may use it to file overtime, but
 // only sees their own team (the scope is applied below).
-requireRole(array_merge(ADMIN_ROLES, PAYROLL_ROLES, [SUPERVISOR_ROLE]));
+requireRole(array_merge(ADMIN_ROLES, PAYROLL_ROLES, [MANAGER_ROLE, SUPERVISOR_ROLE]));
 
 if ($_SERVER["REQUEST_METHOD"] !== "GET") {
     respond(false, "Method not allowed.", null, 405);
 }
 
-if (isSupervisor()) {
-    $scope = supervisorScopeIds($pdo);
+if (isManager() || isSupervisor()) {
+    $scope = teamScopeIds($pdo);
     if ($scope === []) {
         respond(true, "", []);
     }

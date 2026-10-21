@@ -56,7 +56,7 @@ if ($method === "GET") {
     // Team scope. A Supervisor only ever sees their own team's leave; the
     // maker and the checker keep every request. A Supervisor who supervises
     // nobody gets an empty list (200), never an error.
-    $scope = supervisorScopeIds($pdo);
+    $scope = teamScopeIds($pdo);
     if ($scope !== null) {
         if (!$scope) {
             respond(true, "", []);
@@ -74,12 +74,12 @@ if ($method === "GET") {
 }
 
 // ---- POST: file ----
-// Filing, editing and deleting stay the Payroll Officer's alone. PATCH also
-// admits a Supervisor, for a team member's request only (checked below).
+// A Manager may file for their team; Payroll/HR keeps an administrative
+// override. PATCH is the single Manager-or-Supervisor approval.
 if ($method === "PATCH") {
-    requireRole(array_merge(MAKER_ROLES, [SUPERVISOR_ROLE]));
+    requireRole([MANAGER_ROLE, SUPERVISOR_ROLE]);
 } else {
-    requireRole(MAKER_ROLES);   // only the Payroll Officer may file / edit / delete leave
+    requireRole(array_merge(MAKER_ROLES, [MANAGER_ROLE]));
 }
 
 if ($method === "POST") {
@@ -91,6 +91,9 @@ if ($method === "POST") {
 
     if ($empId === 0 || $typeId === 0 || $start === "" || $end === "") {
         respond(false, "All fields are required.", null, 422);
+    }
+    if (isManager()) {
+        assertManages($pdo, $empId, "file leave for this employee");
     }
     if ($start > $end) {
         respond(false, "End date must be on or after start date.", null, 422);
@@ -152,12 +155,16 @@ if ($method === "PUT") {
         respond(false, "End date must be on or after start date.", null, 422);
     }
 
-    $stmt = $pdo->prepare("SELECT status FROM leave_requests WHERE leave_id = ?");
+    $stmt = $pdo->prepare("SELECT status, employee_id FROM leave_requests WHERE leave_id = ?");
     $stmt->execute([$id]);
-    $current = $stmt->fetchColumn();
+    $current = $stmt->fetch();
     if ($current === false) respond(false, "Leave request not found.", null, 404);
-    if ($current !== "Pending") {
+    if ($current["status"] !== "Pending") {
         respond(false, "Only Pending requests can be edited.", null, 409);
+    }
+    if (isManager()) {
+        assertManages($pdo, (int) $current["employee_id"], "edit this leave request");
+        assertManages($pdo, $empId, "move this leave request to that employee");
     }
 
     $stmt = $pdo->prepare(
@@ -190,7 +197,9 @@ if ($method === "PATCH") {
         respond(false, "Leave request not found.", null, 404);
     }
     assertNotOwnEmployee((int) $ownerEmployeeId, "approve or reject this leave request");
-    if (isSupervisor()) {
+    if (isManager()) {
+        assertManages($pdo, (int) $ownerEmployeeId, "approve or reject this leave request");
+    } elseif (isSupervisor()) {
         assertSupervises($pdo, (int) $ownerEmployeeId, "approve or reject this leave request");
     }
 
@@ -274,12 +283,15 @@ if ($method === "DELETE") {
     $id = (int) ($_GET["id"] ?? 0);
     if ($id === 0) respond(false, "Missing leave_id.", null, 422);
 
-    $stmt = $pdo->prepare("SELECT status FROM leave_requests WHERE leave_id = ?");
+    $stmt = $pdo->prepare("SELECT status, employee_id FROM leave_requests WHERE leave_id = ?");
     $stmt->execute([$id]);
-    $status = $stmt->fetchColumn();
-    if ($status === false) respond(false, "Leave request not found.", null, 404);
-    if ($status !== "Pending") {
+    $row = $stmt->fetch();
+    if (!$row) respond(false, "Leave request not found.", null, 404);
+    if ($row["status"] !== "Pending") {
         respond(false, "Only Pending requests can be deleted.", null, 409);
+    }
+    if (isManager()) {
+        assertManages($pdo, (int) $row["employee_id"], "delete this leave request");
     }
 
     $pdo->prepare("DELETE FROM leave_requests WHERE leave_id = ?")->execute([$id]);

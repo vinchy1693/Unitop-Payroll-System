@@ -115,7 +115,7 @@ if ($method === "GET") {
     // Team scope. A Supervisor only ever sees overtime filed by their own
     // team; the maker and the checker keep the full queue. A Supervisor who
     // supervises nobody gets an empty list (200), never an error.
-    $scope = supervisorScopeIds($pdo);
+    $scope = teamScopeIds($pdo);
     if ($scope === []) {
         respond(true, "", []);
     }
@@ -189,9 +189,9 @@ if ($method === "GET") {
 // decides it. A Supervisor may also decide a team request, but never one they
 // filed themselves.
 if ($method === "POST") {
-    requireRole(SUPERVISOR_ROLE);
+    requireRole(MANAGER_ROLE);
 } elseif ($method === "PATCH") {
-    requireRole(array_merge(CHECKER_ROLES, [SUPERVISOR_ROLE]));
+    requireRole(SUPERVISOR_ROLE);
 } else {
     requireRole(MAKER_ROLES);   // PUT / DELETE maintenance only
 }
@@ -218,7 +218,7 @@ if ($method === "POST") {
         respond(false, "Employee and OT date are required.", null, 422);
     }
 
-    assertSupervises($pdo, $empId, "file overtime for this employee");
+    assertManages($pdo, $empId, "file overtime for this employee");
     $empStmt = $pdo->prepare("SELECT is_active FROM employees WHERE employee_id = ?");
     $empStmt->execute([$empId]);
     $empActive = $empStmt->fetchColumn();
@@ -387,7 +387,7 @@ if ($method === "PATCH") {
             respond(
                 false,
                 "You cannot approve or reject an overtime request you filed yourself. "
-                . "Another Supervisor or the Approver must decide it.",
+                . "Another Supervisor must decide it.",
                 null,
                 403
             );

@@ -1,7 +1,7 @@
 <?php
 require __DIR__ . "/_bootstrap.php";
 
-requireRole(PAYROLL_ROLES);   // maker + checker may read
+requireRole(array_merge(PAYROLL_ROLES, [MANAGER_ROLE, SUPERVISOR_ROLE]));   // payroll + team leads may read
 
 $method = $_SERVER["REQUEST_METHOD"];
 

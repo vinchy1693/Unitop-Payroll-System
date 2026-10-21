@@ -1,7 +1,7 @@
 <?php
 require __DIR__ . "/_bootstrap.php";
 
-requireRole(PAYROLL_ROLES);   // maker + checker may read
+requireRole(array_merge(PAYROLL_ROLES, [MANAGER_ROLE, SUPERVISOR_ROLE]));
 
 $method = $_SERVER["REQUEST_METHOD"];
 
@@ -33,23 +33,39 @@ function nextEmployeeNumber(PDO $pdo): string
 
 // ---- GET ----
 if ($method === "GET") {
+    $scope = teamScopeIds($pdo);
+
     if (isset($_GET["simple"])) {
-        $rows = $pdo->query(
-            "SELECT employee_id AS id, CONCAT(last_name, ', ', first_name) AS label
-             FROM employees WHERE is_active = 1 ORDER BY last_name"
-        )->fetchAll();
-        respond(true, "", $rows);
+        $sql = "SELECT employee_id AS id, CONCAT(last_name, ', ', first_name) AS label
+                FROM employees WHERE is_active = 1";
+        $params = [];
+        if ($scope !== null) {
+            if (!$scope) respond(true, "", []);
+            $sql .= " AND employee_id IN (" . implode(",", array_fill(0, count($scope), "?")) . ")";
+            $params = $scope;
+        }
+        $stmt = $pdo->prepare($sql . " ORDER BY last_name");
+        $stmt->execute($params);
+        respond(true, "", $stmt->fetchAll());
     }
 
     $showAll = isset($_GET["all"]);
     $sql = "SELECT e.*, p.title AS position_title, d.department_name
             FROM employees e
             LEFT JOIN positions p ON p.position_id = e.position_id
-            LEFT JOIN departments d ON d.department_id = e.department_id"
-            . ($showAll ? "" : " WHERE e.is_active = 1")
-            . " ORDER BY e.employee_id";
-    $rows = $pdo->query($sql)->fetchAll();
-    respond(true, "", $rows);
+            LEFT JOIN departments d ON d.department_id = e.department_id";
+    $where = $showAll ? [] : ["e.is_active = 1"];
+    $params = [];
+    if ($scope !== null) {
+        if (!$scope) respond(true, "", []);
+        $where[] = "e.employee_id IN (" . implode(",", array_fill(0, count($scope), "?")) . ")";
+        $params = $scope;
+    }
+    if ($where) $sql .= " WHERE " . implode(" AND ", $where);
+    $sql .= " ORDER BY e.employee_id";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    respond(true, "", $stmt->fetchAll());
 }
 
 // ---- POST: create ----
@@ -147,7 +163,7 @@ if ($method === "PUT") {
     }
     if (abs((float) $vals["basic_salary"] - (float) $currentSalary) >= 0.005) {
         respond(false,
-            "Basic salary changes are restricted to the Approver. Use the salary change form.",
+            "Basic salary changes are restricted to Payroll/HR. Use the salary change form.",
             null, 403);
     }
 

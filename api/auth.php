@@ -171,10 +171,10 @@ if ($method === "POST" && $action === "verify") {
         respond(false, "Invalid username or password.", null, 401);
     }
 
-    // Exiting kiosk mode is a technical operation, so the Administrator keeps
-    // it, alongside the two payroll roles (maker + checker).
-    if (!in_array($user["role"], array_merge(PAYROLL_ROLES, ADMIN_ROLES), true)) {
-        respond(false, "Only an Administrator, Payroll Officer or Approver can exit the kiosk.", null, 403);
+    // Exiting kiosk mode is a technical operation, so the Administrator,
+    // Payroll/HR, Manager and Supervisor may authorise it.
+    if (!in_array($user["role"], array_merge(PAYROLL_ROLES, ADMIN_ROLES, [MANAGER_ROLE, SUPERVISOR_ROLE]), true)) {
+        respond(false, "Only an Administrator, Payroll/HR, Manager or Supervisor can exit the kiosk.", null, 403);
     }
 
     respond(true, "Verified.", ["role" => $user["role"]]);

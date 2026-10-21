@@ -316,7 +316,7 @@ if (!$ot || $ot["status"] === "Completed"
     );
 }
 
-// 7b. Still waiting for the Approver: refuse, and never start overtime.
+// 7b. Still waiting for the Supervisor: refuse, and never start overtime.
 if ($ot["status"] === "Pending") {
     $rememberScan("ot_pending");
     $guardData["action"] = "ot_pending";

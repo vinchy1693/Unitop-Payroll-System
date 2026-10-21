@@ -101,35 +101,35 @@ $GLOBALS["AUDIT_ACTOR"] = [
 ];
 
 // =====================================================================
-// Segregation of duties (maker / checker / supervisor)
+// Segregation of duties (manager / supervisor / payroll)
 //
 //   Employee        - portal self-service only
-//   Supervisor      - team lead: sees and decides ONLY their own team's
-//                     attendance, corrections, overtime and leave, and
-//                     RECOMMENDS (never approves) a team member's loan
-//   Payroll Officer - the MAKER: prepares master data and payroll runs
-//   Approver        - the CHECKER: reads everything, decides payroll runs
+//   Manager         - team lead: manages team attendance, files overtime,
+//                     and gives the single approval on team leave/corrections
+//   Supervisor      - reviews attendance across teams and gives the single
+//                     approval on leave/corrections and overtime
+//   Payroll Officer - combined Payroll/HR: master data, loans and payroll
 //   Administrator   - technical only: users + audit trail
 //
-// PAYROLL_ROLES is deliberately maker + checker: reading payroll data is
-// shared, deciding it is not. Administrator is NOT part of it, and neither is
-// Supervisor - PAYROLL_ROLES is exactly the key that opens salaries,
-// payslips, payroll periods / runs, reports and the dashboard.
+// PAYROLL_ROLES is deliberately one combined Payroll/HR role. It opens
+// salaries, payslips, payroll periods/runs, reports and the dashboard.
+// A Manager or Supervisor never sees company payroll figures.
 //
-// TEAM_QUEUE_ROLES is the three roles that reach the team queues
-// (attendance, overtime, leave, loans). Maker and checker keep the whole
-// queue; a Supervisor read is narrowed to their own team by
-// supervisorScopeIds(), and a Supervisor write is checked by assertSupervises().
+// TEAM_QUEUE_ROLES is the roles that reach the team queues (attendance,
+// overtime, leave, loans). Payroll keeps the whole queue; a Manager or
+// Supervisor read is narrowed to their own team by teamScopeIds(), and a
+// write is checked by assertManages() / assertSupervises().
 // =====================================================================
 const MAKER_ROLES      = ["Payroll Officer"];
-const CHECKER_ROLES    = ["Approver"];
+const CHECKER_ROLES    = ["Payroll Officer"];  // combined Payroll/HR
 const ADMIN_ROLES      = ["Administrator"];
+const MANAGER_ROLE     = "Manager";
 const SUPERVISOR_ROLE  = "Supervisor";
-const PAYROLL_ROLES    = ["Payroll Officer", "Approver"];               // maker + checker
-const TEAM_QUEUE_ROLES = ["Payroll Officer", "Approver", "Supervisor"]; // + team lead
+const PAYROLL_ROLES    = ["Payroll Officer"];
+const TEAM_QUEUE_ROLES = ["Payroll Officer", "Manager", "Supervisor"];
 
 // Every role the users screen may assign.
-const ALL_ROLES = ["Employee", "Payroll Officer", "Approver", "Supervisor", "Administrator"];
+const ALL_ROLES = ["Employee", "Payroll Officer", "Manager", "Supervisor", "Administrator"];
 
 // Demo scanning lets the caller supply a date and time, so it writes attendance
 // outside the real clock. It is a training aid, not a kiosk feature: the maker
@@ -527,6 +527,12 @@ function isSupervisor(): bool {
     return $user !== null && (string) $user["role"] === SUPERVISOR_ROLE;
 }
 
+/** True when the acting user's role is Manager. */
+function isManager(): bool {
+    $user = currentUser();
+    return $user !== null && (string) $user["role"] === MANAGER_ROLE;
+}
+
 /**
  * The acting user's employee_id, or null for a staff account that is not
  * linked to an employee record (payroll, approver, admin and a Supervisor
@@ -582,9 +588,69 @@ function supervisorTeamIds(PDO $pdo, int $supervisorEmployeeId): array {
  */
 function supervisorScopeIds(PDO $pdo): ?array {
     if (!isSupervisor()) return null;
+    // Supervisors have full attendance/queue visibility. Manager remains
+    // team-scoped through managerScopeIds().
+    return null;
+}
+
+/**
+ * Manager scope. Managers use the same team assignment as Supervisors for
+ * now: employees.supervisor_id points at the team lead. This lets a Manager
+ * and a Supervisor share a team without adding a parallel assignment table.
+ */
+function managerScopeIds(PDO $pdo): ?array {
+    if (!isManager()) return null;
     $self = currentEmployeeId();
     if ($self === null) return [];
     return supervisorTeamIds($pdo, $self);
+}
+
+/** Team scope for a Manager or Supervisor; null for payroll/admin. */
+function teamScopeIds(PDO $pdo): ?array {
+    if (isManager()) return managerScopeIds($pdo);
+    if (isSupervisor()) return supervisorScopeIds($pdo);
+    return null;
+}
+
+/**
+ * Authorise a Manager to decide a team member's request. The Manager uses the
+ * same employee team mapping as a Supervisor until a separate manager_id
+ * assignment is introduced.
+ */
+function assertManages(PDO $pdo, int $employeeId, string $what): void {
+    if (!isManager()) {
+        respond(false, "Only a Manager may $what.", null, 403);
+    }
+
+    $self = currentEmployeeId();
+    if ($self === null) {
+        respond(
+            false,
+            "This Manager account is not linked to an employee record, so it leads no team "
+            . "and cannot $what.",
+            null,
+            403
+        );
+    }
+
+    if ($employeeId === $self) {
+        respond(
+            false,
+            "You cannot $what because it is your own request. Another reviewer must decide it.",
+            null,
+            403
+        );
+    }
+
+    if (!in_array($employeeId, supervisorTeamIds($pdo, $self), true)) {
+        respond(
+            false,
+            "Employee #$employeeId is not in your team, so you cannot $what. "
+            . "A Manager may only decide their own team's requests.",
+            null,
+            403
+        );
+    }
 }
 
 /**
@@ -627,15 +693,8 @@ function assertSupervises(PDO $pdo, int $employeeId, string $what): void {
         );
     }
 
-    if (!in_array($employeeId, supervisorTeamIds($pdo, $self), true)) {
-        respond(
-            false,
-            "Employee #$employeeId is not in your team, so you cannot $what. "
-            . "A Supervisor may only decide their own team's requests.",
-            null,
-            403
-        );
-    }
+    // Supervisors have full operational visibility; only the own-request
+    // rule above is employee-specific. Managers remain team-scoped.
 }
 
 /**
@@ -648,14 +707,15 @@ function assertSupervises(PDO $pdo, int $employeeId, string $what): void {
  * why). respond() exits, so this never returns when it refuses.
  */
 function assertTeamReadScope(PDO $pdo, int $employeeId, string $what): void {
-    if (!isSupervisor()) return;
+    if (isSupervisor()) return;
+    if (!isManager()) return;
 
     $self = currentEmployeeId();
     $team = $self !== null ? supervisorTeamIds($pdo, $self) : [];
     if (!in_array($employeeId, $team, true)) {
         respond(
             false,
-            "A Supervisor may only $what for their own team. "
+            "A Manager may only $what for their own team. "
             . "Employee #$employeeId is not in your team.",
             null,
             403

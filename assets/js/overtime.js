@@ -2,7 +2,7 @@
 // assets/js/overtime.js
 // Admin overtime page.
 //
-// A Supervisor files a request for a team member; the Approver approves or
+// A Manager files a request for a team member; the Supervisor approves or
 // rejects it. Employees cannot file overtime. Hours are filled in by the
 // employee's overtime clock-out at the kiosk.
 // =====================================================================
@@ -88,8 +88,8 @@ function renderRows(rows) {
 
     rowsEl.innerHTML = rows.map((r) => {
         const canDecide = r.status === "Pending"
-            && (currentRole === "Approver"
-                || (currentRole === "Supervisor" && r.requested_by_name !== currentUsername));
+            && currentRole === "Supervisor"
+            && r.requested_by_name !== currentUsername;
         const decidedBy = r.approved_by_name
             ? `<div style="font-size:11px;color:var(--muted);">by ${escapeHtml(r.approved_by_name)}</div>`
             : "";
@@ -158,9 +158,9 @@ async function decide(id, action) {
     if (!row) return;
 
     const verb = action === "approve" ? "Approve" : "Reject";
-    const detail = action === "approve"
+        const detail = action === "approve"
         ? "The employee will then be able to start and end the overtime with their QR code."
-        : "It stays visible as Rejected and is excluded from payroll. The Supervisor can file a new request.";
+        : "It stays visible as Rejected and is excluded from payroll. The Manager can file a new request.";
 
     if (!await confirmDialog(
         `${verb} ${row.employee_name}'s overtime request for ${row.ot_date}?\n\n${detail}`,
@@ -186,7 +186,7 @@ function ymd(date) {
 
 async function initFileForm() {
     if (!fileCard) return;
-    if (currentRole !== "Supervisor") {
+    if (currentRole !== "Manager") {
         fileCard.classList.add("hidden");
         return;
     }

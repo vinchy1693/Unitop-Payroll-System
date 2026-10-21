@@ -64,15 +64,16 @@
                     <select id="role">
                         <option>Employee</option>
                         <option>Payroll Officer</option>
-                        <option>Approver</option>
+                        <option>Manager</option>
                         <option>Supervisor</option>
                         <option>Administrator</option>
                     </select>
                     <small style="display:block;font-size:11.5px;color:var(--muted);margin-top:4px;">
-                        Payroll Officer = maker, Approver = checker, Supervisor = team lead
-                        (own team only), Administrator = technical only.
-                        Payroll Officer/Approver accounts are provisioned outside this screen;
-                        the Administrator cannot create, promote or set their password.
+                        Manager = team manager, Supervisor = attendance/OT approver,
+                        Payroll Officer = combined Payroll/HR, Administrator = technical only.
+                        Payroll Officer accounts are provisioned outside this screen;
+                        the Administrator cannot create or set their password.
+                        Manager and Supervisor accounts need a linked employee record.
                     </small>
                 </div>
                 <div>
@@ -121,8 +122,8 @@
 <script src="assets/js/sweetalert2.min.js"></script>
 <script src="assets/js/dialogs.js"></script>
 <script src="assets/js/api.js?v=20261020logoutalert"></script>
-<script src="assets/js/nav.js?v=20261020supervisor" onerror="var nl=document.querySelectorAll('nav.sidebar');for(var i=0;i<nl.length;i++)nl[i].classList.remove('nav-locked');"></script>
-<script src="assets/js/users.js"></script>
+<script src="assets/js/nav.js?v=20261021manager" onerror="var nl=document.querySelectorAll('nav.sidebar');for(var i=0;i<nl.length;i++)nl[i].classList.remove('nav-locked');"></script>
+<script src="assets/js/users.js?v=20261021manager"></script>
 <script src="assets/js/theme.js"></script>
 </body>
 </html>

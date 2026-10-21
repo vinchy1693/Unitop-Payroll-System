@@ -5,11 +5,11 @@
 // Roles:
 //   GET   TEAM_QUEUE_ROLES  (maker + checker see every loan; a Supervisor
 //                            sees only their own team's loans - a filter)
-//   PATCH action=approve    CHECKER_ROLES only (the Approver decides)
+//   PATCH action=approve    CHECKER_ROLES only (Payroll/HR decides)
 //   PATCH action=recommend  SUPERVISOR_ROLE only, own team, ADVICE ONLY:
 //                           it records recommended_by / recommended_at /
 //                           recommendation_remarks and NEVER changes
-//                           loans.status - the Approver still decides.
+//                           loans.status - Payroll/HR still decides.
 //   POST / PUT / PATCH status / DELETE   MAKER_ROLES only
 //
 // A Supervisor therefore has exactly one write here and it cannot decide
@@ -29,7 +29,7 @@ if ($method === "GET") {
     // Team scope. A Supervisor only ever sees their own team's loans; the
     // maker and the checker keep every row. A Supervisor who supervises
     // nobody gets an empty list (200), never an error.
-    $scope  = supervisorScopeIds($pdo);
+    $scope  = teamScopeIds($pdo);
     $params = [];
     $scopeSql = "";
     if ($scope !== null) {
@@ -77,7 +77,7 @@ if ($method === "GET") {
 // Supervisor-only action: RECOMMEND a team member's loan.
 //
 // This is advice, not a decision. It records who recommended what and when,
-// and deliberately leaves loans.status alone: the Approver below is still the
+// and deliberately leaves loans.status alone: Payroll/HR below is still the
 // only role that can turn a Pending loan into an Active one.
 //
 // Handled before the maker guard so a Supervisor can reach this one action,
@@ -114,7 +114,7 @@ if ($method === "PATCH" && $earlyAction === "recommend") {
          WHERE loan_id = ?"
     )->execute([$user["user_id"], $remarks !== "" ? $remarks : null, $id]);
 
-    respond(true, "Loan recommendation recorded. The Approver still decides this request.", [
+    respond(true, "Loan recommendation recorded. Payroll/HR still decides this request.", [
         "loan_id"                => $id,
         "status"                 => $loan["status"],   // unchanged: advice only
         "recommended_by"         => (int) $user["user_id"],
@@ -244,7 +244,7 @@ if ($method === "POST") {
     }
     if ($status !== "Pending") {
         respond(false,
-            "A new loan must start as Pending; the Approver activates it. "
+            "A new loan must start as Pending; Payroll/HR activates it. "
             . "The maker cannot create an Active loan.",
             null, 403);
     }

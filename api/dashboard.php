@@ -1,9 +1,10 @@
 <?php
 require __DIR__ . "/_bootstrap.php";
 
-// Payroll staff see the payroll-wide dashboard. A Supervisor gets a separate,
-// team-scoped dashboard with no salary, payslip or company payroll figures.
-requireRole(array_merge(PAYROLL_ROLES, [SUPERVISOR_ROLE]));
+// Payroll staff see the payroll-wide dashboard. Manager and Supervisor get a
+// separate, team-scoped dashboard with no salary, payslip or company payroll
+// figures.
+requireRole(array_merge(PAYROLL_ROLES, [MANAGER_ROLE, SUPERVISOR_ROLE]));
 
 if ($_SERVER["REQUEST_METHOD"] !== "GET") {
     respond(false, "Method not allowed.", null, 405);
@@ -12,9 +13,16 @@ if ($_SERVER["REQUEST_METHOD"] !== "GET") {
 try {
     $today = date("Y-m-d");
 
-    if (isSupervisor()) {
-        $team = supervisorScopeIds($pdo);
-        $team = $team ?? [];
+    if (isManager() || isSupervisor()) {
+        if (isManager()) {
+            $team = managerScopeIds($pdo) ?? [];
+        } else {
+            // Supervisors have full attendance visibility.
+            $team = array_map(
+                "intval",
+                $pdo->query("SELECT employee_id FROM employees WHERE is_active = 1")->fetchAll(PDO::FETCH_COLUMN)
+            );
+        }
         $teamCount = 0;
         $pendingOt = 0;
         $pendingLeave = 0;

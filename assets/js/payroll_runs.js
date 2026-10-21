@@ -20,7 +20,7 @@ let currentUser = null;
 // Helpers
 // ---------------------------------------------------------------------
 function isMaker()   { return !!currentUser && currentUser.role === "Payroll Officer"; }
-function isChecker() { return !!currentUser && currentUser.role === "Approver"; }
+function isChecker() { return !!currentUser && currentUser.role === "Payroll Officer"; }
 
 // The maker prepares the files, the checker may review them. Employee and
 // Administrator cannot export at all; the API answers 403 for them, so hiding
@@ -263,7 +263,7 @@ async function handleAction(action, runId, btn) {
     } else if (action === "return") {
         const result = await Swal.fire({
             title: "Return this run?",
-            text: `Tell the Payroll Officer what must be corrected in run #${runId}.`,
+            text: `Tell Payroll/HR what must be corrected in run #${runId}.`,
             input: "textarea",
             inputPlaceholder: "Explain the correction required...",
             inputValidator: (value) => (!value || !value.trim()) ? "Remarks are required when returning a run." : null,
@@ -276,7 +276,7 @@ async function handleAction(action, runId, btn) {
         if (!result.isConfirmed) return;
         remarks = result.value.trim();
     } else if (action === "void") {
-        // Approver-only; the API enforces the same rule, this is the UI half.
+        // Payroll/HR-only; the API enforces the same rule, this is the UI half.
         if (!isChecker()) return;
 
         const result = await Swal.fire({

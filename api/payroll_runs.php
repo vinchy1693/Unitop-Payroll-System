@@ -85,7 +85,7 @@ if ($method === "PATCH") {
     if ($action === "resubmit") {
         requireRole(MAKER_ROLES);    // the maker sends a returned run back
     } else {
-        requireRole(CHECKER_ROLES);  // only the Approver decides
+        requireRole(CHECKER_ROLES);  // only Payroll/HR decides
     }
 
     $user = currentUser();
@@ -100,20 +100,9 @@ if ($method === "PATCH") {
             respond(false, "Payroll run not found.", null, 404);
         }
 
-        // Segregation of duties: the submitter can never approve their own
-        // work, even if they also hold the Approver role.
-        if ($action !== "resubmit"
-            && $run["submitted_by"] !== null
-            && (int) $run["submitted_by"] === (int) $user["user_id"]) {
-            $pdo->rollBack();
-            respond(
-                false,
-                "Segregation of duties: the user who submitted this run cannot approve, return or release it. A different Approver must decide.",
-                null,
-                403
-            );
-        }
-
+        // The combined Payroll/HR role may process and approve the same run.
+        // The approval is still audited; a separate checker role can be added
+        // later without changing the state machine.
         $status = (string) $run["status"];
 
         if ($action === "approve") {

@@ -23,7 +23,7 @@
 //
 // The roles are the ones api/_bootstrap.php defines:
 //   MAKER_ROLES      = Payroll Officer
-//   CHECKER_ROLES    = Approver
+//   CHECKER_ROLES    = Payroll Officer
 //   SUPERVISOR_ROLE  = Supervisor
 //   ADMIN_ROLES      = Administrator
 // Every page whose API requires PAYROLL_ROLES is visible to maker + checker.
@@ -34,7 +34,7 @@
 // a reduced team payload, and the payroll-only endpoints still require
 // PAYROLL_ROLES, which does not include Supervisor.
 // Users and Audit Log are Administrator only. The kiosk is staff-operated
-// (Payroll Officer, Approver, Supervisor); Employee accounts use the portal.
+// (Payroll Officer, Manager, Supervisor); Employee accounts use the portal.
 //
 // data-page values are a FROZEN contract: assets/js/api.js highlightNav() and
 // the active-link styling depend on them, so entries below must match the
@@ -46,26 +46,26 @@
 
 // NAV_ACCESS_BEGIN
 const NAV_ACCESS = {
-    "index.html":                  ["Payroll Officer", "Approver", "Supervisor"],
-    "departments.html":            ["Payroll Officer", "Approver"],
-    "positions.html":              ["Payroll Officer", "Approver"],
-    "employees.html":              ["Payroll Officer", "Approver"],
-    "attendance.html":             ["Payroll Officer", "Approver", "Supervisor"],
-    "qr_codes.html":               ["Payroll Officer", "Approver"],
-    "leave.html":                  ["Payroll Officer", "Approver", "Supervisor"],
-    "leave_types.html":            ["Payroll Officer", "Approver"],
-    "leave_balances.html":         ["Payroll Officer", "Approver"],
-    "overtime.html":               ["Payroll Officer", "Approver", "Supervisor"],
-    "attendance_corrections.html": ["Payroll Officer", "Approver", "Supervisor"],
-    "loans.html":                  ["Payroll Officer", "Approver", "Supervisor"],
-    "payroll_periods.html":        ["Payroll Officer", "Approver"],
-    "payroll_runs.html":           ["Payroll Officer", "Approver"],
-    "payslips.html":               ["Payroll Officer", "Approver"],
-    "ledger.html":                 ["Payroll Officer", "Approver"],
-    "reports.html":                ["Payroll Officer", "Approver"],
+    "index.html":                  ["Payroll Officer", "Manager", "Supervisor"],
+    "departments.html":            ["Payroll Officer"],
+    "positions.html":              ["Payroll Officer"],
+    "employees.html":              ["Payroll Officer", "Manager"],
+    "attendance.html":             ["Payroll Officer", "Manager", "Supervisor"],
+    "qr_codes.html":               ["Payroll Officer"],
+    "leave.html":                  ["Payroll Officer", "Manager", "Supervisor"],
+    "leave_types.html":            ["Payroll Officer"],
+    "leave_balances.html":         ["Payroll Officer"],
+    "overtime.html":               ["Payroll Officer", "Manager", "Supervisor"],
+    "attendance_corrections.html": ["Payroll Officer", "Manager", "Supervisor"],
+    "loans.html":                  ["Payroll Officer", "Manager", "Supervisor"],
+    "payroll_periods.html":        ["Payroll Officer"],
+    "payroll_runs.html":           ["Payroll Officer"],
+    "payslips.html":               ["Payroll Officer"],
+    "ledger.html":                 ["Payroll Officer"],
+    "reports.html":                ["Payroll Officer"],
     "users.html":                  ["Administrator"],
     "audit.html":                  ["Administrator"],
-    "kiosk.html":                  ["Payroll Officer", "Approver", "Supervisor"]
+    "kiosk.html":                  ["Payroll Officer", "Manager", "Supervisor"]
 };
 // NAV_ACCESS_END
 

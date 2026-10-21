@@ -20,6 +20,7 @@ document.querySelectorAll(".tab").forEach((btn) => {
 // =====================================================================
 (function initRequests() {
     let editId = null;
+    let currentRole = "";
 
     const form      = document.getElementById("req-form");
     const submitBtn = document.getElementById("req_submit_btn");
@@ -85,6 +86,19 @@ document.querySelectorAll(".tab").forEach((btn) => {
         return `<span class="badge ${s.cls}"${style}>${escapeHtml(status)}</span>`;
     }
 
+    function canDecide() {
+        return currentRole === "Manager" || currentRole === "Supervisor";
+    }
+
+    async function loadRole() {
+        try {
+            const { data } = await api.get("auth.php?action=me");
+            currentRole = data.data?.role || "";
+        } catch (_) {
+            currentRole = "";
+        }
+    }
+
     async function loadRows() {
         rowsEl.innerHTML = `<tr class="loading-row"><td colspan="7">Loading…</td></tr>`;
         const status = filterEl.value;
@@ -107,12 +121,16 @@ document.querySelectorAll(".tab").forEach((btn) => {
         rowsEl.innerHTML = rows.map((r) => {
             const days = countBusinessDays(r.start_date, r.end_date);
             let actions = "";
-            if (r.status === "Pending") {
+            if (r.status === "Pending" && canDecide()) {
                 actions = `
                     <button class="btn btn-restore" data-approve="${r.leave_id}">Approve</button>
                     <button class="btn btn-delete"  data-reject="${r.leave_id}">Reject</button>
-                    <button class="btn btn-edit"    data-edit="${r.leave_id}">Edit</button>
                 `;
+                if (currentRole === "Manager") {
+                    actions += ` <button class="btn btn-edit" data-edit="${r.leave_id}">Edit</button>`;
+                }
+            } else if (r.status === "Pending") {
+                actions = `<span style="color:#888;font-size:12px;">Pending review</span>`;
             } else {
                 actions = `<span style="color:#888;font-size:12px;">Finalized</span>`;
             }
@@ -235,7 +253,12 @@ document.querySelectorAll(".tab").forEach((btn) => {
 
     window.__reloadLeaveTypesForRequests = loadLeaveTypes;
 
-    document.addEventListener("DOMContentLoaded", () => {
+    document.addEventListener("DOMContentLoaded", async () => {
+        await loadRole();
+        if (currentRole === "Supervisor") {
+            const card = form.closest(".card");
+            if (card) card.classList.add("hidden");
+        }
         loadEmployees();
         loadLeaveTypes();
         loadRows();

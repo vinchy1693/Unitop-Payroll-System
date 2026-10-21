@@ -229,10 +229,10 @@ if (salaryForm) {
 document.addEventListener("DOMContentLoaded", async () => {
     await loadCurrentRole();
     const isMaker = currentRole === "Payroll Officer";
-    const isApprover = currentRole === "Approver";
+    const isPayroll = currentRole === "Payroll Officer";
     document.getElementById("emp-form-card")?.classList.toggle("hidden", !isMaker);
-    salaryCard?.classList.toggle("hidden", !isApprover);
-    if (isApprover) await loadSalaryEmployees();
+    salaryCard?.classList.toggle("hidden", !isPayroll);
+    if (isPayroll) await loadSalaryEmployees();
     loadDropdowns();
     loadRows();
 });

@@ -21,6 +21,8 @@ version into a proper split frontend/backend:
   (files, blocks and approximate line ranges; not a LOC claim).
 - [PAYROLL_BASIS.md](PAYROLL_BASIS.md) — legal basis, rates, formula order,
   examples, policy assumptions and limitations.
+- [ROLE_MODEL.md](ROLE_MODEL.md) — final Manager/Supervisor/Payroll-HR roles
+  and approval flow.
 
 ## Setup
 

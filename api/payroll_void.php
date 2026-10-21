@@ -21,7 +21,7 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST") {
     respond(false, "Method not allowed.", null, 405);
 }
 
-requireRole(CHECKER_ROLES);   // the Approver authorises a void
+requireRole(CHECKER_ROLES);   // Payroll/HR authorises a void
 
 $in      = json_input();
 $runId   = (int)   ($in["run_id"] ?? 0);

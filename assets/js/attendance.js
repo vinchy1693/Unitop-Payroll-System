@@ -5,6 +5,7 @@
 let editId = null;
 let lastSummary = null;
 let scanner = null;
+let currentRole = "";
 let scannerRunning = false;
 let lastScannedCode = null;
 let lastScannedAt = 0;
@@ -361,8 +362,10 @@ function renderRows(rows) {
         const locked = !!r.locked;
         const actions = locked
             ? `<span class="badge inactive" title="${escapeHtml(lockText(r))}">Locked</span>`
-            : `<button class="btn btn-edit" data-edit="${r.attendance_id}">Edit</button>
-               <button class="btn btn-delete" data-delete="${r.attendance_id}">Delete</button>`;
+            : (currentRole === "Supervisor"
+                ? `<span style="color:var(--muted);font-size:12px;">View only</span>`
+                : `<button class="btn btn-edit" data-edit="${r.attendance_id}">Edit</button>
+                   <button class="btn btn-delete" data-delete="${r.attendance_id}">Delete</button>`);
 
         return `
         <tr>
@@ -757,7 +760,14 @@ document.addEventListener("keydown", (e) => {
 // =====================================================================
 // Init
 // =====================================================================
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+    try {
+        const { data } = await api.get("auth.php?action=me");
+        currentRole = data.data?.role || "";
+    } catch (_) {
+        currentRole = "";
+    }
+
     const now = new Date();
     const y = now.getFullYear();
     const m = String(now.getMonth() + 1).padStart(2, "0");

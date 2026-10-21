@@ -197,7 +197,7 @@ if ($method === "GET") {
     // Team scope. A Supervisor only ever sees corrections filed by their own
     // team; the maker and the checker keep the whole queue. A Supervisor who
     // supervises nobody gets an empty queue (200), never an error.
-    $scope = supervisorScopeIds($pdo);
+    $scope = teamScopeIds($pdo);
     if ($scope !== null) {
         if (!$scope) {
             respond(true, "", ["rows" => [], "total" => 0, "limit" => $limit, "offset" => $offset]);
@@ -278,9 +278,8 @@ if ($method === "GET") {
     ]);
 }
 
-// Everything below writes: attendance is the MAKER's domain, plus a
-// Supervisor for their own team only (checked below).
-requireRole(array_merge(MAKER_ROLES, [SUPERVISOR_ROLE]));
+// Everything below writes: the single Manager-or-Supervisor approval.
+requireRole([MANAGER_ROLE, SUPERVISOR_ROLE]);
 
 if ($method !== "PATCH") {
     respond(false, "Method not allowed.", null, 405);
@@ -326,7 +325,9 @@ if ($ownerEmployeeId === false) {
     respond(false, "Attendance correction not found.", null, 404);
 }
 assertNotOwnEmployee((int) $ownerEmployeeId, "approve or reject this correction");
-if (isSupervisor()) {
+if (isManager()) {
+    assertManages($pdo, (int) $ownerEmployeeId, "approve or reject this attendance correction");
+} elseif (isSupervisor()) {
     assertSupervises($pdo, (int) $ownerEmployeeId, "approve or reject this attendance correction");
 }
 

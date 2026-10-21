@@ -4,7 +4,7 @@
 // The maker (Payroll Officer) adds / edits / cancels a loan. A Supervisor
 // gets ONE action here: "Recommend" on a team member's Pending request. That
 // is advice only - it records who recommended it and never changes the
-// status, because the Approver still decides. The API enforces exactly the
+// status, because Payroll/HR still decides. The API enforces exactly the
 // same rule (SUPERVISOR_ROLE on action=recommend, CHECKER_ROLES on
 // action=approve, MAKER_ROLES everywhere else).
 // =====================================================================
@@ -25,7 +25,8 @@ function formatMoney(n) {
 
 function isSupervisor() { return !!currentUser && currentUser.role === "Supervisor"; }
 function isMaker() { return !!currentUser && currentUser.role === "Payroll Officer"; }
-function isApprover() { return !!currentUser && currentUser.role === "Approver"; }
+function isPayroll() { return !!currentUser && currentUser.role === "Payroll Officer"; }
+function isManager() { return !!currentUser && currentUser.role === "Manager"; }
 
 function getEmployeeLabel() {
     const sel = document.getElementById("employee_id");
@@ -88,9 +89,9 @@ function renderRows(rows) {
                 ? `<button class="btn btn-restore" data-restore="${r.loan_id}">Reactivate</button>`
                 : `<span style="color:#888;font-size:12px;">&mdash;</span>`;
         } else if (r.status === "Pending" && isSupervisor()) {
-            // Advice only: the Approver still decides.
+            // Advice only: Payroll/HR still decides.
             actions = `<button class="btn btn-edit" data-recommend="${r.loan_id}">Recommend</button>`;
-        } else if (r.status === "Pending" && isApprover()) {
+        } else if (r.status === "Pending" && isPayroll()) {
             actions = `<button class="btn btn-restore" data-approve="${r.loan_id}">Approve</button>`;
         } else {
             actions = `<span style="color:#888;font-size:12px;">&mdash;</span>`;
@@ -205,7 +206,7 @@ form.addEventListener("submit", async (e) => {
 // Supervisor: recommend a team member's Pending loan.
 //
 // Records the advice and reloads. The loan keeps its status - the recommendation
-// is advisory and the Approver still decides - which the toast says explicitly
+// is advisory and Payroll/HR still decides - which the toast says explicitly
 // so nobody mistakes it for an approval.
 // ---------------------------------------------------------------------
 async function recommendLoan(loanId) {
@@ -215,11 +216,11 @@ async function recommendLoan(loanId) {
     const result = await Swal.fire({
         title: "Recommend this loan",
         html: `<div style="font-size:13px;text-align:left;margin-bottom:10px;">
-                 Recommend <strong>${escapeHtml(who)}</strong> to the Approver.
-                 This does <strong>not</strong> approve it - the Approver still decides.
+                 Recommend <strong>${escapeHtml(who)}</strong> to Payroll/HR.
+                 This does <strong>not</strong> approve it - Payroll/HR still decides.
                </div>`,
         input: "textarea",
-        inputPlaceholder: "Why do you recommend it? (optional, the Approver will see this)",
+        inputPlaceholder: "Why do you recommend it? (optional, Payroll/HR will see this)",
         inputAttributes: { maxlength: 500, rows: 3 },
         showCancelButton: true,
         confirmButtonText: "Recommend",
@@ -299,8 +300,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (isMaker()) {
         loadEmployeeOptions();
     } else {
-        // The add/edit form is maker-only; Approver and Supervisor use actions
-        // on the queue instead.
+        // The add/edit form is Payroll/HR-only; Manager and Supervisor use
+        // team queues instead.
         const addCard = formTitle ? formTitle.closest(".card") : null;
         if (addCard) addCard.classList.add("hidden");
     }
