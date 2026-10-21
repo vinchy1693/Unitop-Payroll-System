@@ -182,7 +182,7 @@ function correctionFilterDate(string $value): ?string {
 // GET: the queue
 // =====================================================================
 if ($method === "GET") {
-    requireRole(TEAM_QUEUE_ROLES);   // maker + checker + supervisor may read
+    requireRole([MANAGER_ROLE, SUPERVISOR_ROLE]);   // team leads review corrections
 
     $limit = isset($_GET["limit"]) && $_GET["limit"] !== "" ? (int) $_GET["limit"] : 100;
     if ($limit < 1)   $limit = 100;

@@ -768,6 +768,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         currentRole = "";
     }
 
+    // Payroll/HR reviews attendance but never operates the scanner.
+    if (currentRole === "Payroll Officer") {
+        document.getElementById("scanner-card")?.classList.add("hidden");
+        document.getElementById("demo-card")?.classList.add("hidden");
+    }
+
     const now = new Date();
     const y = now.getFullYear();
     const m = String(now.getMonth() + 1).padStart(2, "0");

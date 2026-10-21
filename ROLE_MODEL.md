@@ -27,7 +27,8 @@ The existing `approver` account was converted to the `manager` login.
 No second approval is required. A user cannot approve their own request.
 
 Manager has team-scoped QR-code generation. Payroll/HR can view attendance in
-full but cannot edit, create or delete attendance records.
+full but cannot edit, create, delete, scan, or open the attendance-correction
+queue.
 
 ## Team mapping
 

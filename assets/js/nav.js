@@ -56,7 +56,7 @@ const NAV_ACCESS = {
     "leave_types.html":            ["Payroll Officer"],
     "leave_balances.html":         ["Payroll Officer"],
     "overtime.html":               ["Payroll Officer", "Manager", "Supervisor"],
-    "attendance_corrections.html": ["Payroll Officer", "Manager", "Supervisor"],
+    "attendance_corrections.html": ["Manager", "Supervisor"],
     "loans.html":                  ["Payroll Officer", "Manager", "Supervisor"],
     "payroll_periods.html":        ["Payroll Officer"],
     "payroll_runs.html":           ["Payroll Officer"],
@@ -65,7 +65,7 @@ const NAV_ACCESS = {
     "reports.html":                ["Payroll Officer"],
     "users.html":                  ["Administrator"],
     "audit.html":                  ["Administrator"],
-    "kiosk.html":                  ["Payroll Officer", "Manager", "Supervisor"]
+    "kiosk.html":                  ["Manager", "Supervisor"]
 };
 // NAV_ACCESS_END
 

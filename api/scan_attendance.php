@@ -10,7 +10,7 @@ if ($method !== "POST") {
 // The kiosk is a staff-operated, on-site device. Without this guard an Employee
 // who logs into the admin app could open kiosk.html and clock in from anywhere.
 // Employees record attendance only by scanning at the office kiosk.
-requireRole(TEAM_QUEUE_ROLES);
+requireRole([MANAGER_ROLE, SUPERVISOR_ROLE]);
 
 $in         = json_input();
 $tokenValue = trim((string) ($in["qr_token"] ?? ""));
@@ -40,7 +40,7 @@ if ($isDemoMode) {
     if (!ALLOW_DEMO_SCANS) {
         respond(false, "Demo scanning is disabled on this deployment.", null, 403);
     }
-    requireRole(array_merge(MAKER_ROLES, [MANAGER_ROLE]));
+    requireRole(array_merge([MANAGER_ROLE, SUPERVISOR_ROLE]));
 }
 
 // Validate the demo inputs. Without this a malformed value went straight into the

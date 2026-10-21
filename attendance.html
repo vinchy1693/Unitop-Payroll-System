@@ -55,7 +55,7 @@
     <div id="msg" class="msg hidden"></div>
 
     <!-- QR SCANNER -->
-    <div class="card">
+    <div class="card" id="scanner-card">
         <h3 style="margin-top:0;">QR Scanner <a href="kiosk.html" target="_blank" rel="noopener" style="font-size:12px;font-weight:600;margin-left:10px;color:var(--blue);text-decoration:none;">Open kiosk mode &rsaquo;</a></h3>
         <p style="margin:0 0 14px;font-size:13px;color:#666;">
             Point the employee's QR code at the camera. The system will automatically decide whether to clock them in or out.
@@ -272,8 +272,8 @@
 <script src="assets/js/dialogs.js"></script>
 <script src="assets/js/html5-qrcode.min.js"></script>
 <script src="assets/js/api.js?v=20261020logoutalert"></script>
-<script src="assets/js/nav.js?v=20261021qrmanager" onerror="var nl=document.querySelectorAll('nav.sidebar');for(var i=0;i<nl.length;i++)nl[i].classList.remove('nav-locked');"></script>
-<script src="assets/js/attendance.js?v=20261021payrollview"></script>
+<script src="assets/js/nav.js?v=20261021noscan2" onerror="var nl=document.querySelectorAll('nav.sidebar');for(var i=0;i<nl.length;i++)nl[i].classList.remove('nav-locked');"></script>
+<script src="assets/js/attendance.js?v=20261021noscan"></script>
 <script src="assets/js/theme.js"></script>
 </body>
 </html>
