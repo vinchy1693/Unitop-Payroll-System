@@ -51,7 +51,7 @@ const NAV_ACCESS = {
     "positions.html":              ["Payroll Officer"],
     "employees.html":              ["Payroll Officer", "Manager"],
     "attendance.html":             ["Payroll Officer", "Manager", "Supervisor"],
-    "qr_codes.html":               ["Payroll Officer"],
+    "qr_codes.html":               ["Payroll Officer", "Manager"],
     "leave.html":                  ["Payroll Officer", "Manager", "Supervisor"],
     "leave_types.html":            ["Payroll Officer"],
     "leave_balances.html":         ["Payroll Officer"],

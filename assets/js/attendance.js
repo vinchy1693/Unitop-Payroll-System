@@ -362,7 +362,7 @@ function renderRows(rows) {
         const locked = !!r.locked;
         const actions = locked
             ? `<span class="badge inactive" title="${escapeHtml(lockText(r))}">Locked</span>`
-            : (currentRole === "Supervisor"
+            : (currentRole !== "Manager"
                 ? `<span style="color:var(--muted);font-size:12px;">View only</span>`
                 : `<button class="btn btn-edit" data-edit="${r.attendance_id}">Edit</button>
                    <button class="btn btn-delete" data-delete="${r.attendance_id}">Delete</button>`);

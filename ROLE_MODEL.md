@@ -7,7 +7,7 @@ The **Approver** role is removed. Its work is split between Manager, Supervisor 
 | Role | Scope |
 |---|---|
 | **Employee** | Own portal data |
-| **Manager** | Team-scoped attendance, leave/correction approval, overtime requests |
+| **Manager** | Team-scoped attendance, leave/correction approval, overtime requests, team QR codes |
 | **Supervisor** | Full attendance visibility, leave/correction approval, overtime approval |
 | **Payroll/HR** | Employee master data, loans, payroll processing/approval/release |
 | **Administrator** | Users, roles, audit and system configuration |
@@ -25,6 +25,9 @@ The existing `approver` account was converted to the `manager` login.
 | Payroll run | **Payroll/HR processes, approves and releases** |
 
 No second approval is required. A user cannot approve their own request.
+
+Manager has team-scoped QR-code generation. Payroll/HR can view attendance in
+full but cannot edit, create or delete attendance records.
 
 ## Team mapping
 

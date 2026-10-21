@@ -1,26 +1,36 @@
 <?php
 require __DIR__ . "/_bootstrap.php";
 
-requireRole(PAYROLL_ROLES);   // maker + checker may read
+requireRole(array_merge(PAYROLL_ROLES, [MANAGER_ROLE]));   // Payroll/HR or a team Manager
 
 $method = $_SERVER["REQUEST_METHOD"];
 
-// ---- GET: list all QR codes ----
+// ---- GET: list all QR codes (Manager: team only) ----
 if ($method === "GET") {
+    $scope = teamScopeIds($pdo);
+    $params = [];
+    $where = "";
+    if ($scope !== null) {
+        if (!$scope) respond(true, "", []);
+        $where = " WHERE q.employee_id IN (" . implode(",", array_fill(0, count($scope), "?")) . ")";
+        $params = $scope;
+    }
     $sql = "SELECT q.qr_code_id, q.employee_id, q.code_value, q.issued_date, q.status,
                    e.employee_number,
                    CONCAT(e.last_name, ', ', e.first_name) AS employee_name,
                    d.department_name
             FROM qr_codes q
             JOIN employees e ON e.employee_id = q.employee_id
-            LEFT JOIN departments d ON d.department_id = e.department_id
-            ORDER BY e.last_name, e.first_name, q.qr_code_id DESC";
-    $rows = $pdo->query($sql)->fetchAll();
-    respond(true, "", $rows);
+            LEFT JOIN departments d ON d.department_id = e.department_id"
+            . $where
+            . " ORDER BY e.last_name, e.first_name, q.qr_code_id DESC";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    respond(true, "", $stmt->fetchAll());
 }
 
 // ---- POST: generate QR for an employee ----
-requireRole(MAKER_ROLES);   // only the Payroll Officer may write master data
+requireRole(array_merge(MAKER_ROLES, [MANAGER_ROLE]));
 
 if ($method === "POST") {
     $in    = json_input();
@@ -28,6 +38,9 @@ if ($method === "POST") {
 
     if ($empId === 0) {
         respond(false, "Employee is required.", null, 422);
+    }
+    if (isManager()) {
+        assertManages($pdo, $empId, "generate a QR code for this employee");
     }
 
     $stmt = $pdo->prepare("SELECT employee_id FROM employees WHERE employee_id = ? AND is_active = 1");
@@ -74,6 +87,9 @@ if ($method === "PATCH") {
         respond(false, "QR code not found.", null, 404);
     }
     $empId = (int) $row["employee_id"];
+    if (isManager()) {
+        assertManages($pdo, $empId, "change this employee's QR code");
+    }
 
     if ($status === "Revoked") {
         // Revoking a QR means revoking the employee's QR access, not just one

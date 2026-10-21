@@ -329,7 +329,7 @@ if ($method === "GET") {
 }
 
 // ---- POST (Time In only, or full log) ----
-requireRole(array_merge(MAKER_ROLES, [MANAGER_ROLE]));   // Payroll/HR or a team Manager
+requireRole(MANAGER_ROLE);   // team Managers maintain attendance; Payroll/HR reviews
 
 if ($method === "POST") {
     $in      = json_input();
