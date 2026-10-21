@@ -16,6 +16,21 @@ $fields = ["employee_number", "first_name", "last_name", "birth_date", "civil_st
            "mobile_number", "email", "address",
            "emergency_contact_name", "emergency_contact_number"];
 
+// EMP-0001, EMP-0002, ... The numeric suffix is based only on existing EMP-
+// numbers, so test fixtures (DSH-*, etc.) cannot push the real sequence.
+function nextEmployeeNumber(PDO $pdo): string
+{
+    $numbers = $pdo->query(
+        "SELECT employee_number FROM employees WHERE employee_number REGEXP '^EMP-[0-9]+$'"
+    )->fetchAll(PDO::FETCH_COLUMN);
+
+    $max = 0;
+    foreach ($numbers as $number) {
+        $max = max($max, (int) substr($number, 4));
+    }
+    return sprintf("EMP-%04d", $max + 1);
+}
+
 // ---- GET ----
 if ($method === "GET") {
     if (isset($_GET["simple"])) {
@@ -45,8 +60,8 @@ if ($method === "POST") {
     $vals = [];
     foreach ($fields as $f) $vals[$f] = trim((string) ($in[$f] ?? ""));
 
-    if ($vals["employee_number"] === "" || $vals["first_name"] === "" || $vals["last_name"] === "") {
-        respond(false, "Employee Number, First Name and Last Name are required.", null, 422);
+    if ($vals["first_name"] === "" || $vals["last_name"] === "") {
+        respond(false, "First Name and Last Name are required.", null, 422);
     }
     if ($vals["basic_salary"] === "" || (float) $vals["basic_salary"] <= 0) {
         respond(false, "Basic Salary is required and must be greater than zero.", null, 422);
@@ -61,18 +76,36 @@ if ($method === "POST") {
         }
     }
 
-    try {
-        $placeholders = implode(",", array_fill(0, count($fields), "?"));
-        $sql = "INSERT INTO employees (" . implode(",", $fields) . ", is_active) VALUES ($placeholders, 1)";
-        $stmt = $pdo->prepare($sql);
-        // Optional inputs the form leaves blank arrive as "" - store NULL instead,
-        // which an INT/DATE column would otherwise reject.
-        $stmt->execute(array_map(fn($v) => $v === "" ? null : $v, array_values($vals)));
-        respond(true, "Employee added.", ["employee_id" => (int) $pdo->lastInsertId()]);
-    } catch (PDOException $e) {
-        respond(false, $e->getCode() === '23000'
-            ? "Error: employee number may already exist."
-            : "Error: the employee could not be saved. Please check the values entered.", null, 409);
+    // A blank employee number is the normal path from the form: allocate the
+    // next EMP-####. A supplied number is still accepted for imports/tests.
+    $autoNumber = $vals["employee_number"] === "";
+    $attempt = 0;
+    while (true) {
+        if ($autoNumber) {
+            $vals["employee_number"] = nextEmployeeNumber($pdo);
+        }
+
+        try {
+            $placeholders = implode(",", array_fill(0, count($fields), "?"));
+            $sql = "INSERT INTO employees (" . implode(",", $fields) . ", is_active) VALUES ($placeholders, 1)";
+            $stmt = $pdo->prepare($sql);
+            // Optional inputs the form leaves blank arrive as "" - store NULL instead,
+            // which an INT/DATE column would otherwise reject.
+            $stmt->execute(array_map(fn($v) => $v === "" ? null : $v, array_values($vals)));
+            respond(true, "Employee added.", [
+                "employee_id" => (int) $pdo->lastInsertId(),
+                "employee_number" => $vals["employee_number"],
+            ]);
+        } catch (PDOException $e) {
+            // A concurrent create can claim the same generated number first.
+            if ($autoNumber && $e->getCode() === '23000' && $attempt < 5) {
+                $attempt++;
+                continue;
+            }
+            respond(false, $e->getCode() === '23000'
+                ? "Error: employee number may already exist."
+                : "Error: the employee could not be saved. Please check the values entered.", null, 409);
+        }
     }
 }
 
