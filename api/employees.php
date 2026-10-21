@@ -76,6 +76,10 @@ if ($method === "POST") {
         }
     }
 
+    // A new employee always starts Active. The create form locks this field;
+    // enforcing it server-side also covers direct API calls.
+    $vals["employment_status"] = "Active";
+
     // A blank employee number is the normal path from the form: allocate the
     // next EMP-####. A supplied number is still accepted for imports/tests.
     $autoNumber = $vals["employee_number"] === "";

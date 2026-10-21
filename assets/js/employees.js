@@ -132,6 +132,8 @@ function startEdit(row) {
         const el = document.getElementById(f);
         if (el) el.value = row[f] ?? "";
     });
+    const employmentStatus = document.getElementById("employment_status");
+    if (employmentStatus) employmentStatus.disabled = false;
     formTitle.textContent = "Edit Employee";
     submitBtn.textContent = "Save Changes";
     cancelBtn.classList.remove("hidden");
@@ -142,6 +144,11 @@ function resetForm() {
     editId = null;
     form.reset();
     document.getElementById("employee_id").value = "";
+    const employmentStatus = document.getElementById("employment_status");
+    if (employmentStatus) {
+        employmentStatus.disabled = true;
+        employmentStatus.value = "Active";
+    }
     formTitle.textContent = "Add New Employee";
     submitBtn.textContent = "Add Employee";
     cancelBtn.classList.add("hidden");
