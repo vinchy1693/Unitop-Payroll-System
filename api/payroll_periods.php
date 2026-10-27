@@ -16,14 +16,43 @@ function validPeriodDate(string $value): bool {
 }
 
 // Pay date per Philippine practice: the 1-15 cut-off is paid on the 20th, and
-// the 16-end cut-off on the 5th of the following month. An explicit pay_date
-// supplied by the client always wins.
+// the 16-end cut-off on the 5th of the following month. The business rule is
+// at least five calendar days after the period end; both defaults equal that.
+function minimumPayDate(string $endDate): string {
+    return (new DateTime($endDate))->modify("+5 days")->format("Y-m-d");
+}
+
 function defaultPayDate(string $endDate): string {
-    $d = new DateTime($endDate);
-    if ((int) $d->format("d") <= 15) {
-        return $d->format("Y-m-20");
+    return minimumPayDate($endDate);
+}
+
+/**
+ * Derive the two statutory semi-monthly periods from a month + half.
+ * half = first  -> 01..15
+ * half = second -> 16..last day
+ */
+function periodDatesFromSelection(string $month, string $half): ?array {
+    if (!preg_match('/^\d{4}-\d{2}$/', $month)) return null;
+    $first = DateTime::createFromFormat('!Y-m-d', $month . '-01');
+    if (!$first || $first->format('Y-m') !== $month) return null;
+
+    if ($half === 'first') {
+        return [$month . '-01', $month . '-15'];
     }
-    return (new DateTime($d->format("Y-m-01")))->modify("+1 month")->format("Y-m-05");
+    if ($half === 'second') {
+        return [$month . '-16', $month . '-' . $first->format('t')];
+    }
+    return null;
+}
+
+function assertValidPayDate(string $payDate, string $end, string $label = "Pay Date"): void {
+    if (!validPeriodDate($payDate)) {
+        respond(false, "$label must be a real date in YYYY-MM-DD form.", null, 422);
+    }
+    $minimum = minimumPayDate($end);
+    if ($payDate < $minimum) {
+        respond(false, "$label must be at least 5 days after the period end (minimum $minimum).", null, 422);
+    }
 }
 
 // ---- GET: list periods with their latest run info ----
@@ -45,16 +74,29 @@ requireRole(MAKER_ROLES);   // only the Payroll Officer may change periods
 
 if ($method === "POST") {
     $in    = json_input();
-    $start = trim($in["start_date"]  ?? "");
-    $end   = trim($in["end_date"]    ?? "");
+    $month = trim($in["period_month"] ?? "");
+    $half  = trim($in["period_half"] ?? "");
     $type  = trim($in["period_type"] ?? "Semi-monthly");
     $payDate = trim($in["pay_date"] ?? "");
 
+    if ($month !== "" || $half !== "") {
+        $dates = periodDatesFromSelection($month, $half);
+        if ($dates === null) {
+            respond(false, "Choose a valid month and payroll period (First half or Second half).", null, 422);
+        }
+        [$start, $end] = $dates;
+        $type = "Semi-monthly";
+    } else {
+        // Legacy API clients may still send explicit dates.
+        $start = trim($in["start_date"] ?? "");
+        $end   = trim($in["end_date"] ?? "");
+    }
+
     if ($start === "" || $end === "") {
-        respond(false, "Start Date and End Date are required.", null, 422);
+        respond(false, "Choose the payroll month and period.", null, 422);
     }
     if (!validPeriodDate($start) || !validPeriodDate($end)) {
-        respond(false, "Start Date and End Date must be real dates in YYYY-MM-DD form.", null, 422);
+        respond(false, "Period dates must be real dates in YYYY-MM-DD form.", null, 422);
     }
     if ($start > $end) {
         respond(false, "End Date must be on or after Start Date.", null, 422);
@@ -62,9 +104,8 @@ if ($method === "POST") {
     if (!in_array($type, PERIOD_TYPES, true)) {
         respond(false, "Period type must be one of: " . implode(", ", PERIOD_TYPES) . ".", null, 422);
     }
-    if ($payDate !== "" && !validPeriodDate($payDate)) {
-        respond(false, "Pay Date must be a real date in YYYY-MM-DD form.", null, 422);
-    }
+    if ($payDate === "") $payDate = defaultPayDate($end);
+    assertValidPayDate($payDate, $end);
 
     $stmt = $pdo->prepare(
         "SELECT COUNT(*) FROM payroll_periods
@@ -79,30 +120,46 @@ if ($method === "POST") {
         "INSERT INTO payroll_periods (start_date, end_date, pay_date, period_type, status)
          VALUES (?, ?, ?, ?, 'Open')"
     );
-    // defaultPayDate() existed but was never called, so a blank Pay Date field
-    // wrote '' into a DATE column; with no STRICT_TRANS_TABLES that becomes
-    // 0000-00-00 and the periods table displays it as a real date.
-    if ($payDate === "") $payDate = defaultPayDate($end);
-
     $stmt->execute([$start, $end, $payDate, $type]);
 
-    respond(true, "Payroll period created.", ["period_id" => (int) $pdo->lastInsertId()]);
+    respond(true, "Payroll period created.", [
+        "period_id" => (int) $pdo->lastInsertId(),
+        "start_date" => $start,
+        "end_date" => $end,
+        "pay_date" => $payDate,
+    ]);
 }
 
 // ---- PUT: update (only if not Processed) ----
 if ($method === "PUT") {
     $in    = json_input();
     $id    = (int)  ($in["period_id"]   ?? 0);
-    $start = trim($in["start_date"]  ?? "");
-    $end   = trim($in["end_date"]    ?? "");
+    $month = trim($in["period_month"] ?? "");
+    $half  = trim($in["period_half"] ?? "");
     $type  = trim($in["period_type"] ?? "Semi-monthly");
     $payDate = trim($in["pay_date"] ?? "");
 
-    if ($id === 0 || $start === "" || $end === "") {
-        respond(false, "All fields are required.", null, 422);
+    if ($id === 0) {
+        respond(false, "period_id is required.", null, 422);
+    }
+
+    if ($month !== "" || $half !== "") {
+        $dates = periodDatesFromSelection($month, $half);
+        if ($dates === null) {
+            respond(false, "Choose a valid month and payroll period (First half or Second half).", null, 422);
+        }
+        [$start, $end] = $dates;
+        $type = "Semi-monthly";
+    } else {
+        $start = trim($in["start_date"] ?? "");
+        $end   = trim($in["end_date"] ?? "");
+    }
+
+    if ($start === "" || $end === "") {
+        respond(false, "Choose the payroll month and period.", null, 422);
     }
     if (!validPeriodDate($start) || !validPeriodDate($end)) {
-        respond(false, "Start Date and End Date must be real dates in YYYY-MM-DD form.", null, 422);
+        respond(false, "Period dates must be real dates in YYYY-MM-DD form.", null, 422);
     }
     if ($start > $end) {
         respond(false, "End Date must be on or after Start Date.", null, 422);
@@ -110,9 +167,8 @@ if ($method === "PUT") {
     if (!in_array($type, PERIOD_TYPES, true)) {
         respond(false, "Period type must be one of: " . implode(", ", PERIOD_TYPES) . ".", null, 422);
     }
-    if ($payDate !== "" && !validPeriodDate($payDate)) {
-        respond(false, "Pay Date must be a real date in YYYY-MM-DD form.", null, 422);
-    }
+    if ($payDate === "") $payDate = defaultPayDate($end);
+    assertValidPayDate($payDate, $end);
 
     $stmt = $pdo->prepare("SELECT status FROM payroll_periods WHERE period_id = ?");
     $stmt->execute([$id]);
@@ -137,8 +193,6 @@ if ($method === "PUT") {
          SET start_date = ?, end_date = ?, pay_date = ?, period_type = ?
          WHERE period_id = ?"
     );
-    if ($payDate === "") $payDate = defaultPayDate($end);
-
     $stmt->execute([$start, $end, $payDate, $type, $id]);
 
     respond(true, "Payroll period updated.");

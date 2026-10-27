@@ -11,6 +11,43 @@ const cancelBtn = document.getElementById("cancel-btn");
 const formTitle = document.getElementById("form-title");
 const rowsEl    = document.getElementById("rows");
 const countEl   = document.getElementById("record-count");
+const monthEl   = document.getElementById("period_month");
+const halfEl    = document.getElementById("period_half");
+const datesEl   = document.getElementById("period_dates");
+const payDateEl = document.getElementById("pay_date");
+
+function isoAddDays(iso, days) {
+    const [y, m, d] = iso.split("-").map(Number);
+    return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+
+function derivePeriodDates() {
+    const month = monthEl.value;
+    const half = halfEl.value;
+    if (!/^\d{4}-\d{2}$/.test(month) || !["first", "second"].includes(half)) {
+        return null;
+    }
+    const [year, monthNo] = month.split("-").map(Number);
+    const last = new Date(Date.UTC(year, monthNo, 0)).getUTCDate();
+    const start = half === "first" ? `${month}-01` : `${month}-16`;
+    const end = half === "first" ? `${month}-15` : `${month}-${String(last).padStart(2, "0")}`;
+    return { start, end, minPay: isoAddDays(end, 5) };
+}
+
+function updatePeriodDates() {
+    const dates = derivePeriodDates();
+    if (!dates) {
+        datesEl.textContent = "Pick a month and period.";
+        payDateEl.removeAttribute("min");
+        return null;
+    }
+    datesEl.textContent = `${dates.start} → ${dates.end}`;
+    payDateEl.min = dates.minPay;
+    if (!payDateEl.value || payDateEl.value < dates.minPay) {
+        payDateEl.value = dates.minPay;
+    }
+    return dates;
+}
 
 async function loadRows() {
     rowsEl.innerHTML = `<tr class="loading-row"><td colspan="9">Loading…</td></tr>`;
@@ -176,12 +213,16 @@ async function runPayroll(periodId, btn) {
 // ---------------------------------------------------------------------
 function startEdit(row) {
     if (!row) return;
+    if (row.period_type !== "Semi-monthly") {
+        showToast("Only semi-monthly periods can be edited here.", "error");
+        return;
+    }
     editId = row.period_id;
-    document.getElementById("period_id").value   = row.period_id;
-    document.getElementById("period_type").value = row.period_type ?? "Semi-monthly";
-    document.getElementById("start_date").value  = row.start_date ?? "";
-    document.getElementById("end_date").value    = row.end_date ?? "";
-    document.getElementById("pay_date").value    = row.pay_date ?? "";
+    document.getElementById("period_id").value = row.period_id;
+    monthEl.value = String(row.start_date || "").slice(0, 7);
+    halfEl.value = Number(String(row.start_date || "").slice(8, 10)) <= 15 ? "first" : "second";
+    payDateEl.value = row.pay_date || "";
+    updatePeriodDates();
     formTitle.textContent = "Edit Payroll Period";
     submitBtn.textContent = "Save Changes";
     cancelBtn.classList.remove("hidden");
@@ -192,6 +233,10 @@ function resetForm() {
     editId = null;
     form.reset();
     document.getElementById("period_id").value = "";
+    const now = new Date();
+    monthEl.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    halfEl.value = "first";
+    updatePeriodDates();
     formTitle.textContent = "New Payroll Period";
     submitBtn.textContent = "Add Period";
     cancelBtn.classList.add("hidden");
@@ -199,27 +244,41 @@ function resetForm() {
 
 cancelBtn.addEventListener("click", resetForm);
 
+monthEl.addEventListener("change", updatePeriodDates);
+halfEl.addEventListener("change", updatePeriodDates);
+
 form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    const type  = document.getElementById("period_type").value;
-    const start = document.getElementById("start_date").value;
-    const end   = document.getElementById("end_date").value;
+    const dates = updatePeriodDates();
+    if (!dates) {
+        showToast("Choose the payroll month and period.", "error");
+        return;
+    }
 
-    if (!type || !start || !end) return;
+    const payDate = payDateEl.value;
+    if (!payDate) {
+        showToast("Pay Date is required.", "error");
+        return;
+    }
+    if (payDate < dates.minPay) {
+        showToast(`Pay Date must be at least 5 days after the period ends (${dates.minPay}).`, "error");
+        return;
+    }
 
+    const label = halfEl.value === "first" ? "First half (1–15)" : "Second half (16–end)";
     if (!editId) {
         if (!await confirmDialog(
-            `Create a ${type} payroll period from ${start} to ${end}?`,
+            `Create the ${label} payroll period for ${monthEl.value}?\n\nPeriod: ${dates.start} → ${dates.end}\nPay date: ${payDate}`,
             { title: "Confirm New Period", icon: "question", confirmText: "Create Period" }
         )) return;
     }
 
     const payload = {
-        period_type: type,
-        pay_date:    document.getElementById("pay_date").value,
-        start_date:  start,
-        end_date:    end,
+        period_type: "Semi-monthly",
+        period_month: monthEl.value,
+        period_half: halfEl.value,
+        pay_date: payDate,
     };
 
     submitBtn.disabled = true;
@@ -271,4 +330,7 @@ async function changeStatus(id, newStatus) {
 // ---------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------
-document.addEventListener("DOMContentLoaded", loadRows);
+document.addEventListener("DOMContentLoaded", () => {
+    resetForm();
+    loadRows();
+});
