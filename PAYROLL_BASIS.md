@@ -12,7 +12,8 @@
 |---|---|
 | `MONTHLY_BASIC_SALARY` | Contractual monthly basic salary |
 | `SEMI_MONTHLY_BASIC` | `MONTHLY_BASIC_SALARY / 2` |
-| `PERIOD_GROSS_PAY` | Basic period pay + overtime + premium pay + allowances |
+| `PERIOD_GROSS_PAY` | Basic period pay + overtime pay + holiday/premium pay + allowances |
+| `ADJUSTED_GROSS_PAY` | Gross pay minus absences, tardiness and undertime |
 | Attendance | Time in/out, late minutes, undertime, absences |
 | Approved overtime | Date, requested window, actual time in/out, hours |
 | Allowances | Amount and `is_taxable` flag |
@@ -30,13 +31,13 @@
 
 ## 2. Calculation order
 
-The engine must follow this order:
+The engine follows this order:
 
 ```text
-Phase 1  Government contributions
-Phase 2  Taxable income
-Phase 3  Withholding tax
-Phase 4  Other deductions and net pay
+Phase 1  Gross earnings
+Phase 2  Attendance adjustment -> Adjusted Gross Pay
+Phase 3  Taxable income and withholding tax
+Phase 4  Total deductions and net pay
 ```
 
 ### Phase 1 — Government contributions
@@ -49,43 +50,54 @@ PERIOD_PH_EE   = MONTHLY_PH_EE / 2
 PERIOD_HDMF_EE = MONTHLY_HDMF_EE / 2
 ```
 
-### Phase 2 — Taxable income
+### Phase 2 — Adjusted Gross Pay
 
-Current system rule:
+```text
+ADJUSTED_GROSS_PAY =
+    Basic Pay
+  + Overtime Pay
+  + Holiday / Premium Pay
+  + Allowances
+  − Absences
+  − Tardiness / Lates
+  − Undertime
+```
+
+Attendance is an **adjustment to gross pay**, not a separate deduction.
+
+### Phase 3 — Taxable income and withholding tax
 
 ```text
 PERIOD_TAXABLE_INCOME =
-    SEMI_MONTHLY_BASIC
-  + overtime pay
-  + premium pay
-  + taxable allowances
-  − attendance deductions (absence / late / undertime)
+    Basic Pay
+  + Overtime Pay
+  + Holiday / Premium Pay
+  + Taxable Allowances
+  − Attendance Adjustments
   − PERIOD_SSS_EE
   − PERIOD_PH_EE
   − PERIOD_HDMF_EE
 ```
 
-Non-taxable allowances are excluded.
+Non-taxable allowances are excluded from the tax base but remain payable.
 
-### Phase 3 — Withholding tax
-
-Apply the semi-monthly BIR table to `PERIOD_TAXABLE_INCOME`.
-
-### Phase 4 — Net pay
+### Phase 4 — Total deductions and net pay
 
 ```text
+TOTAL_DEDUCTIONS =
+    PERIOD_SSS_EE
+  + PERIOD_PH_EE
+  + PERIOD_HDMF_EE
+  + PERIOD_TAX_DED
+  + Loan Amortisation
+  + Other lawful deductions
+
 PERIOD_NET_PAY =
-    PERIOD_GROSS_PAY
-  − PERIOD_SSS_EE
-  − PERIOD_PH_EE
-  − PERIOD_HDMF_EE
-  − PERIOD_TAX_DED
-  − attendance deductions
-  − loan amortisation
-  − other lawful deductions
+    ADJUSTED_GROSS_PAY
+  − TOTAL_DEDUCTIONS
 ```
 
-No negative net pay is allowed; deductions are capped at what remains.
+Attendance is **not** added to `TOTAL_DEDUCTIONS` a second time. No negative net pay is allowed; deductions are capped at what remains.
 
 ---
 
@@ -396,7 +408,7 @@ Assume no absence and no loan:
 |---|---:|
 | Basic (semi-monthly) | ₱30,000.00 |
 | Premium / rest-day / holiday | ₱9,000.00 |
-| **Gross** | **₱39,000.00** |
+| **Adjusted Gross** | **₱39,000.00** |
 | SSS EE | ₱875.00 |
 | PhilHealth EE | ₱750.00 |
 | Pag-IBIG EE | ₱100.00 |

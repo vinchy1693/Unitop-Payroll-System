@@ -128,6 +128,8 @@ function renderPayslip(p) {
 
     const allowances = p.allowances || [];
     const deductions = p.deductions || [];
+    const attendanceDeductions = deductions.filter((d) => d.is_attendance);
+    const otherDeductions = deductions.filter((d) => !d.is_attendance);
 
     const allowanceRows = allowances.map((a) => `
         <div class="line editable-line">
@@ -139,7 +141,14 @@ function renderPayslip(p) {
         </div>
     `).join("");
 
-    const deductionRows = deductions.map((d) => `
+    const attendanceRows = attendanceDeductions.map((d) => `
+        <div class="line">
+            <span>${escapeHtml(d.deduction_type)}</span>
+            <span>-${formatMoney(d.amount)}</span>
+        </div>
+    `).join("");
+
+    const deductionRows = otherDeductions.map((d) => `
         <div class="line editable-line">
             <span>${escapeHtml(d.deduction_type)}</span>
             <span>
@@ -189,10 +198,11 @@ function renderPayslip(p) {
                     <div class="line"><span>Overtime Pay</span><span>${formatMoney(ot)}</span></div>
                     <div class="line"><span>Premium Pay (Rest Day / Holiday)</span><span>${formatMoney(premium)}</span></div>
                     ${allowanceRows}
+                    ${attendanceRows}
                     <div class="line-add">
                         <button class="btn-add-line" data-add-allowance>+ Add Allowance</button>
                     </div>
-                    <div class="line total"><span>Gross Pay</span><span>${formatMoney(gross)}</span></div>
+                    <div class="line total"><span>Adjusted Gross Pay</span><span>${formatMoney(gross)}</span></div>
                 </div>
 
                 <div class="payslip-section">

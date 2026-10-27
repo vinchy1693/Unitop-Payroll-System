@@ -343,8 +343,11 @@ function computePayslipDeductions(
 
     $tax = computeWithholdingTax($semiTaxable);
 
+    $adjustedGross = round($semiBasic + $additionalTaxable - $preTaxDeductions, 2);
+    if ($adjustedGross < 0) $adjustedGross = 0;
+
     $totalDeductions = round($sssEE + $phEE + $piEE + $tax, 2);
-    $netPay          = round($semiBasic - $totalDeductions, 2);
+    $netPay          = round($adjustedGross - $totalDeductions, 2);
 
     return [
         "sss_ee"           => $sssEE,
@@ -433,19 +436,28 @@ function recomputePayslipTotals(PDO $pdo, int $payslipId): array {
         }
     }
 
-    $gross    = round($basic + $ot + $premium + $allowTotal, 2);
-    $govtDed  = round((float)$gc["sss_ee"] + (float)$gc["philhealth_ee"] + (float)$gc["pagibig_ee"] + (float)$gc["withholding_tax"], 2);
-    $totalDed = round($govtDed + $extraDed, 2);
-    $net      = round($gross - $totalDed, 2);
+    // ---- ADJUSTED GROSS -> TOTAL DEDUCTIONS -> NET ----
+    // Attendance is an adjustment to gross pay, not a deduction. The
+    // deductions table still stores the attendance lines for audit/breakdown,
+    // so split them out before computing the deduction total.
+    $otherDed = round($extraDed - $attendanceDed, 2);
+    if ($otherDed < 0) $otherDed = 0;
+
+    $adjustedGross = round($basic + $ot + $premium + $allowTotal - $attendanceDed, 2);
+    if ($adjustedGross < 0) $adjustedGross = 0;
+
+    $govtDed  = round($statutoryOnly + (float)$gc["withholding_tax"], 2);
+    $totalDed = round($govtDed + $otherDed, 2);
+    $net      = round($adjustedGross - $totalDed, 2);
 
     // Take-home pay can never be negative. Deductions may legitimately exceed
-    // gross pay (a full-period absence on top of full statutory contributions,
-    // or a loan amortisation larger than the remaining pay). Cap the recorded
-    // deductions at gross so the payslip stays internally consistent
-    // (gross_pay - total_deductions = net_pay) and report a zero net pay.
-    // The unrecovered excess is NOT carried forward to the next period.
+    // the adjusted gross (a full-period absence on top of statutory
+    // contributions, or a loan larger than the remaining pay). Cap the recorded
+    // deductions at the adjusted gross so the payslip stays internally
+    // consistent (gross_pay - total_deductions = net_pay) and report zero net.
+    // The unrecovered excess is not carried forward.
     if ($net < 0) {
-        $totalDed = $gross;
+        $totalDed = $adjustedGross;
         $net      = 0.0;
     }
 
@@ -453,15 +465,19 @@ function recomputePayslipTotals(PDO $pdo, int $payslipId): array {
         "UPDATE payslips
          SET gross_pay = ?, total_deductions = ?, net_pay = ?
          WHERE payslip_id = ?"
-    )->execute([$gross, $totalDed, $net, $payslipId]);
+    )->execute([$adjustedGross, $totalDed, $net, $payslipId]);
 
     return [
-        "gross_pay"        => $gross,
-        "total_deductions" => $totalDed,
-        "net_pay"          => $net,
-        "premium_pay"      => round($premium, 2),
-        "allowance_total"  => round($allowTotal, 2),
-        "extra_deductions" => round($extraDed, 2),
+        "gross_pay"             => $adjustedGross,
+        "adjusted_gross_pay"    => $adjustedGross,
+        "attendance_deductions" => round($attendanceDed, 2),
+        "total_deductions"      => $totalDed,
+        "other_deductions"      => $otherDed,
+        "net_pay"               => $net,
+        "premium_pay"           => round($premium, 2),
+        "allowance_total"       => round($allowTotal, 2),
+        "taxable_allowances"    => round($taxableAllow, 2),
+        "extra_deductions"      => round($extraDed, 2),
     ];
 }
 

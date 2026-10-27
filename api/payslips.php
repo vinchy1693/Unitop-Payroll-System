@@ -124,6 +124,23 @@ if (isset($_GET["id"])) {
     $stmt->execute([$id]);
     $row["deductions"] = $stmt->fetchAll();
 
+    // Attendance is subtracted from Adjusted Gross, not counted again in
+    // Total Deductions. Return the split so the UI can show it correctly.
+    $attendanceDed = 0.0;
+    $otherDed = 0.0;
+    foreach ($row["deductions"] as &$d) {
+        $type = (string) ($d["deduction_type"] ?? "");
+        if (preg_match('/^(Absences|Late\/Undertime|Undertime)/', $type)) {
+            $attendanceDed += (float) $d["amount"];
+        } else {
+            $otherDed += (float) $d["amount"];
+        }
+        $d["is_attendance"] = (bool) preg_match('/^(Absences|Late\/Undertime|Undertime)/', $type);
+    }
+    unset($d);
+    $row["attendance_deductions"] = round($attendanceDed, 2);
+    $row["other_deductions"] = round($otherDed, 2);
+
     respond(true, "", $row);
 }
 
