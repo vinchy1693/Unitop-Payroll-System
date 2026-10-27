@@ -32,6 +32,13 @@ function fmtDate(v) {
     return escapeHtml(String(v).replace("T", " "));
 }
 
+function formatMoney(n) {
+    return "₱" + Number(n || 0).toLocaleString("en-PH", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    });
+}
+
 function statusBadge(status) {
     const map = {
         "Submitted": { bg: "var(--blue-lite)",   fg: "var(--blue)" },
