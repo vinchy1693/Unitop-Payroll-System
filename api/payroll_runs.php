@@ -15,7 +15,7 @@ function payrollRunById(PDO $pdo, int $runId): ?array {
                 pr.returned_by, pr.returned_at,
                 pr.release_approved_by, pr.release_approved_at,
                 pr.remarks,
-                pp.start_date, pp.end_date, pp.period_type,
+                pp.start_date, pp.end_date, pp.period_type, pp.pay_date,
                 (SELECT COUNT(*) FROM payslips ps WHERE ps.run_id = pr.run_id) AS payslip_count,
                 (SELECT COALESCE(SUM(ps.gross_pay), 0) FROM payslips ps WHERE ps.run_id = pr.run_id) AS total_gross,
                 (SELECT COALESCE(SUM(ps.total_deductions), 0) FROM payslips ps WHERE ps.run_id = pr.run_id) AS total_deductions,
@@ -45,7 +45,7 @@ if ($method === "GET") {
                    pr.returned_by, pr.returned_at,
                    pr.release_approved_by, pr.release_approved_at,
                    pr.remarks,
-                   pp.start_date, pp.end_date, pp.period_type,
+                   pp.start_date, pp.end_date, pp.period_type, pp.pay_date,
                    (SELECT COUNT(*) FROM payslips ps WHERE ps.run_id = pr.run_id) AS payslip_count,
                    (SELECT COALESCE(SUM(ps.gross_pay), 0) FROM payslips ps WHERE ps.run_id = pr.run_id) AS total_gross,
                    (SELECT COALESCE(SUM(ps.total_deductions), 0) FROM payslips ps WHERE ps.run_id = pr.run_id) AS total_deductions,
@@ -96,14 +96,51 @@ if ($method === "PATCH") {
 
     $user = currentUser();
 
+    // Payroll demo mode: an authorised Payroll/HR tester can simulate the
+    // effective date. Without it, real today's date controls the pay-date gate.
+    $demoMode = !empty($in["demo_mode"]);
+    $demoDate = trim((string) ($in["demo_date"] ?? ""));
+    $effectiveDate = date("Y-m-d");
+    if ($demoMode) {
+        if (!ALLOW_PAYROLL_DEMO) {
+            respond(false, "Payroll demo mode is disabled on this deployment.", null, 403);
+        }
+        $dd = DateTime::createFromFormat("!Y-m-d", $demoDate);
+        if (!$dd || $dd->format("Y-m-d") !== $demoDate) {
+            respond(false, "demo_date must be a real date in YYYY-MM-DD form.", null, 422);
+        }
+        $effectiveDate = $demoDate;
+    }
+
     $pdo->beginTransaction();
     try {
-        $stmt = $pdo->prepare("SELECT * FROM payroll_runs WHERE run_id = ? FOR UPDATE");
+        $stmt = $pdo->prepare(
+            "SELECT pr.*, pp.pay_date
+             FROM payroll_runs pr
+             JOIN payroll_periods pp ON pp.period_id = pr.period_id
+             WHERE pr.run_id = ? FOR UPDATE"
+        );
         $stmt->execute([$runId]);
         $run = $stmt->fetch();
         if (!$run) {
             $pdo->rollBack();
             respond(false, "Payroll run not found.", null, 404);
+        }
+
+        // Final approval and release must not happen before the scheduled pay
+        // date. Demo mode may simulate a later date for testing.
+        if (in_array($action, ["approve", "release"], true)
+            && !empty($run["pay_date"])
+            && $effectiveDate < $run["pay_date"]) {
+            $pdo->rollBack();
+            $actionLabel = $action === "approve" ? "approved" : "released";
+            respond(
+                false,
+                "This payroll run cannot be $actionLabel before its pay date ({$run['pay_date']}). "
+                . "Enable Payroll Demo Mode with a simulated date on or after the pay date to test.",
+                ["pay_date" => $run["pay_date"], "effective_date" => $effectiveDate],
+                409
+            );
         }
 
         // The combined Payroll/HR role may process and approve the same run.

@@ -13,8 +13,31 @@ const submitBtn = document.getElementById("submit-btn");
 const rowsEl    = document.getElementById("rows");
 const countEl   = document.getElementById("record-count");
 const processCard = document.getElementById("process-card");
+const demoCard     = document.getElementById("payroll-demo-card");
+const demoToggle   = document.getElementById("payroll-demo-toggle");
+const demoDateEl   = document.getElementById("payroll-demo-date");
 
 let currentUser = null;
+
+function todayISO() {
+    const now = new Date();
+    return [
+        now.getFullYear(),
+        String(now.getMonth() + 1).padStart(2, "0"),
+        String(now.getDate()).padStart(2, "0"),
+    ].join("-");
+}
+
+function effectivePayrollDate() {
+    if (demoToggle && demoToggle.checked && demoDateEl && demoDateEl.value) {
+        return demoDateEl.value;
+    }
+    return todayISO();
+}
+
+function canFinalize(r) {
+    return !r.pay_date || effectivePayrollDate() >= r.pay_date;
+}
 
 // ---------------------------------------------------------------------
 // Helpers
@@ -104,13 +127,21 @@ function actionsFor(r) {
 
     if (isChecker()) {
         if (r.status === "Submitted" || r.status === "Returned") {
-            buttons.push(`<button class="btn btn-restore" data-action="approve" data-run="${r.run_id}">Approve</button>`);
+            if (canFinalize(r)) {
+                buttons.push(`<button class="btn btn-restore" data-action="approve" data-run="${r.run_id}">Approve</button>`);
+            } else {
+                buttons.push(`<span style="font-size:11px;color:var(--muted);">Approve on/after ${escapeHtml(r.pay_date || "")}</span>`);
+            }
         }
         if (r.status === "Submitted") {
             buttons.push(`<button class="btn btn-delete" data-action="return" data-run="${r.run_id}">Return</button>`);
         }
         if (r.status === "Approved") {
-            buttons.push(`<button class="btn btn-primary" data-action="release" data-run="${r.run_id}">Release</button>`);
+            if (canFinalize(r)) {
+                buttons.push(`<button class="btn btn-primary" data-action="release" data-run="${r.run_id}">Release</button>`);
+            } else {
+                buttons.push(`<span style="font-size:11px;color:var(--muted);">Release on/after ${escapeHtml(r.pay_date || "")}</span>`);
+            }
         }
         // Void is the formal adjustment: it removes the run and its lines and
         // reopens the period. A Released run is refused by the API (payment is
@@ -333,6 +364,8 @@ async function handleAction(action, runId, btn) {
         } else {
             const payload = { run_id: runId, action };
             if (remarks !== null) payload.remarks = remarks;
+            payload.demo_mode = !!(demoToggle && demoToggle.checked);
+            payload.demo_date = (demoDateEl && demoDateEl.value) || todayISO();
             ({ data } = await api.patch("payroll_runs.php", payload));
         }
         showToast(data.message, "success");
@@ -374,6 +407,10 @@ form.addEventListener("submit", async (e) => {
 });
 
 document.addEventListener("DOMContentLoaded", async () => {
+    if (demoDateEl) demoDateEl.value = todayISO();
+    if (demoToggle) demoToggle.addEventListener("change", loadRows);
+    if (demoDateEl) demoDateEl.addEventListener("change", () => { if (demoToggle?.checked) loadRows(); });
+
     try {
         await loadMe();
         await Promise.all([loadOpenPeriods(), loadRows()]);

@@ -56,6 +56,26 @@
 
     <div id="msg" class="msg hidden"></div>
 
+    <!-- PAYROLL DEMO MODE -->
+    <div class="card" id="payroll-demo-card" style="border-left:4px solid var(--yellow, #FCD116);">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;">
+            <div>
+                <h3 style="margin:0;">Payroll Demo Mode <span style="font-size:11px;font-weight:400;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">(testing / presentation)</span></h3>
+                <p style="margin:5px 0 0;font-size:12.5px;color:var(--muted);">
+                    Simulate the effective date for the approve/release pay-date rule. Real deployments disable this server-side.
+                </p>
+            </div>
+            <label class="checkbox-item" style="font-size:13px;">
+                <input type="checkbox" id="payroll-demo-toggle">
+                <strong>Enable Payroll Demo Mode</strong>
+            </label>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap;">
+            <label for="payroll-demo-date" style="font-size:12.5px;color:var(--muted);font-weight:600;">Simulated date</label>
+            <input type="date" id="payroll-demo-date" style="padding:8px 10px;border:1px solid var(--border-mid);border-radius:6px;background:var(--control-bg);color:var(--text);">
+        </div>
+    </div>
+
     <!-- PROCESS AN OPEN PERIOD (maker only) -->
     <div class="card hidden" id="process-card">
         <h3>Process an Open Period</h3>
@@ -112,7 +132,7 @@
 <script src="assets/js/dialogs.js"></script>
 <script src="assets/js/api.js?v=20261020logoutalert"></script>
 <script src="assets/js/nav.js?v=20261021noscan2" onerror="var nl=document.querySelectorAll('nav.sidebar');for(var i=0;i<nl.length;i++)nl[i].classList.remove('nav-locked');"></script>
-<script src="assets/js/payroll_runs.js?v=20261021queuefix"></script>
+<script src="assets/js/payroll_runs.js?v=20261021paydate"></script>
 <script src="assets/js/theme.js"></script>
 </body>
 </html>

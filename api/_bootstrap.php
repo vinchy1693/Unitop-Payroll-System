@@ -136,6 +136,11 @@ const ALL_ROLES = ["Employee", "Payroll Officer", "Manager", "Supervisor", "Admi
 // is the only role allowed to use it, and a real deployment turns it off here.
 const ALLOW_DEMO_SCANS = true;
 
+// Payroll demo mode lets the tester simulate the pay date so approve/release
+// can be exercised before the real calendar date. A real deployment turns it
+// off here.
+const ALLOW_PAYROLL_DEMO = true;
+
 // Short-lived QR tokens. The portal displays a token, not the static badge:
 // 120 seconds, bound to the next action, single use. The kiosk accepts the
 // legacy static qr_codes value while printed badges are still in circulation;
