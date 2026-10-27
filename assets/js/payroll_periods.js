@@ -104,14 +104,16 @@ function renderRows(rows) {
         } else if (isClosed) {
             actions += `<button class="btn btn-restore" data-status="${r.period_id}" data-new="Open">Reopen</button>`;
         } else if (isProcessed) {
-            if (r.run_id) {
+            if (r.run_id && r.run_status === "Released") {
                 actions += `<a class="btn btn-primary" href="payslips.html?run_id=${r.run_id}">View Payslips</a>`;
             } else {
-                actions += `<span style="color:#888;font-size:12px;">Locked</span>`;
+                actions += `<span style="color:#888;font-size:12px;">Awaiting release</span>`;
             }
         } else if (isForApproval || isReturned) {
-            if (r.run_id) {
+            if (r.run_id && r.run_status === "Released") {
                 actions += `<a class="btn btn-plain" href="payslips.html?run_id=${r.run_id}">View Payslips</a>`;
+            } else {
+                actions += `<span style="color:#888;font-size:12px;">Awaiting release</span>`;
             }
         }
 
@@ -193,7 +195,7 @@ async function runPayroll(periodId, btn) {
         const runId = data.data?.run_id;
         if (runId) {
             setTimeout(() => {
-                window.location.href = `payslips.html?run_id=${runId}`;
+                window.location.href = "payroll_runs.html";
             }, 800);
         } else {
             btn.disabled = false;

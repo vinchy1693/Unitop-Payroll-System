@@ -117,7 +117,13 @@ function actionsFor(r) {
         buttons.push(`<button class="btn btn-edit" data-action="resubmit" data-run="${r.run_id}">Resubmit</button>`);
     }
 
-    buttons.push(`<a class="btn btn-plain" href="payslips.html?run_id=${r.run_id}">Payslips</a>`);
+    // Official payslips are available only after release. Before that,
+    // Payroll/HR reviews run-level totals and approvals.
+    if (r.status === "Released") {
+        buttons.push(`<a class="btn btn-plain" href="payslips.html?run_id=${r.run_id}">Payslips</a>`);
+    } else {
+        buttons.push(`<span style="font-size:11.5px;color:var(--muted);">Payslips after release</span>`);
+    }
     return buttons.join(" ") + exportButtonsFor(r);
 }
 
@@ -229,7 +235,13 @@ function renderRows(rows) {
                 <span style="color:var(--muted);font-size:11px;">to ${escapeHtml(r.end_date)}</span></td>
             <td>${escapeHtml(r.period_type)}</td>
             <td>${fmtDate(r.run_date)}</td>
-            <td class="col-center">${r.payslip_count}</td>
+            <td class="col-center">${r.payslip_count}
+                <div style="font-size:10.5px;color:var(--muted);margin-top:3px;">
+                    Adj ${formatMoney(r.total_gross || 0)}<br>
+                    Ded ${formatMoney(r.total_deductions || 0)}<br>
+                    Net ${formatMoney(r.total_net || 0)}
+                </div>
+            </td>
             <td class="col-center">${statusBadge(r.status)}${remarks}</td>
             <td>${personCell(r.submitted_by_name, r.submitted_at)}</td>
             <td>${approval}</td>
@@ -343,9 +355,9 @@ form.addEventListener("submit", async (e) => {
         const { data } = await api.post("payroll_runs.php", { period_id: Number(periodId) });
         showToast(data.message, "success");
         await Promise.all([loadRows(), loadOpenPeriods()]);
-        const runId = data.data?.run_id;
         if (runId) {
-            setTimeout(() => { window.location.href = `payslips.html?run_id=${runId}`; }, 700);
+            // Payslips stay locked until the run is released.
+            setTimeout(() => { window.location.href = "payroll_runs.html"; }, 700);
         }
     } catch (err) {
         showToast(apiErrorMessage(err), "error");

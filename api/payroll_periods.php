@@ -58,7 +58,7 @@ function assertValidPayDate(string $payDate, string $end, string $label = "Pay D
 // ---- GET: list periods with their latest run info ----
 if ($method === "GET") {
     $sql = "SELECT pp.period_id, pp.start_date, pp.end_date, pp.pay_date, pp.period_type, pp.status,
-                   pr.run_id, pr.run_date,
+                   pr.run_id, pr.run_date, pr.status AS run_status,
                    (SELECT COUNT(*) FROM payslips ps WHERE ps.run_id = pr.run_id) AS payslip_count
             FROM payroll_periods pp
             LEFT JOIN payroll_runs pr ON pr.run_id = (

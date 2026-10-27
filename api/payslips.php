@@ -57,6 +57,19 @@ if ($method !== "GET") {
 if (isset($_GET["run_id"])) {
     $runId = (int) $_GET["run_id"];
 
+    // Official payslips are released documents. Payroll/HR may review the
+    // run-level totals before approval, but cannot open employee payslips
+    // until the run reaches Released.
+    $statusStmt = $pdo->prepare("SELECT status FROM payroll_runs WHERE run_id = ?");
+    $statusStmt->execute([$runId]);
+    $runStatus = $statusStmt->fetchColumn();
+    if ($runStatus === false) {
+        respond(false, "Payroll run not found.", null, 404);
+    }
+    if ($runStatus !== "Released") {
+        respond(false, "Payslips are available only after the payroll run is released.", ["run_status" => $runStatus], 403);
+    }
+
     $stmt = $pdo->prepare(
         "SELECT ps.payslip_id, ps.run_id, ps.employee_id,
                 ps.basic_pay, ps.overtime_pay, ps.premium_pay, ps.gross_pay,
@@ -91,6 +104,7 @@ if (isset($_GET["id"])) {
                 d.department_name,
                 p.title AS position_title,
                 pp.start_date, pp.end_date, pp.period_type,
+                pr.status AS run_status,
                 gc.sss_ee, gc.sss_er,
                 gc.philhealth_ee, gc.philhealth_er,
                 gc.pagibig_ee, gc.pagibig_er,
@@ -107,6 +121,9 @@ if (isset($_GET["id"])) {
     $stmt->execute([$id]);
     $row = $stmt->fetch();
     if (!$row) respond(false, "Payslip not found.", null, 404);
+    if (($row["run_status"] ?? "") !== "Released") {
+        respond(false, "Payslips are available only after the payroll run is released.", ["run_status" => $row["run_status"] ?? null], 403);
+    }
 
     // Attach allowances
     $stmt = $pdo->prepare(
