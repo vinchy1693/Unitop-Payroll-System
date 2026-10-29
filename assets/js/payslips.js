@@ -260,11 +260,6 @@ function renderPayslip(p) {
                 </tbody>
             </table>
 
-            <div class="payslip-admin-actions">
-                <button class="btn-add-line" data-add-allowance>+ Add Allowance</button>
-                <button class="btn-add-line" data-add-deduction>+ Add Deduction</button>
-            </div>
-
             <div class="payslip-words">
                 <strong>${formatMoney(net)}</strong>
                 <div>${escapeHtml(amountInWords(net))}</div>

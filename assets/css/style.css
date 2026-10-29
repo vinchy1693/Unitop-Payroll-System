@@ -781,11 +781,6 @@ td.col-center .btn { margin: 0 2px; }
     color: var(--blue);
     background: var(--blue-lite);
 }
-.payslip-admin-actions {
-    display: flex;
-    gap: 8px;
-    margin: 0 0 16px;
-}
 .payslip-words {
     margin: 18px 0;
     text-align: center;
