@@ -111,6 +111,47 @@ function closeModal() {
     loadRows();
 }
 
+function amountInWords(amount) {
+    const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+                  "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen",
+                  "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+    const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+    const scales = ["", "Thousand", "Million", "Billion"];
+
+    const abs = Math.abs(Number(amount) || 0);
+    const whole = Math.floor(abs);
+    const cents = Math.round((abs - whole) * 100);
+
+    function underThousand(n) {
+        const parts = [];
+        if (n >= 100) {
+            parts.push(ones[Math.floor(n / 100)] + " Hundred");
+            n %= 100;
+        }
+        if (n >= 20) {
+            parts.push(tens[Math.floor(n / 10)] + (n % 10 ? "-" + ones[n % 10] : ""));
+        } else if (n > 0) {
+            parts.push(ones[n]);
+        }
+        return parts.join(" ");
+    }
+
+    function words(n) {
+        if (n === 0) return "Zero";
+        const parts = [];
+        let scale = 0;
+        while (n > 0) {
+            const chunk = n % 1000;
+            if (chunk) parts.unshift(underThousand(chunk) + (scales[scale] ? " " + scales[scale] : ""));
+            n = Math.floor(n / 1000);
+            scale++;
+        }
+        return parts.join(" ");
+    }
+
+    return `${words(whole)} Peso${whole === 1 ? "" : "s"} and ${String(cents).padStart(2, "0")}/100`;
+}
+
 function renderPayslip(p) {
     const gross    = Number(p.gross_pay || 0);
     const basic    = Number(p.basic_pay || 0);
@@ -129,145 +170,112 @@ function renderPayslip(p) {
     const attendanceDeductions = deductions.filter((d) => d.is_attendance);
     const otherDeductions = deductions.filter((d) => !d.is_attendance);
 
-    // The API stores gross_pay after attendance adjustments and excludes
-    // attendance from total_deductions. For display, move attendance to the
-    // Deductions column and show the full earnings before adjustments.
+    // Preserve the accounting split: attendance reduces gross and is excluded
+    // from the stored total deductions, but both belong on the payslip.
     const grossEarnings = Math.max(0, gross + attendanceDed);
     const displayTotalDed = Math.max(0, totalDed + attendanceDed);
 
-    const allowanceRows = allowances.map((a) => `
-        <div class="line editable-line">
-            <span>${escapeHtml(a.allowance_type)}</span>
-            <span>
-                ${formatMoney(a.amount)}
-                <button class="line-remove" data-remove-allowance="${a.allowance_id}" title="Remove">&times;</button>
-            </span>
-        </div>
-    `).join("");
+    const earningsLines = [
+        { label: "Basic Pay", amount: basic },
+        { label: "Overtime Pay", amount: ot },
+        { label: "Premium Pay", amount: premium },
+        ...allowances.map((a) => ({
+            label: a.allowance_type,
+            amount: a.amount,
+            remove: `<button class="line-remove" data-remove-allowance="${a.allowance_id}" title="Remove">&times;</button>`,
+        })),
+    ];
 
-    const attendanceRows = attendanceDeductions.map((d) => `
-        <div class="line">
-            <span>${escapeHtml(d.deduction_type)}</span>
-            <span>${formatMoney(d.amount)}</span>
-        </div>
-    `).join("");
+    const deductionLines = [
+        { label: "SSS (Employee)", amount: sss },
+        { label: "PhilHealth (Employee)", amount: ph },
+        { label: "Pag-IBIG (Employee)", amount: pi },
+        { label: "Withholding Tax", amount: tax },
+        ...attendanceDeductions.map((d) => ({
+            label: d.deduction_type,
+            amount: d.amount,
+        })),
+        ...otherDeductions.map((d) => ({
+            label: d.deduction_type,
+            amount: d.amount,
+            remove: `<button class="line-remove" data-remove-deduction="${d.deduction_id}" title="Remove">&times;</button>`,
+        })),
+    ];
 
-    const deductionRows = otherDeductions.map((d) => `
-        <div class="line editable-line">
-            <span>${escapeHtml(d.deduction_type)}</span>
-            <span>
-                ${formatMoney(d.amount)}
-                <button class="line-remove" data-remove-deduction="${d.deduction_id}" title="Remove">&times;</button>
-            </span>
-        </div>
-    `).join("");
+    const rowCount = Math.max(earningsLines.length, deductionLines.length);
+    const tableRows = Array.from({ length: rowCount }, (_, i) => {
+        const earn = earningsLines[i];
+        const ded  = deductionLines[i];
+        return `
+            <tr>
+                <td>${earn ? escapeHtml(earn.label) + (earn.remove || "") : ""}</td>
+                <td class="amount">${earn ? formatMoney(earn.amount) : ""}</td>
+                <td>${ded ? escapeHtml(ded.label) + (ded.remove || "") : ""}</td>
+                <td class="amount">${ded ? formatMoney(ded.amount) : ""}</td>
+            </tr>
+        `;
+    }).join("");
 
     modalBody.innerHTML = `
-        <style>
-            .payslip-deduction-group {
-                margin-top: 10px;
-                padding-top: 9px;
-                border-top: 1px solid var(--border-mid);
-            }
-            .payslip-deduction-group-title {
-                margin-bottom: 5px;
-                color: var(--muted);
-                font-size: 10.5px;
-                font-weight: 700;
-                letter-spacing: .7px;
-                text-transform: uppercase;
-            }
-            .payslip-deduction-group .line + .line {
-                margin-top: 6px;
-                padding-top: 6px;
-                border-top: 1px dashed var(--border-mid);
-            }
-        </style>
-        <div class="payslip-doc">
-            <div class="payslip-header">
-                <div>
-                    <h2>UNITOP</h2>
-                    <div class="payslip-company-sub">Payroll Payslip</div>
-                </div>
-                <div class="payslip-period">
-                    <div><strong>Period:</strong> ${escapeHtml(p.start_date)} → ${escapeHtml(p.end_date)}</div>
-                    <div><strong>Type:</strong> ${escapeHtml(p.period_type ?? "—")}</div>
-                    <div><strong>Payslip #:</strong> ${escapeHtml(p.payslip_id)}</div>
-                </div>
+        <div class="payslip-doc payslip-formal">
+            <div class="payslip-letterhead">
+                <h2>UNITOP</h2>
+                <div class="payslip-company">Payroll System</div>
+                <div class="payslip-title">Payslip</div>
             </div>
 
-            <div class="payslip-employee">
-                <div>
-                    <div class="label">Employee</div>
-                    <div class="value">${escapeHtml(p.employee_name)}</div>
-                </div>
-                <div>
-                    <div class="label">Employee No.</div>
-                    <div class="value">${escapeHtml(p.employee_number)}</div>
-                </div>
-                <div>
-                    <div class="label">Department</div>
-                    <div class="value">${escapeHtml(p.department_name ?? "—")}</div>
-                </div>
-                <div>
-                    <div class="label">Position</div>
-                    <div class="value">${escapeHtml(p.position_title ?? "—")}</div>
-                </div>
+            <div class="payslip-info">
+                <div><span>Date of Joining</span><strong>${escapeHtml(p.date_hired || "—")}</strong></div>
+                <div><span>Employee Name</span><strong>${escapeHtml(p.employee_name)}</strong></div>
+                <div><span>Pay Period</span><strong>${escapeHtml(p.start_date)} → ${escapeHtml(p.end_date)}</strong></div>
+                <div><span>Designation</span><strong>${escapeHtml(p.position_title ?? "—")}</strong></div>
+                <div><span>Worked Days</span><strong>${escapeHtml(String(p.worked_days ?? "—"))}</strong></div>
+                <div><span>Department</span><strong>${escapeHtml(p.department_name ?? "—")}</strong></div>
+                <div><span>Employee No.</span><strong>${escapeHtml(p.employee_number)}</strong></div>
+                <div><span>Payslip No.</span><strong>${escapeHtml(p.payslip_id)}</strong></div>
             </div>
 
-            <div class="payslip-sections">
-                <div class="payslip-section">
-                    <h4>Earnings</h4>
-                    <div class="line"><span>Basic Pay</span><span>${formatMoney(basic)}</span></div>
-                    <div class="line"><span>Overtime Pay</span><span>${formatMoney(ot)}</span></div>
-                    <div class="line"><span>Premium Pay (Rest Day / Holiday)</span><span>${formatMoney(premium)}</span></div>
-                    ${allowanceRows}
-                    <div class="line-add">
-                        <button class="btn-add-line" data-add-allowance>+ Add Allowance</button>
-                    </div>
-                    <div class="line total"><span>Gross Pay</span><span>${formatMoney(grossEarnings)}</span></div>
-                </div>
+            <table class="payslip-table">
+                <thead>
+                    <tr>
+                        <th>Earnings</th>
+                        <th class="amount">Amount</th>
+                        <th>Deductions</th>
+                        <th class="amount">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${tableRows}
+                    <tr class="payslip-table-total">
+                        <td>Total Earnings</td>
+                        <td class="amount">${formatMoney(grossEarnings)}</td>
+                        <td>Total Deductions</td>
+                        <td class="amount">${formatMoney(displayTotalDed)}</td>
+                    </tr>
+                    <tr class="payslip-table-net">
+                        <td colspan="2"></td>
+                        <td>Net Pay</td>
+                        <td class="amount">${formatMoney(net)}</td>
+                    </tr>
+                </tbody>
+            </table>
 
-                <div class="payslip-section">
-                    <h4>Deductions</h4>
-
-                    <div class="payslip-deduction-group">
-                        <div class="payslip-deduction-group-title">Contributions</div>
-                        <div class="line"><span>SSS (Employee)</span><span>${formatMoney(sss)}</span></div>
-                        <div class="line"><span>PhilHealth (Employee)</span><span>${formatMoney(ph)}</span></div>
-                        <div class="line"><span>Pag-IBIG (Employee)</span><span>${formatMoney(pi)}</span></div>
-                    </div>
-
-                    <div class="payslip-deduction-group">
-                        <div class="payslip-deduction-group-title">Withholding Tax</div>
-                        <div class="line"><span>Withholding Tax</span><span>${formatMoney(tax)}</span></div>
-                    </div>
-
-                    ${attendanceRows ? `
-                        <div class="payslip-deduction-group">
-                            <div class="payslip-deduction-group-title">Attendance</div>
-                            ${attendanceRows}
-                        </div>
-                    ` : ""}
-
-                    ${deductionRows ? `
-                        <div class="payslip-deduction-group">
-                            <div class="payslip-deduction-group-title">Other Deductions</div>
-                            ${deductionRows}
-                        </div>
-                    ` : ""}
-
-                    <div class="line-add">
-                        <button class="btn-add-line" data-add-deduction>+ Add Deduction</button>
-                    </div>
-                    <div class="line total"><span>Total Deductions</span><span>${formatMoney(displayTotalDed)}</span></div>
-                </div>
+            <div class="payslip-admin-actions">
+                <button class="btn-add-line" data-add-allowance>+ Add Allowance</button>
+                <button class="btn-add-line" data-add-deduction>+ Add Deduction</button>
             </div>
 
-            <div class="payslip-netpay">
-                <span>NET PAY</span>
-                <span>${formatMoney(net)}</span>
+            <div class="payslip-words">
+                <strong>${formatMoney(net)}</strong>
+                <div>${escapeHtml(amountInWords(net))}</div>
             </div>
+
+            <div class="payslip-signatures">
+                <div><span>Employer Signature</span><div class="signature-line"></div></div>
+                <div><span>Employee Signature</span><div class="signature-line"></div></div>
+            </div>
+
+            <div class="payslip-footer">This is a system-generated payslip.</div>
         </div>
     `;
 

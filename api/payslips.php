@@ -101,10 +101,14 @@ if (isset($_GET["id"])) {
     $stmt = $pdo->prepare(
         "SELECT ps.*, e.employee_number,
                 CONCAT(e.last_name, ', ', e.first_name) AS employee_name,
+                e.date_hired,
                 d.department_name,
                 p.title AS position_title,
                 pp.start_date, pp.end_date, pp.period_type,
                 pr.status AS run_status,
+                (SELECT COUNT(*) FROM attendance a
+                  WHERE a.employee_id = ps.employee_id
+                    AND a.work_date BETWEEN pp.start_date AND pp.end_date) AS worked_days,
                 gc.sss_ee, gc.sss_er,
                 gc.philhealth_ee, gc.philhealth_er,
                 gc.pagibig_ee, gc.pagibig_er,
