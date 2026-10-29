@@ -2264,38 +2264,4 @@ th { font-size: 12.5px; letter-spacing: 0.45px; }
     font-size: 12px;
 }
 
-/* =====================================================================
-   AUTH / FORGOT PASSWORD
-   ===================================================================== */
-.auth-title {
-    font-size: 20px;
-    margin: 0 0 8px;
-    text-align: center;
-}
-.auth-copy {
-    color: var(--muted);
-    font-size: 13.5px;
-    line-height: 1.6;
-    text-align: center;
-    margin: 0 0 22px;
-}
-.auth-link {
-    color: var(--blue);
-    font-size: 13px;
-    font-weight: 600;
-    text-decoration: none;
-}
-.auth-link:hover { text-decoration: underline; }
-.login-footer .auth-link { display: inline-block; }
-.demo-note {
-    margin-top: 18px;
-    padding: 10px 12px;
-    border: 1px dashed var(--border-mid);
-    border-radius: 8px;
-    background: var(--surface-2);
-    color: var(--muted);
-    font-size: 12px;
-    line-height: 1.55;
-    text-align: center;
-}
-.auth-footer-actions { display: flex; justify-content: center; }
+
