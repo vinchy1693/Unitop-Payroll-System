@@ -157,6 +157,24 @@ if ($method !== "GET") {
     respond(false, "Method not allowed.", null, 405);
 }
 
+// File exports are disabled until the bank and government-agency templates
+// are supplied and tested. Refuse before any employee or account data is read.
+if (!PAYROLL_EXPORTS_ENABLED) {
+    bank_file_audit(
+        $format,
+        $runId,
+        501,
+        false,
+        "Payroll file exports are disabled until bank and agency formats are configured."
+    );
+    respond(
+        false,
+        "Payroll file exports are disabled until bank and agency formats are configured and tested.",
+        null,
+        501
+    );
+}
+
 if ($runId <= 0) {
     bank_file_audit($format, 0, 422, false, "Export refused: run_id is required.");
     respond(false, "run_id is required.", null, 422);

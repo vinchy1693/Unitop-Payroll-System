@@ -141,6 +141,11 @@ const ALLOW_DEMO_SCANS = true;
 // off here.
 const ALLOW_PAYROLL_DEMO = true;
 
+// Payroll file exports are disabled until the bank and government-agency
+// formats are configured and tested. This is a server-side switch: hiding
+// the buttons alone would not stop a direct API call.
+const PAYROLL_EXPORTS_ENABLED = false;
+
 // Short-lived QR tokens. The portal displays a token, not the static badge:
 // 120 seconds, bound to the next action, single use. The kiosk accepts the
 // legacy static qr_codes value while printed badges are still in circulation;

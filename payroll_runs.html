@@ -100,10 +100,9 @@
             <a href="payroll_periods.html" class="btn btn-plain" id="periods-link">Payroll Periods</a>
         </div>
         <p style="font-size:11.5px;color:var(--muted);margin:-4px 0 14px;">
-            Each run can be exported as a <strong>Bank file</strong> (one credit line per employee),
-            a <strong>Payroll register</strong> (every payslip and its deductions) and a
-            <strong>Remittance</strong> file (SSS / PhilHealth / Pag-IBIG, employee and employer).
-            Payroll/HR prepares them; Finance &amp; Accounting approves and releases them. A Returned run cannot be exported.
+            Finance &amp; Accounting reviews run-level costs before approval. Bank file,
+            payroll register and remittance exports are disabled until bank and
+            government-agency formats are configured and tested.
         </p>
         <table>
             <thead>
@@ -132,7 +131,7 @@
 <script src="assets/js/dialogs.js"></script>
 <script src="assets/js/api.js?v=20261020logoutalert"></script>
 <script src="assets/js/nav.js?v=20261021finance" onerror="var nl=document.querySelectorAll('nav.sidebar');for(var i=0;i<nl.length;i++)nl[i].classList.remove('nav-locked');"></script>
-<script src="assets/js/payroll_runs.js?v=20261021expenses"></script>
+<script src="assets/js/payroll_runs.js?v=20261021noexports"></script>
 <script src="assets/js/theme.js"></script>
 </body>
 </html>

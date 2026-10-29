@@ -174,15 +174,10 @@ function actionsFor(r) {
 }
 
 // ---------------------------------------------------------------------
-// Exports: the maker's three payment files, one GET endpoint per format.
-// Rendered only for the maker/checker. The API still enforces the guard and
-// still refuses a Returned run (409) or missing bank details (422).
-// ---------------------------------------------------------------------
-const EXPORTS = [
-    { format: "bank",       label: "Bank file" },
-    { format: "register",   label: "Payroll register" },
-    { format: "remittance", label: "Remittance" },
-];
+// Bank / register / remittance exports are intentionally disabled until
+// bank-specific and agency-specific formats are configured and tested.
+// The API also refuses them (501), so hiding these buttons is not the only guard.
+const EXPORTS = [];
 
 function exportButtonsFor(r) {
     if (!canExport()) return "";
