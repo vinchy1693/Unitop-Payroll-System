@@ -59,6 +59,7 @@
     <div class="tabs">
         <button class="tab active" data-tab="requests">Requests</button>
         <button class="tab" data-tab="balances">Balances</button>
+        <button class="tab" data-tab="types">Types</button>
     </div>
 
     <!-- TAB: REQUESTS -->
@@ -145,6 +146,35 @@
         </div>
     </div>
 
+    <!-- TAB: TYPES (READ-ONLY) -->
+    <div class="tab-panel hidden" id="tab-types">
+        <div class="card">
+            <p style="margin:0 0 14px;font-size:13.5px;color:var(--muted);line-height:1.6;">
+                Fixed leave catalogue. Leave types cannot be added, edited, deactivated, or restored here.
+            </p>
+            <div class="toolbar">
+                <strong id="type_count">0 leave type(s)</strong>
+            </div>
+            <div class="table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Leave Type</th>
+                            <th class="col-center">Paid Days/Year</th>
+                            <th class="col-center">Service Requirement</th>
+                            <th class="col-center">Cash Conversion</th>
+                            <th>Notes</th>
+                            <th class="col-center">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="type_rows">
+                        <tr class="loading-row"><td colspan="6">Loading…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <script src="assets/js/axios.min.js"></script>
@@ -152,7 +182,7 @@
 <script src="assets/js/dialogs.js"></script>
 <script src="assets/js/api.js?v=20261020logoutalert"></script>
 <script src="assets/js/nav.js?v=20261021finance" onerror="var nl=document.querySelectorAll('nav.sidebar');for(var i=0;i<nl.length;i++)nl[i].classList.remove('nav-locked');"></script>
-<script src="assets/js/leave.js?v=20261021fixedleave"></script>
+<script src="assets/js/leave.js?v=20261021typesread"></script>
 <script src="assets/js/theme.js"></script>
 </body>
 </html>
