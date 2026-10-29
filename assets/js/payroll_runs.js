@@ -133,7 +133,7 @@ function actionsFor(r) {
             if (canFinalize(r)) {
                 buttons.push(`<button class="btn btn-restore" data-action="approve" data-run="${r.run_id}">Approve</button>`);
             } else {
-                buttons.push(`<span style="font-size:11px;color:var(--muted);">Approve on/after ${escapeHtml(r.pay_date || "")}</span>`);
+                buttons.push(`<span class="action-note">Approve on/after ${escapeHtml(r.pay_date || "")}</span>`);
             }
         }
         if (r.status === "Submitted") {
@@ -143,7 +143,7 @@ function actionsFor(r) {
             if (canFinalize(r)) {
                 buttons.push(`<button class="btn btn-primary" data-action="release" data-run="${r.run_id}">Release</button>`);
             } else {
-                buttons.push(`<span style="font-size:11px;color:var(--muted);">Release on/after ${escapeHtml(r.pay_date || "")}</span>`);
+                buttons.push(`<span class="action-note">Release on/after ${escapeHtml(r.pay_date || "")}</span>`);
             }
         }
         // Void is the formal adjustment: it removes the run and its lines and
@@ -169,9 +169,9 @@ function actionsFor(r) {
     if (r.status === "Released") {
         buttons.push(`<a class="btn btn-plain" href="payslips.html?run_id=${r.run_id}">Payslips</a>`);
     } else {
-        buttons.push(`<span style="font-size:11.5px;color:var(--muted);">Payslips after release</span>`);
+        buttons.push(`<span class="action-note">Payslips after release</span>`);
     }
-    return buttons.join(" ") + exportButtonsFor(r);
+    return `<div class="run-actions">${buttons.join("")}</div>` + exportButtonsFor(r);
 }
 
 // ---------------------------------------------------------------------
