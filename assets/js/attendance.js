@@ -681,7 +681,7 @@ function renderSummary(payload) {
                 <strong>Click any row</strong> to see the employee's day-by-day attendance.
             </p>
             ${showGross ? `<p style="font-size:11.5px;color:#888;margin-top:-6px;">
-                Period Gross is the contractual basic gross for the period, before attendance and statutory deductions.
+                Period Gross is based on days worked at the contractual daily rate — no work, no pay.
             </p>` : ""}
         </div>
     `;
@@ -737,8 +737,8 @@ function renderDetail(payload) {
                 <td class="col-center" style="font-size:12px;color:#888;">${escapeHtml(d.day_label)}</td>
                 <td class="col-center">${d.time_in ? escapeHtml(d.time_in) : "—"}</td>
                 <td class="col-center">${d.time_out ? escapeHtml(d.time_out) : "—"}</td>
-                <td style="text-align:right;">${d.hours_worked !== null ? Number(d.hours_worked).toFixed(2) : "—"}</td>
                 <td style="text-align:right;">${d.minutes_late !== null ? d.minutes_late : "—"}</td>
+                <td style="text-align:right;">${d.hours_worked !== null ? Number(d.hours_worked).toFixed(2) : "—"}</td>
                 ${showGross ? `<td style="text-align:right;font-weight:600;">${d.daily_gross !== null && d.daily_gross !== undefined ? formatMoney(d.daily_gross) : "—"}</td>` : ""}
                 <td class="col-center">${statusCell}</td>
             </tr>
@@ -777,8 +777,8 @@ function renderDetail(payload) {
                             <th class="col-center">Day</th>
                             <th class="col-center">Time In</th>
                             <th class="col-center">Time Out</th>
-                            <th style="text-align:right;">Hours</th>
                             <th style="text-align:right;">Late</th>
+                            <th style="text-align:right;">Hours</th>
                             ${showGross ? `<th style="text-align:right;">Daily Gross</th>` : ""}
                             <th class="col-center">Status</th>
                         </tr>
@@ -787,7 +787,7 @@ function renderDetail(payload) {
                 </table>
             </div>
             ${showGross ? `<p style="font-size:11.5px;color:#888;margin-top:10px;">
-                Daily Gross uses the contractual daily rate. Absences show ₱0.00; the period total is gross before deductions.
+                Daily Gross uses the contractual daily rate. No attendance means ₱0.00; period gross is the sum of days worked.
             </p>` : ""}
         </div>
     `;

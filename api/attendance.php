@@ -180,7 +180,6 @@ if ($method === "GET") {
             // contractual gross rate, before attendance deductions.
             $standardPaidDays = $daysInMonth >= 31 ? 27 : 26;
             $dailyRate = round((float) $employee["basic_salary"] / $standardPaidDays, 2);
-            $periodGross = round((float) $employee["basic_salary"] / 2, 2);
 
             $gross = 0.0;
             foreach ($days as &$day) {
@@ -197,8 +196,8 @@ if ($method === "GET") {
 
             $employee["daily_rate"] = $dailyRate;
             $employee["month_working_days"] = $standardPaidDays;
-            $employee["period_gross"] = $periodGross;
-            $totals["gross"] = $periodGross;
+            $employee["period_gross"] = round($gross, 2);
+            $totals["gross"] = round($gross, 2);
         } else {
             unset($employee["basic_salary"]);
         }
@@ -284,7 +283,7 @@ if ($method === "GET") {
 
             $dailyRate = round((float) $r["basic_salary"] / $standardPaidDays, 2);
             $r["daily_rate"] = $dailyRate;
-            $r["period_gross"] = round((float) $r["basic_salary"] / 2, 2);
+            $r["period_gross"] = round($r["days_present"] * $dailyRate, 2);
 
             $totals["days_present"]       += $r["days_present"];
             $totals["days_late"]          += $r["days_late"];
