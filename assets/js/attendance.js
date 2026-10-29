@@ -627,7 +627,7 @@ function renderSummary(payload) {
                 <td class="col-center">${absentHtml}</td>
                 <td class="col-center">${lateHtml}</td>
                 <td style="text-align:right;">${e.total_late_minutes}</td>
-                <td style="text-align:right;">${Number(e.total_hours).toFixed(2)}</td>
+                <td style="text-align:right;">${e.total_undertime_minutes ?? 0}</td>
                 ${grossCell}
                 <td class="col-center"><span style="color:#2f5496;font-size:12px;">View →</span></td>
             </tr>
@@ -657,7 +657,7 @@ function renderSummary(payload) {
                             <th class="col-center">Absences</th>
                             <th class="col-center">Days Late</th>
                             <th style="text-align:right;">Late Minutes</th>
-                            <th style="text-align:right;">Hours Worked</th>
+                            <th style="text-align:right;">Undertime</th>
                             ${showGross ? `<th style="text-align:right;">Period Gross</th>` : ""}
                             <th class="col-center"></th>
                         </tr>
@@ -670,7 +670,7 @@ function renderSummary(payload) {
                             <td class="col-center" style="font-weight:700;">${totals.absences}</td>
                             <td class="col-center" style="font-weight:700;">${totals.days_late}</td>
                             <td style="text-align:right;font-weight:700;">${totals.total_late_minutes}</td>
-                            <td style="text-align:right;font-weight:700;">${Number(totals.total_hours).toFixed(2)}</td>
+                            <td style="text-align:right;font-weight:700;">${totals.total_undertime_minutes ?? 0}</td>
                             ${showGross ? `<td style="text-align:right;font-weight:700;">${formatMoney(totals.period_gross)}</td>` : ""}
                             <td></td>
                         </tr>
@@ -738,7 +738,7 @@ function renderDetail(payload) {
                 <td class="col-center">${d.time_in ? escapeHtml(d.time_in) : "—"}</td>
                 <td class="col-center">${d.time_out ? escapeHtml(d.time_out) : "—"}</td>
                 <td style="text-align:right;">${d.minutes_late !== null ? d.minutes_late : "—"}</td>
-                <td style="text-align:right;">${d.hours_worked !== null ? Number(d.hours_worked).toFixed(2) : "—"}</td>
+                <td style="text-align:right;">${d.undertime_minutes !== null && d.undertime_minutes !== undefined ? d.undertime_minutes : "—"}</td>
                 ${showGross ? `<td style="text-align:right;font-weight:600;">${d.daily_gross !== null && d.daily_gross !== undefined ? formatMoney(d.daily_gross) : "—"}</td>` : ""}
                 <td class="col-center">${statusCell}</td>
             </tr>
@@ -766,7 +766,7 @@ function renderDetail(payload) {
                 <div class="ledger-stat"><span>Absent</span><strong style="color:#b3261e;">${totals.absent}</strong></div>
                 <div class="ledger-stat"><span>Late Days</span><strong style="color:#92400e;">${totals.late}</strong></div>
                 <div class="ledger-stat"><span>Late Minutes</span><strong>${totals.late_minutes}</strong></div>
-                <div class="ledger-stat"><span>Total Hours</span><strong>${Number(totals.hours).toFixed(2)}</strong></div>
+                <div class="ledger-stat"><span>Undertime</span><strong>${totals.undertime_minutes ?? 0}</strong></div>
                 ${showGross ? `<div class="ledger-stat"><span>Period Gross</span><strong>${formatMoney(totals.gross || 0)}</strong></div>` : ""}
             </div>
             <div class="table-scroll">
@@ -778,7 +778,7 @@ function renderDetail(payload) {
                             <th class="col-center">Time In</th>
                             <th class="col-center">Time Out</th>
                             <th style="text-align:right;">Late</th>
-                            <th style="text-align:right;">Hours</th>
+                            <th style="text-align:right;">Undertime</th>
                             ${showGross ? `<th style="text-align:right;">Daily Gross</th>` : ""}
                             <th class="col-center">Status</th>
                         </tr>

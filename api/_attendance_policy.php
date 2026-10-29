@@ -32,3 +32,24 @@ function attendanceLateMinutes(string $timeIn): int {
     // upward so 08:15:01 cannot be recorded as only 15 minutes.
     return (int) ceil($rawSeconds / 60);
 }
+
+/**
+ * Minutes of undertime for one attendance row.
+ * - no clock-out: the remaining shift after any late arrival
+ * - clock-out before 17:00: the gap to 17:00
+ * - on/after 17:00: none
+ */
+function attendanceUndertimeMinutes(?string $timeOut, int $minutesLate): int {
+    if ($timeOut === null || trim($timeOut) === "") {
+        return max(0, 480 - $minutesLate);
+    }
+
+    $out = new DateTime($timeOut);
+    $end = new DateTime("17:00:00");
+    if ($out >= $end) {
+        return 0;
+    }
+
+    $diff = $out->diff($end);
+    return min(480, ($diff->h * 60) + $diff->i);
+}

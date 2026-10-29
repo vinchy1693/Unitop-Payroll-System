@@ -96,11 +96,12 @@ if ($method === "GET") {
 
         $days = [];
         $totals = [
-            "present"      => 0,
-            "absent"       => 0,
-            "late"         => 0,
-            "late_minutes" => 0,
-            "hours"        => 0.0,
+            "present"            => 0,
+            "absent"             => 0,
+            "late"               => 0,
+            "late_minutes"       => 0,
+            "undertime_minutes"  => 0,
+            "hours"              => 0.0,
         ];
 
         while ($cursor < $endEx) {
@@ -119,10 +120,15 @@ if ($method === "GET") {
                     "time_out"     => null,
                     "hours_worked" => null,
                     "minutes_late" => null,
+                    "undertime_minutes" => null,
                     "status"       => "Weekend",
                 ];
             } elseif (isset($byDate[$dateStr])) {
                 $r = $byDate[$dateStr];
+                $dayUndertime = attendanceUndertimeMinutes(
+                    $r["time_out"] !== null ? (string) $r["time_out"] : null,
+                    (int) $r["minutes_late"]
+                );
                 $days[] = [
                     "date"         => $dateStr,
                     "day_label"    => $dayLabel,
@@ -132,6 +138,7 @@ if ($method === "GET") {
                     "time_out"     => $r["time_out"],
                     "hours_worked" => $r["hours_worked"] !== null ? (float) $r["hours_worked"] : null,
                     "minutes_late" => (int) $r["minutes_late"],
+                    "undertime_minutes" => $dayUndertime,
                     "status"       => $r["status"],
                 ];
                 $totals["present"]++;
@@ -139,6 +146,7 @@ if ($method === "GET") {
                     $totals["late"]++;
                     $totals["late_minutes"] += (int) $r["minutes_late"];
                 }
+                $totals["undertime_minutes"] += $dayUndertime;
                 $totals["hours"] += (float) ($r["hours_worked"] ?? 0);
             } else {
                 $days[] = [
@@ -150,6 +158,7 @@ if ($method === "GET") {
                     "time_out"     => null,
                     "hours_worked" => null,
                     "minutes_late" => null,
+                    "undertime_minutes" => 0,
                     "status"       => "Absent",
                 ];
                 $totals["absent"]++;
@@ -245,14 +254,22 @@ if ($method === "GET") {
         $stmt->execute(array_merge([$from, $to], $scopeParams));
         $rows = $stmt->fetchAll();
 
+        $undertimeStmt = $pdo->prepare(
+            "SELECT time_out, minutes_late
+             FROM attendance
+             WHERE employee_id = ? AND work_date BETWEEN ? AND ?
+               AND " . workDaySql('work_date')
+        );
+
         $totals = [
-            "expected_days"      => $expectedDays,
-            "days_present"       => 0,
-            "days_late"          => 0,
-            "total_late_minutes" => 0,
-            "total_hours"        => 0,
-            "absences"           => 0,
-            "period_gross"       => 0,
+            "expected_days"          => $expectedDays,
+            "days_present"           => 0,
+            "days_late"              => 0,
+            "total_late_minutes"     => 0,
+            "total_undertime_minutes"=> 0,
+            "total_hours"            => 0,
+            "absences"               => 0,
+            "period_gross"           => 0,
         ];
 
         foreach ($rows as &$r) {
@@ -262,14 +279,25 @@ if ($method === "GET") {
             $r["total_hours"]        = round((float) $r["total_hours"], 2);
             $r["absences"]           = max(0, $expectedDays - $r["days_present"]);
 
+            $undertimeStmt->execute([(int) $r["employee_id"], $from, $to]);
+            $undertime = 0;
+            foreach ($undertimeStmt->fetchAll() as $att) {
+                $undertime += attendanceUndertimeMinutes(
+                    $att["time_out"] !== null ? (string) $att["time_out"] : null,
+                    (int) $att["minutes_late"]
+                );
+            }
+            $r["total_undertime_minutes"] = $undertime;
+
             $dailyRate = REGULAR_DAILY_GROSS;
             $r["daily_rate"] = $dailyRate;
             $r["period_gross"] = round($r["days_present"] * $dailyRate, 2);
 
-            $totals["days_present"]       += $r["days_present"];
-            $totals["days_late"]          += $r["days_late"];
-            $totals["total_late_minutes"] += $r["total_late_minutes"];
-            $totals["total_hours"]        += $r["total_hours"];
+            $totals["days_present"]            += $r["days_present"];
+            $totals["days_late"]               += $r["days_late"];
+            $totals["total_late_minutes"]      += $r["total_late_minutes"];
+            $totals["total_undertime_minutes"] += $undertime;
+            $totals["total_hours"]             += $r["total_hours"];
             $totals["absences"]           += $r["absences"];
             $totals["period_gross"]       += $r["period_gross"];
         }
