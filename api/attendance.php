@@ -7,6 +7,7 @@ $method = $_SERVER["REQUEST_METHOD"];
 const WORK_START = "08:00:00";
 const LUNCH_THRESHOLD_MINUTES = 300;
 const LUNCH_DEDUCTION_MINUTES = 60;
+const REGULAR_DAILY_GROSS = 500.00;
 
 // Payroll staff may VIEW attendance; only the maker (Payroll Officer) may
 // create, edit or delete records. A Supervisor may also view, but ONLY their
@@ -173,13 +174,9 @@ if ($method === "GET") {
         $totals["expected_days"] = countWorkingDays($from, $to);
 
         if ($showGross) {
-            $monthStart = date("Y-m-01", strtotime($from));
-            $daysInMonth = (int) date("t", strtotime($from));
-            // The wage setup is 500/day for a standard 30-day month (26 paid
-            // days) and 500/day for a 31-day month (27 paid days). This is a
-            // contractual gross rate, before attendance deductions.
-            $standardPaidDays = $daysInMonth >= 31 ? 27 : 26;
-            $dailyRate = round((float) $employee["basic_salary"] / $standardPaidDays, 2);
+            // Flat contractual rate for the payroll attendance view. Gross is
+            // earned only on regular days with attendance; absences show zero.
+            $dailyRate = REGULAR_DAILY_GROSS;
 
             $gross = 0.0;
             foreach ($days as &$day) {
@@ -195,7 +192,7 @@ if ($method === "GET") {
             unset($day);
 
             $employee["daily_rate"] = $dailyRate;
-            $employee["month_working_days"] = $standardPaidDays;
+            $employee["month_working_days"] = null;
             $employee["period_gross"] = round($gross, 2);
             $totals["gross"] = round($gross, 2);
         } else {
@@ -270,10 +267,6 @@ if ($method === "GET") {
             "period_gross"       => 0,
         ];
 
-        $monthStart = date("Y-m-01", strtotime($from));
-        $daysInMonth = (int) date("t", strtotime($from));
-        $standardPaidDays = $daysInMonth >= 31 ? 27 : 26;
-
         foreach ($rows as &$r) {
             $r["days_present"]       = (int) $r["days_present"];
             $r["days_late"]          = (int) $r["days_late"];
@@ -281,7 +274,7 @@ if ($method === "GET") {
             $r["total_hours"]        = round((float) $r["total_hours"], 2);
             $r["absences"]           = max(0, $expectedDays - $r["days_present"]);
 
-            $dailyRate = round((float) $r["basic_salary"] / $standardPaidDays, 2);
+            $dailyRate = REGULAR_DAILY_GROSS;
             $r["daily_rate"] = $dailyRate;
             $r["period_gross"] = round($r["days_present"] * $dailyRate, 2);
 
