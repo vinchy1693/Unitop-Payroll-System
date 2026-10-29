@@ -3,10 +3,11 @@
 // api/overtime_records.php
 //
 // Routes:
-//   GET   TEAM_QUEUE_ROLES  (maker + checker see the whole queue; a Supervisor
-//                            sees only their own team's rows - a filter)
-//   POST                   SUPERVISOR_ROLE only, for a team member
-//   PATCH                  CHECKER_ROLES only (the Approver decides)
+//   GET   TEAM_QUEUE_ROLES  (Payroll sees the full queue; a Manager sees
+//                            their own team's rows)
+//   POST                   MANAGER_ROLE only, for a team member
+//   PATCH                  MANAGER_ROLE only (the same Manager may decide)
+//   PUT/DELETE             MAKER_ROLES
 //   PUT / DELETE           MAKER_ROLES only (maintenance, never creation)
 // =====================================================================
 require __DIR__ . "/_bootstrap.php";
@@ -184,10 +185,9 @@ if ($method === "GET") {
     respond(false, "Missing query parameter (id, date, employee_id, status, or all).", null, 422);
 }
 
-// ---- POST: a Supervisor files a request for a team member ----
-// Only a Supervisor may file; the employee portal is read-only. The Approver
-// decides it. A Supervisor may also decide a team request, but never one they
-// filed themselves.
+// ---- POST: a Manager files a request for a team member ----
+// Only a Manager may file; the employee portal is read-only. The Manager
+// decides the request as well.
 if ($method === "POST") {
     requireRole(MANAGER_ROLE);
 } elseif ($method === "PATCH") {
@@ -267,8 +267,8 @@ if ($method === "POST") {
     }
 
     // Hours and time_in/time_out are NOT accepted here: only an overtime
-    // clock-in/clock-out can fill them. requested_by records the Supervisor
-    // who filed it; approved_by is filled by the Approver later.
+    // clock-in/clock-out can fill them. requested_by records the Manager
+    // who filed it; approved_by is filled by the Manager later.
     $requesterId = (int) (currentUser()["user_id"] ?? 0);
     $stmt = $pdo->prepare(
         "INSERT INTO overtime_records
@@ -382,16 +382,6 @@ if ($method === "PATCH") {
 
     if (isManager()) {
         assertManages($pdo, (int) $row["employee_id"], "approve or reject this overtime request");
-        $actor = currentUser();
-        if ((int) ($row["requested_by"] ?? 0) === (int) ($actor["user_id"] ?? 0)) {
-            respond(
-                false,
-                "You cannot approve or reject an overtime request you filed yourself. "
-                . "Another reviewer must decide it.",
-                null,
-                403
-            );
-        }
     }
 
     if ($row["status"] !== "Pending") {

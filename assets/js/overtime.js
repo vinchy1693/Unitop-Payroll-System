@@ -2,7 +2,7 @@
 // assets/js/overtime.js
 // Admin overtime page.
 //
-// A Manager files a request for a team member; the Supervisor approves or
+// A Manager files a request for a team member; the same Manager approves or
 // rejects it. Employees cannot file overtime. Hours are filled in by the
 // employee's overtime clock-out at the kiosk.
 // =====================================================================
@@ -88,8 +88,7 @@ function renderRows(rows) {
 
     rowsEl.innerHTML = rows.map((r) => {
         const canDecide = r.status === "Pending"
-            && currentRole === "Manager"
-            && r.requested_by_name !== currentUsername;
+            && currentRole === "Manager";
         const decidedBy = r.approved_by_name
             ? `<div style="font-size:11px;color:var(--muted);">by ${escapeHtml(r.approved_by_name)}</div>`
             : "";
