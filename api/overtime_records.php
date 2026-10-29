@@ -67,6 +67,38 @@ function decorateOvertimeRow(array $row): array {
         && $row["hours"] !== null && $row["hours"] > 0
         && $row["time_in"] !== null && $row["time_out"] !== null;
 
+    // Estimated OT gross using the same period daily rate as payroll.
+    // Falls back to 0 when the date is not covered by a payroll period.
+    $row["gross_pay"] = 0.0;
+    if ($row["is_payable"]) {
+        $salaryStmt = $pdo->prepare("SELECT basic_salary FROM employees WHERE employee_id = ?");
+        $salaryStmt->execute([(int) $row["employee_id"]]);
+        $monthly = (float) $salaryStmt->fetchColumn();
+
+        $periodStmt = $pdo->prepare(
+            "SELECT start_date, end_date FROM payroll_periods
+             WHERE ? BETWEEN start_date AND end_date
+             ORDER BY period_id DESC LIMIT 1"
+        );
+        $periodStmt->execute([(string) $row["ot_date"]]);
+        $period = $periodStmt->fetch();
+
+        if ($monthly > 0 && $period) {
+            $expected = max(
+                0,
+                countWorkingDays($period["start_date"], $period["end_date"])
+                - countHolidaysInRange($pdo, $period["start_date"], $period["end_date"])
+            );
+            if ($expected > 0) {
+                $dailyRate = ($monthly / 2) / $expected;
+                $row["gross_pay"] = round(
+                    (float) $row["hours"] * (float) $row["rate_multiplier"] * ($dailyRate / 8),
+                    2
+                );
+            }
+        }
+    }
+
     return $row;
 }
 

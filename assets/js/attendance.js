@@ -431,7 +431,7 @@ function renderOvertime(rows, date) {
     if (otCountEl) otCountEl.textContent = `${rows.length} record(s)`;
 
     if (rows.length === 0) {
-        otRowsEl.innerHTML = `<tr class="empty-row"><td colspan="7">No overtime on ${escapeHtml(date)}.</td></tr>`;
+        otRowsEl.innerHTML = `<tr class="empty-row"><td colspan="8">No overtime on ${escapeHtml(date)}.</td></tr>`;
         return;
     }
 
@@ -454,6 +454,7 @@ function renderOvertime(rows, date) {
             <td class="col-center">${requested}</td>
             <td class="col-center">${actual}</td>
             <td style="text-align:right;">${hours}</td>
+            <td style="text-align:right;font-weight:600;">${r.is_payable ? formatMoney(r.gross_pay) : "—"}</td>
             <td class="col-center">${otStatusBadge(r.status)}</td>
             <td><span style="color:#6b7280;font-size:12px;">${escapeHtml(r.reason || "—")}</span></td>
         </tr>`;
