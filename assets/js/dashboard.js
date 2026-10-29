@@ -2,6 +2,8 @@
 // assets/js/dashboard.js
 // =====================================================================
 
+let dashboardRole = "";
+
 function formatMoney(n) {
     return "₱" + Number(n || 0).toLocaleString("en-PH", {
         minimumFractionDigits: 2,
@@ -91,6 +93,9 @@ function renderDashboardNotice(message) {
 
 async function loadDashboard() {
     try {
+        dashboardRole = (typeof window.dshCurrentRole === "function")
+            ? (await window.dshCurrentRole()) || ""
+            : "";
         const { data: body } = await api.get("dashboard.php");
         if (!body.success) throw new Error(body.message || "Dashboard request failed.");
         if (body.data && body.data.scope === "supervisor") {
@@ -254,6 +259,7 @@ function workflowCard(cfg) {
 
 function render(data) {
     const { counts, latest_run, active_loans, today_attendance, recent_runs, today } = data;
+    const isFinance = dashboardRole === "Finance & Accounting";
 
     // =================================================================
     // Row 1 — KPI tiles
@@ -291,7 +297,7 @@ function render(data) {
             value: counts.open_periods,
             note: counts.open_periods > 0 ? "Ready to process" : "Nothing to run",
             tone: counts.open_periods > 0 ? "blue" : "neutral",
-            href: counts.open_periods > 0 ? "payroll_periods.html" : null,
+            href: counts.open_periods > 0 ? (isFinance ? "payroll_runs.html" : "payroll_periods.html") : null,
         },
         {
             label: "Active Loans",
@@ -322,7 +328,7 @@ function render(data) {
 
     // Step 1: Setup
     const setupComplete = counts.departments > 0 && counts.positions > 0 && counts.employees > 0 && counts.with_salary > 0;
-    const setupCard = workflowCard({
+    let setupCard = workflowCard({
         step: "1",
         status: setupComplete ? "ok" : "warn",
         statusLabel: setupComplete ? "Complete" : "In Progress",
@@ -339,10 +345,11 @@ function render(data) {
         ctaLabel: "Open Setup",
         ctaHref: "employees.html",
     });
+    if (isFinance) setupCard = "";
 
     // Step 2: Daily Logs
     const hasPendingLeaves = counts.pending_leaves > 0;
-    const dailyCard = workflowCard({
+    let dailyCard = workflowCard({
         step: "2",
         status: hasPendingLeaves ? "warn" : "ok",
         statusLabel: hasPendingLeaves ? "Review" : "All Clear",
@@ -359,6 +366,7 @@ function render(data) {
         ctaLabel: "Log Attendance",
         ctaHref: "attendance.html",
     });
+    if (isFinance) dailyCard = "";
 
     // Step 3: Run Payroll
     const hasOpen = counts.open_periods > 0;
@@ -388,11 +396,15 @@ function render(data) {
         step: "3",
         status: payrollStatus,
         statusLabel: payrollStatusLabel,
-        title: "Run Payroll",
-        note: payrollNote,
+        title: isFinance ? "Payroll Approval" : "Run Payroll",
+        note: isFinance
+            ? (latest_run
+                ? `Latest run #${latest_run.run_id}. Review payroll costs, then approve or release.`
+                : "No payroll run has been submitted yet.")
+            : payrollNote,
         sublinks: [],
-        ctaLabel: payrollCta,
-        ctaHref: payrollCtaHref,
+        ctaLabel: isFinance ? "Review Payroll" : payrollCta,
+        ctaHref: isFinance ? "payroll_runs.html" : payrollCtaHref,
     });
 
     // Step 4: Reports
