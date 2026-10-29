@@ -125,11 +125,18 @@ function renderPayslip(p) {
     const sssEr    = Number(p.sss_er || 0);
     const phEr     = Number(p.philhealth_er || 0);
     const piEr     = Number(p.pagibig_er || 0);
+    const attendanceDed = Number(p.attendance_deductions || 0);
 
     const allowances = p.allowances || [];
     const deductions = p.deductions || [];
     const attendanceDeductions = deductions.filter((d) => d.is_attendance);
     const otherDeductions = deductions.filter((d) => !d.is_attendance);
+
+    // The API stores gross_pay after attendance adjustments and excludes
+    // attendance from total_deductions. For display, move attendance to the
+    // Deductions column and show the full earnings before adjustments.
+    const grossEarnings = Math.max(0, gross + attendanceDed);
+    const displayTotalDed = Math.max(0, totalDed + attendanceDed);
 
     const allowanceRows = allowances.map((a) => `
         <div class="line editable-line">
@@ -144,7 +151,7 @@ function renderPayslip(p) {
     const attendanceRows = attendanceDeductions.map((d) => `
         <div class="line">
             <span>${escapeHtml(d.deduction_type)}</span>
-            <span>-${formatMoney(d.amount)}</span>
+            <span>${formatMoney(d.amount)}</span>
         </div>
     `).join("");
 
@@ -159,6 +166,26 @@ function renderPayslip(p) {
     `).join("");
 
     modalBody.innerHTML = `
+        <style>
+            .payslip-deduction-group {
+                margin-top: 10px;
+                padding-top: 9px;
+                border-top: 1px solid var(--border-mid);
+            }
+            .payslip-deduction-group-title {
+                margin-bottom: 5px;
+                color: var(--muted);
+                font-size: 10.5px;
+                font-weight: 700;
+                letter-spacing: .7px;
+                text-transform: uppercase;
+            }
+            .payslip-deduction-group .line + .line {
+                margin-top: 6px;
+                padding-top: 6px;
+                border-top: 1px dashed var(--border-mid);
+            }
+        </style>
         <div class="payslip-doc">
             <div class="payslip-header">
                 <div>
@@ -198,24 +225,45 @@ function renderPayslip(p) {
                     <div class="line"><span>Overtime Pay</span><span>${formatMoney(ot)}</span></div>
                     <div class="line"><span>Premium Pay (Rest Day / Holiday)</span><span>${formatMoney(premium)}</span></div>
                     ${allowanceRows}
-                    ${attendanceRows}
                     <div class="line-add">
                         <button class="btn-add-line" data-add-allowance>+ Add Allowance</button>
                     </div>
-                    <div class="line total"><span>Adjusted Gross Pay</span><span>${formatMoney(gross)}</span></div>
+                    <div class="line total"><span>Gross Pay</span><span>${formatMoney(grossEarnings)}</span></div>
                 </div>
 
                 <div class="payslip-section">
                     <h4>Deductions</h4>
-                    <div class="line"><span>SSS (Employee)</span><span>${formatMoney(sss)}</span></div>
-                    <div class="line"><span>PhilHealth (Employee)</span><span>${formatMoney(ph)}</span></div>
-                    <div class="line"><span>Pag-IBIG (Employee)</span><span>${formatMoney(pi)}</span></div>
-                    <div class="line"><span>Withholding Tax</span><span>${formatMoney(tax)}</span></div>
-                    ${deductionRows}
+
+                    <div class="payslip-deduction-group">
+                        <div class="payslip-deduction-group-title">Contributions</div>
+                        <div class="line"><span>SSS (Employee)</span><span>${formatMoney(sss)}</span></div>
+                        <div class="line"><span>PhilHealth (Employee)</span><span>${formatMoney(ph)}</span></div>
+                        <div class="line"><span>Pag-IBIG (Employee)</span><span>${formatMoney(pi)}</span></div>
+                    </div>
+
+                    <div class="payslip-deduction-group">
+                        <div class="payslip-deduction-group-title">Withholding Tax</div>
+                        <div class="line"><span>Withholding Tax</span><span>${formatMoney(tax)}</span></div>
+                    </div>
+
+                    ${attendanceRows ? `
+                        <div class="payslip-deduction-group">
+                            <div class="payslip-deduction-group-title">Attendance</div>
+                            ${attendanceRows}
+                        </div>
+                    ` : ""}
+
+                    ${deductionRows ? `
+                        <div class="payslip-deduction-group">
+                            <div class="payslip-deduction-group-title">Other Deductions</div>
+                            ${deductionRows}
+                        </div>
+                    ` : ""}
+
                     <div class="line-add">
                         <button class="btn-add-line" data-add-deduction>+ Add Deduction</button>
                     </div>
-                    <div class="line total"><span>Total Deductions</span><span>${formatMoney(totalDed)}</span></div>
+                    <div class="line total"><span>Total Deductions</span><span>${formatMoney(displayTotalDed)}</span></div>
                 </div>
             </div>
 
