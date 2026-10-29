@@ -2026,3 +2026,36 @@ td.num-strong { font-weight: 700; }
     .workflow-card:hover,
     .workflow-cta { transition: none; transform: none; }
 }
+/* =====================================================================
+   SWEETALERT / DIALOG THEME
+   SweetAlert renders outside the page theme by default. Keep its popup,
+   inputs and HTML content on the same light/dark tokens as the rest of
+   the admin UI. Expense review relies on this so its tables match.
+   ===================================================================== */
+.swal2-popup {
+    background: var(--card) !important;
+    color: var(--text) !important;
+    border: 1px solid var(--border);
+}
+.swal2-title,
+.swal2-html-container {
+    color: var(--text) !important;
+}
+.swal2-input,
+.swal2-textarea,
+.swal2-select {
+    background: var(--control-bg) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+}
+.swal2-html-container .report-table {
+    color: var(--text);
+}
+.swal2-html-container .report-table th,
+.swal2-html-container .report-table td {
+    border-bottom-color: var(--border);
+}
+.swal2-html-container .ledger-stat {
+    background: var(--bg);
+    border: 1px solid var(--border);
+}

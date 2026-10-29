@@ -322,9 +322,10 @@ async function showRunExpenses(runId, btn) {
         await Swal.fire({
             title: `Payroll Expenses — Run #${r.run.run_id}`,
             width: 900,
+            customClass: { popup: "expense-popup" },
             html: `
                 <div style="text-align:left;font-size:13px;line-height:1.6;">
-                    <div style="color:#666;margin-bottom:12px;">
+                    <div style="color:var(--muted);margin-bottom:12px;">
                         ${escapeHtml(r.run.start_date)} → ${escapeHtml(r.run.end_date)}
                         · Pay date ${escapeHtml(r.run.pay_date)}
                         · <strong>${escapeHtml(r.run.status)}</strong>
@@ -370,10 +371,10 @@ async function showRunExpenses(runId, btn) {
                                 <th style="text-align:right;">Employer Contributions</th>
                                 <th style="text-align:right;">Employer Cost</th>
                             </tr></thead>
-                            <tbody>${deptRows || '<tr><td colspan="5" style="text-align:center;color:#888;">No payslips in this run.</td></tr>'}</tbody>
+                            <tbody>${deptRows || '<tr><td colspan="5" style="text-align:center;color:var(--muted);">No payslips in this run.</td></tr>'}</tbody>
                         </table>
                     </div>
-                    <p style="font-size:11.5px;color:#888;margin-top:12px;">
+                    <p style="font-size:11.5px;color:var(--muted);margin-top:12px;">
                         Aggregate cost review only. Employee payslip details remain hidden until the run is Released.
                     </p>
                 </div>`,
