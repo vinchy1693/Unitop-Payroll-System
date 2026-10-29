@@ -35,6 +35,7 @@
 
 require __DIR__ . "/_bootstrap.php";
 require __DIR__ . "/_payroll_helpers.php";
+require __DIR__ . "/_attendance_policy.php";
 
 $method = $_SERVER["REQUEST_METHOD"];
 
@@ -66,17 +67,12 @@ const CORRECTION_TYPES    = ["clock_in", "clock_out", "both"];
 // span exceeds 300 minutes. Seconds are ignored in both, exactly like the
 // kiosk. Keep these two functions in step with that file.
 // =====================================================================
-const SCAN_WORK_START         = "08:00:00";
 const SCAN_LUNCH_THRESHOLD    = 300;   // minutes
 const SCAN_LUNCH_DEDUCTION    = 60;    // minutes
 
-/** Whole minutes past the 08:00 shift start; 0 at or before 08:00. */
+/** Same grace-period rule as the kiosk and manual attendance. */
 function scanMinutesLate(string $timeIn): int {
-    $workStart  = new DateTime(SCAN_WORK_START);
-    $actualTime = new DateTime($timeIn);
-    if ($actualTime <= $workStart) return 0;
-    $diff = $workStart->diff($actualTime);
-    return ($diff->h * 60) + $diff->i;
+    return attendanceLateMinutes($timeIn);
 }
 
 /** Hours between two times, less the 60-minute lunch when the span > 300 min. */

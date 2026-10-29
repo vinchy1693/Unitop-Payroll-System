@@ -1,10 +1,10 @@
 <?php
 require __DIR__ . "/_bootstrap.php";
 require __DIR__ . "/_payroll_helpers.php";
+require __DIR__ . "/_attendance_policy.php";
 
 $method = $_SERVER["REQUEST_METHOD"];
 
-const WORK_START = "08:00:00";
 const LUNCH_THRESHOLD_MINUTES = 300;
 const LUNCH_DEDUCTION_MINUTES = 60;
 const REGULAR_DAILY_GROSS = 500.00;
@@ -28,25 +28,13 @@ function computeAttendanceStats(string $timeIn, string $timeOut): array {
         ? $totalMinutes - LUNCH_DEDUCTION_MINUTES
         : $totalMinutes;
     $hoursWorked = round($netMinutes / 60, 2);
+    $lateMinutes = attendanceLateMinutes($timeIn);
 
-    $workStart = new DateTime(WORK_START);
-    $lateMinutes = 0;
-    if ($in > $workStart) {
-        $lateDiff = $workStart->diff($in);
-        $lateMinutes = ($lateDiff->h * 60) + $lateDiff->i;
-    }
     return ["hours_worked" => $hoursWorked, "minutes_late" => $lateMinutes];
 }
 
 function computeTimeInStats(string $timeIn): array {
-    $in = new DateTime($timeIn);
-    $workStart = new DateTime(WORK_START);
-    $lateMinutes = 0;
-    if ($in > $workStart) {
-        $lateDiff = $workStart->diff($in);
-        $lateMinutes = ($lateDiff->h * 60) + $lateDiff->i;
-    }
-    return ["minutes_late" => $lateMinutes];
+    return ["minutes_late" => attendanceLateMinutes($timeIn)];
 }
 
 // countWorkingDays() lived here as a duplicate of the payroll helper. The work

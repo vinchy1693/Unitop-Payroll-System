@@ -1,6 +1,7 @@
 <?php
 require __DIR__ . "/_bootstrap.php";
 require __DIR__ . "/_payroll_helpers.php";
+require __DIR__ . "/_attendance_policy.php";
 
 $method = $_SERVER["REQUEST_METHOD"];
 if ($method !== "POST") {
@@ -226,13 +227,7 @@ if ($isToken) {
 
 // ---- 5. Clock IN ------------------------------------------------------
 if (!$existing) {
-    $workStart   = new DateTime("08:00:00");
-    $actualTime  = new DateTime($nowTime);
-    $minutesLate = 0;
-    if ($actualTime > $workStart) {
-        $diff = $workStart->diff($actualTime);
-        $minutesLate = ($diff->h * 60) + $diff->i;
-    }
+    $minutesLate = attendanceLateMinutes($nowTime);
     $status = $minutesLate > 0 ? "Late" : "Clocked In";
 
     $stmt = $pdo->prepare(
