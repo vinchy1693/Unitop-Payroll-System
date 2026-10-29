@@ -157,14 +157,17 @@
         </p>
         <form id="deptcost-form" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
             <div style="min-width:160px;">
-                <label style="display:block;font-size:12.5px;color:#555;margin-bottom:4px;font-weight:600;">From</label>
-                <input type="date" id="dept_from" required
+                <label style="display:block;font-size:12.5px;color:#555;margin-bottom:4px;font-weight:600;">Payroll Month</label>
+                <input type="month" id="dept_month" required
                        style="width:100%;padding:8px 10px;border:1px solid #ccd3dc;border-radius:5px;font-size:13.5px;">
             </div>
-            <div style="min-width:160px;">
-                <label style="display:block;font-size:12.5px;color:#555;margin-bottom:4px;font-weight:600;">To</label>
-                <input type="date" id="dept_to" required
-                       style="width:100%;padding:8px 10px;border:1px solid #ccd3dc;border-radius:5px;font-size:13.5px;">
+            <div style="min-width:180px;">
+                <label style="display:block;font-size:12.5px;color:#555;margin-bottom:4px;font-weight:600;">Payroll Period</label>
+                <select id="dept_period" required
+                        style="width:100%;padding:8px 10px;border:1px solid #ccd3dc;border-radius:5px;font-size:13.5px;">
+                    <option value="first">First period (1–15)</option>
+                    <option value="second">Second period (16–end)</option>
+                </select>
             </div>
             <button class="btn btn-primary" type="submit">Generate</button>
             <button class="btn btn-plain" type="button" id="print-deptcost" disabled>Print</button>
@@ -180,7 +183,7 @@
 <script src="assets/js/sweetalert2.min.js"></script>
 <script src="assets/js/dialogs.js"></script>
 <script src="assets/js/api.js?v=20261020logoutalert"></script>
-<script src="assets/js/nav.js?v=20261021noscan2" onerror="var nl=document.querySelectorAll('nav.sidebar');for(var i=0;i<nl.length;i++)nl[i].classList.remove('nav-locked');"></script>
+<script src="assets/js/nav.js?v=20261021periods" onerror="var nl=document.querySelectorAll('nav.sidebar');for(var i=0;i<nl.length;i++)nl[i].classList.remove('nav-locked');"></script>
 <script src="assets/js/reports.js?v=20261020deductions"></script>
 <script src="assets/js/theme.js"></script>
 </body>

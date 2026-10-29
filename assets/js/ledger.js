@@ -18,12 +18,24 @@ async function loadEmployees() {
     }
 }
 
+function ledgerPeriodRange() {
+    const month = document.getElementById("ledger_month").value;
+    const half = document.getElementById("ledger_period").value;
+    if (!/^\d{4}-\d{2}$/.test(month)) return null;
+    const [year, monthNo] = month.split("-").map(Number);
+    const last = new Date(Date.UTC(year, monthNo, 0)).getUTCDate();
+    return {
+        from: half === "first" ? `${month}-01` : `${month}-16`,
+        to: half === "first" ? `${month}-15` : `${month}-${String(last).padStart(2, "0")}`,
+    };
+}
+
 form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const employeeId = document.getElementById("employee_id").value;
-    const from       = document.getElementById("from_date").value;
-    const to         = document.getElementById("to_date").value;
-    if (!employeeId || !from || !to) return;
+    const range = ledgerPeriodRange();
+    if (!employeeId || !range) return;
+    const { from, to } = range;
 
     resultCard.classList.remove("hidden");
     output.innerHTML = `<div style="text-align:center;padding:30px;color:#888;">Loading…</div>`;
@@ -176,10 +188,7 @@ window.addEventListener("afterprint", () => { delete document.body.dataset.print
 
 document.addEventListener("DOMContentLoaded", () => {
     const now = new Date();
-    const y = now.getFullYear();
-    const m = String(now.getMonth() + 1).padStart(2, "0");
-    document.getElementById("from_date").value = `${y}-${m}-01`;
-    const last = new Date(y, now.getMonth() + 1, 0).getDate();
-    document.getElementById("to_date").value = `${y}-${m}-${String(last).padStart(2, "0")}`;
+    document.getElementById("ledger_month").value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    document.getElementById("ledger_period").value = "first";
     loadEmployees();
 });

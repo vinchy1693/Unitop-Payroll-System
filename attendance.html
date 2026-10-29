@@ -142,17 +142,21 @@
     <div class="card">
         <h3>Attendance Summary</h3>
         <p style="margin:0 0 14px;font-size:13px;color:#666;">
-            Totals per employee over a date range. <strong>Click any row</strong> to see that employee's daily detail.
+            Totals per employee for a payroll period. <strong>Click any row</strong> to see that employee's daily detail.
         </p>
         <form id="summary-form" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
             <div style="min-width:160px;">
-                <label style="display:block;font-size:12.5px;color:#555;margin-bottom:4px;font-weight:600;">From</label>
-                <input type="date" id="summary_from" required style="width:100%;padding:8px 10px;border:1px solid #ccd3dc;border-radius:5px;font-size:13.5px;">
+                <label style="display:block;font-size:12.5px;color:#555;margin-bottom:4px;font-weight:600;">Payroll Month</label>
+                <input type="month" id="summary_month" required style="width:100%;padding:8px 10px;border:1px solid #ccd3dc;border-radius:5px;font-size:13.5px;">
             </div>
-            <div style="min-width:160px;">
-                <label style="display:block;font-size:12.5px;color:#555;margin-bottom:4px;font-weight:600;">To</label>
-                <input type="date" id="summary_to" required style="width:100%;padding:8px 10px;border:1px solid #ccd3dc;border-radius:5px;font-size:13.5px;">
+            <div style="min-width:180px;">
+                <label style="display:block;font-size:12.5px;color:#555;margin-bottom:4px;font-weight:600;">Payroll Period</label>
+                <select id="summary_period" required style="width:100%;padding:8px 10px;border:1px solid #ccd3dc;border-radius:5px;font-size:13.5px;">
+                    <option value="first">First period (1–15)</option>
+                    <option value="second">Second period (16–end)</option>
+                </select>
             </div>
+            <div id="summary_range" style="font-size:12px;color:var(--muted);padding-bottom:9px;">Coverage: —</div>
             <button class="btn btn-primary" type="submit">Generate Summary</button>
         </form>
     </div>
@@ -272,8 +276,8 @@
 <script src="assets/js/dialogs.js"></script>
 <script src="assets/js/html5-qrcode.min.js"></script>
 <script src="assets/js/api.js?v=20261020logoutalert"></script>
-<script src="assets/js/nav.js?v=20261021noscan2" onerror="var nl=document.querySelectorAll('nav.sidebar');for(var i=0;i<nl.length;i++)nl[i].classList.remove('nav-locked');"></script>
-<script src="assets/js/attendance.js?v=20261021noscan"></script>
+<script src="assets/js/nav.js?v=20261021periods" onerror="var nl=document.querySelectorAll('nav.sidebar');for(var i=0;i<nl.length;i++)nl[i].classList.remove('nav-locked');"></script>
+<script src="assets/js/attendance.js?v=20261021periods"></script>
 <script src="assets/js/theme.js"></script>
 </body>
 </html>

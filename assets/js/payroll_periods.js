@@ -268,7 +268,7 @@ form.addEventListener("submit", async (e) => {
         return;
     }
 
-    const label = halfEl.value === "first" ? "First half (1–15)" : "Second half (16–end)";
+    const label = halfEl.value === "first" ? "First period (1–15)" : "Second period (16–end)";
     if (!editId) {
         if (!await confirmDialog(
             `Create the ${label} payroll period for ${monthEl.value}?\n\nPeriod: ${dates.start} → ${dates.end}\nPay date: ${payDate}`,

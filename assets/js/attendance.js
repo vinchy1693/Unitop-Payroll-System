@@ -549,11 +549,33 @@ filterDate.addEventListener("change", loadRows);
 // =====================================================================
 // Summary view
 // =====================================================================
+function payrollPeriodRange(month, half) {
+    if (!/^\d{4}-\d{2}$/.test(month) || !["first", "second"].includes(half)) return null;
+    const [year, monthNo] = month.split("-").map(Number);
+    const last = new Date(Date.UTC(year, monthNo, 0)).getUTCDate();
+    return {
+        from: half === "first" ? `${month}-01` : `${month}-16`,
+        to: half === "first" ? `${month}-15` : `${month}-${String(last).padStart(2, "0")}`,
+    };
+}
+
+function updateSummaryRange() {
+    const month = document.getElementById("summary_month").value;
+    const half = document.getElementById("summary_period").value;
+    const range = payrollPeriodRange(month, half);
+    const label = document.getElementById("summary_range");
+    if (label) label.textContent = range ? `Coverage: ${range.from} → ${range.to}` : "Coverage: —";
+    return range;
+}
+
+document.getElementById("summary_month").addEventListener("change", updateSummaryRange);
+document.getElementById("summary_period").addEventListener("change", updateSummaryRange);
+
 summaryForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const from = document.getElementById("summary_from").value;
-    const to   = document.getElementById("summary_to").value;
-    if (!from || !to) return;
+    const range = updateSummaryRange();
+    if (!range) return;
+    const { from, to } = range;
 
     summaryCard.classList.remove("hidden");
     summaryOut.innerHTML = `<div style="text-align:center;padding:30px;color:#888;">Loading…</div>`;
@@ -777,9 +799,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     const now = new Date();
     const y = now.getFullYear();
     const m = String(now.getMonth() + 1).padStart(2, "0");
-    document.getElementById("summary_from").value = `${y}-${m}-01`;
-    const last = new Date(y, now.getMonth() + 1, 0).getDate();
-    document.getElementById("summary_to").value = `${y}-${m}-${String(last).padStart(2, "0")}`;
+    document.getElementById("summary_month").value = `${y}-${m}`;
+    document.getElementById("summary_period").value = "first";
+    updateSummaryRange();
 
     filterDate.value = todayISO();
     document.getElementById("work_date").value = todayISO();

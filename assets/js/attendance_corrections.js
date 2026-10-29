@@ -15,8 +15,9 @@ const countEl      = document.getElementById("record-count");
 const pendingEl    = document.getElementById("pending-count");
 const filterStatus = document.getElementById("filter-status");
 const filterEmp    = document.getElementById("filter-employee");
-const filterFrom   = document.getElementById("filter-from");
-const filterTo     = document.getElementById("filter-to");
+const filterMonth  = document.getElementById("filter_month");
+const filterPeriod = document.getElementById("filter_period");
+const filterRange  = document.getElementById("filter_range");
 const clearDates   = document.getElementById("clear-dates");
 
 const PAGE_SIZE = 200;
@@ -162,8 +163,11 @@ async function loadRows() {
     const params = { limit: PAGE_SIZE, offset: 0 };
     if (filterStatus.value) params.status = filterStatus.value;
     if (filterEmp.value)    params.employee_id = filterEmp.value;
-    if (filterFrom.value)   params.from = filterFrom.value;
-    if (filterTo.value)     params.to = filterTo.value;
+    const range = periodFilterRange();
+    if (range) {
+        params.from = range.from;
+        params.to = range.to;
+    }
 
     rowsEl.innerHTML = `<tr class="loading-row"><td colspan="8">Loading...</td></tr>`;
     try {
@@ -284,15 +288,27 @@ async function rejectCorrection(id) {
 filterStatus.addEventListener("change", loadRows);
 filterEmp.addEventListener("change", loadRows);
 
-function syncDateClear() {
-    const has = !!filterFrom.value || !!filterTo.value;
-    clearDates.classList.toggle("hidden", !has);
+function periodFilterRange() {
+    const month = filterMonth.value;
+    const half = filterPeriod.value;
+    if (!/^\d{4}-\d{2}$/.test(month)) return null;
+    const [year, monthNo] = month.split("-").map(Number);
+    const last = new Date(Date.UTC(year, monthNo, 0)).getUTCDate();
+    return {
+        from: half === "first" ? `${month}-01` : `${month}-16`,
+        to: half === "first" ? `${month}-15` : `${month}-${String(last).padStart(2, "0")}`,
+    };
 }
-filterFrom.addEventListener("change", () => { syncDateClear(); loadRows(); });
-filterTo.addEventListener("change", () => { syncDateClear(); loadRows(); });
+
+function syncDateClear() {
+    const range = periodFilterRange();
+    clearDates.classList.toggle("hidden", !range);
+    filterRange.textContent = range ? `${range.from} → ${range.to}` : "";
+}
+filterMonth.addEventListener("change", () => { syncDateClear(); loadRows(); });
+filterPeriod.addEventListener("change", () => { syncDateClear(); loadRows(); });
 clearDates.addEventListener("click", () => {
-    filterFrom.value = "";
-    filterTo.value = "";
+    filterMonth.value = "";
     syncDateClear();
     loadRows();
 });
@@ -307,6 +323,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     } catch (err) {
         currentUser = null;
     }
+
+    const now = new Date();
+    filterMonth.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    filterPeriod.value = "first";
+    syncDateClear();
+
     loadEmployees();
     loadPendingCount();
     await loadRows();

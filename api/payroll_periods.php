@@ -82,7 +82,7 @@ if ($method === "POST") {
     if ($month !== "" || $half !== "") {
         $dates = periodDatesFromSelection($month, $half);
         if ($dates === null) {
-            respond(false, "Choose a valid month and payroll period (First half or Second half).", null, 422);
+            respond(false, "Choose a valid month and payroll period (First period or Second period).", null, 422);
         }
         [$start, $end] = $dates;
         $type = "Semi-monthly";
@@ -146,7 +146,7 @@ if ($method === "PUT") {
     if ($month !== "" || $half !== "") {
         $dates = periodDatesFromSelection($month, $half);
         if ($dates === null) {
-            respond(false, "Choose a valid month and payroll period (First half or Second half).", null, 422);
+            respond(false, "Choose a valid month and payroll period (First period or Second period).", null, 422);
         }
         [$start, $end] = $dates;
         $type = "Semi-monthly";

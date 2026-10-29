@@ -84,11 +84,14 @@
                         <option value="">All employees</option>
                     </select>
                 </div>
-                <div style="display:flex;align-items:center;gap:8px;">
-                    <label for="filter-from" style="font-size:13px;color:var(--muted);font-weight:600;">Work date:</label>
-                    <input type="date" id="filter-from" style="padding:6px 9px;border:1px solid var(--border-mid);border-radius:5px;background:var(--control-bg);color:var(--text);">
-                    <span style="color:var(--muted);font-size:13px;">to</span>
-                    <input type="date" id="filter-to" style="padding:6px 9px;border:1px solid var(--border-mid);border-radius:5px;background:var(--control-bg);color:var(--text);">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <label for="filter_month" style="font-size:13px;color:var(--muted);font-weight:600;">Payroll period:</label>
+                    <input type="month" id="filter_month" style="padding:6px 9px;border:1px solid var(--border-mid);border-radius:5px;background:var(--control-bg);color:var(--text);">
+                    <select id="filter_period" style="padding:6px 9px;border:1px solid var(--border-mid);border-radius:5px;background:var(--control-bg);color:var(--text);">
+                        <option value="first">First period (1–15)</option>
+                        <option value="second">Second period (16–end)</option>
+                    </select>
+                    <span id="filter_range" style="font-size:11.5px;color:var(--muted);"></span>
                     <button type="button" class="btn btn-plain hidden" id="clear-dates">All dates</button>
                 </div>
             </div>
@@ -119,8 +122,8 @@
 <script src="assets/js/sweetalert2.min.js"></script>
 <script src="assets/js/dialogs.js"></script>
 <script src="assets/js/api.js?v=20261020logoutalert"></script>
-<script src="assets/js/nav.js?v=20261021noscan2" onerror="var nl=document.querySelectorAll('nav.sidebar');for(var i=0;i<nl.length;i++)nl[i].classList.remove('nav-locked');"></script>
-<script src="assets/js/attendance_corrections.js?v=20261021manager"></script>
+<script src="assets/js/nav.js?v=20261021periods" onerror="var nl=document.querySelectorAll('nav.sidebar');for(var i=0;i<nl.length;i++)nl[i].classList.remove('nav-locked');"></script>
+<script src="assets/js/attendance_corrections.js?v=20261021periods"></script>
 <script src="assets/js/theme.js"></script>
 </body>
 </html>

@@ -411,11 +411,23 @@ function renderHistory(payload) {
 // =====================================================================
 // DEPARTMENT COST
 // =====================================================================
+function reportPeriodRange() {
+    const month = document.getElementById("dept_month").value;
+    const half = document.getElementById("dept_period").value;
+    if (!/^\d{4}-\d{2}$/.test(month)) return null;
+    const [year, monthNo] = month.split("-").map(Number);
+    const last = new Date(Date.UTC(year, monthNo, 0)).getUTCDate();
+    return {
+        from: half === "first" ? `${month}-01` : `${month}-16`,
+        to: half === "first" ? `${month}-15` : `${month}-${String(last).padStart(2, "0")}`,
+    };
+}
+
 document.getElementById("deptcost-form").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const from = document.getElementById("dept_from").value;
-    const to   = document.getElementById("dept_to").value;
-    if (!from || !to) return;
+    const range = reportPeriodRange();
+    if (!range) return;
+    const { from, to } = range;
 
     const card = document.getElementById("deptcost-card");
     const out  = document.getElementById("deptcost-output");
@@ -513,11 +525,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const y = now.getFullYear();
     const m = String(now.getMonth() + 1).padStart(2, "0");
-    const first = `${y}-${m}-01`;
-    const last  = new Date(y, now.getMonth() + 1, 0);
-    const lastStr = `${y}-${m}-${String(last.getDate()).padStart(2, "0")}`;
-    document.getElementById("dept_from").value = first;
-    document.getElementById("dept_to").value   = lastStr;
+    document.getElementById("dept_month").value = `${y}-${m}`;
+    document.getElementById("dept_period").value = "first";
 
     loadRuns();
     loadEmployees();
