@@ -16,9 +16,12 @@ const halfEl    = document.getElementById("period_half");
 const datesEl   = document.getElementById("period_dates");
 const payDateEl = document.getElementById("pay_date");
 
-function isoAddDays(iso, days) {
-    const [y, m, d] = iso.split("-").map(Number);
-    return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+function automaticPayDate(month, half) {
+    if (half === "first") return `${month}-20`;
+    const [year, monthNo] = month.split("-").map(Number);
+    const nextYear = monthNo === 12 ? year + 1 : year;
+    const nextMonth = monthNo === 12 ? 1 : monthNo + 1;
+    return `${nextYear}-${String(nextMonth).padStart(2, "0")}-05`;
 }
 
 function derivePeriodDates() {
@@ -31,21 +34,18 @@ function derivePeriodDates() {
     const last = new Date(Date.UTC(year, monthNo, 0)).getUTCDate();
     const start = half === "first" ? `${month}-01` : `${month}-16`;
     const end = half === "first" ? `${month}-15` : `${month}-${String(last).padStart(2, "0")}`;
-    return { start, end, minPay: isoAddDays(end, 5) };
+    return { start, end, payDate: automaticPayDate(month, half) };
 }
 
 function updatePeriodDates() {
     const dates = derivePeriodDates();
     if (!dates) {
         datesEl.textContent = "Pick a month and period.";
-        payDateEl.removeAttribute("min");
+        payDateEl.value = "";
         return null;
     }
     datesEl.textContent = `${dates.start} → ${dates.end}`;
-    payDateEl.min = dates.minPay;
-    if (!payDateEl.value || payDateEl.value < dates.minPay) {
-        payDateEl.value = dates.minPay;
-    }
+    payDateEl.value = dates.payDate;
     return dates;
 }
 
@@ -223,7 +223,6 @@ function startEdit(row) {
     document.getElementById("period_id").value = row.period_id;
     monthEl.value = String(row.start_date || "").slice(0, 7);
     halfEl.value = Number(String(row.start_date || "").slice(8, 10)) <= 15 ? "first" : "second";
-    payDateEl.value = row.pay_date || "";
     updatePeriodDates();
     formTitle.textContent = "Edit Payroll Period";
     submitBtn.textContent = "Save Changes";
@@ -258,15 +257,7 @@ form.addEventListener("submit", async (e) => {
         return;
     }
 
-    const payDate = payDateEl.value;
-    if (!payDate) {
-        showToast("Pay Date is required.", "error");
-        return;
-    }
-    if (payDate < dates.minPay) {
-        showToast(`Pay Date must be at least 5 days after the period ends (${dates.minPay}).`, "error");
-        return;
-    }
+    const payDate = dates.payDate;
 
     const label = halfEl.value === "first" ? "First period (1–15)" : "Second period (16–end)";
     if (!editId) {
@@ -280,7 +271,6 @@ form.addEventListener("submit", async (e) => {
         period_type: "Semi-monthly",
         period_month: monthEl.value,
         period_half: halfEl.value,
-        pay_date: payDate,
     };
 
     submitBtn.disabled = true;

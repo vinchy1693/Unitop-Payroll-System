@@ -79,10 +79,10 @@
                     </div>
                 </div>
                 <div>
-                    <label>Pay Date</label>
-                    <input type="date" id="pay_date" required>
+                    <label>Pay Date (automatic)</label>
+                    <input type="date" id="pay_date" readonly tabindex="-1" style="background:var(--surface-2);cursor:not-allowed;">
                     <small style="display:block;font-size:11.5px;color:var(--muted);margin-top:4px;">
-                        Must be at least 5 days after the period ends.
+                        First period pays on the 20th; second period pays on the 5th of the next month. This date is locked.
                     </small>
                 </div>
             </div>
@@ -129,7 +129,7 @@
 <script src="assets/js/dialogs.js"></script>
 <script src="assets/js/api.js?v=20261020logoutalert"></script>
 <script src="assets/js/nav.js?v=20261021finance" onerror="var nl=document.querySelectorAll('nav.sidebar');for(var i=0;i<nl.length;i++)nl[i].classList.remove('nav-locked');"></script>
-<script src="assets/js/payroll_periods.js?v=20261021periods"></script>
+<script src="assets/js/payroll_periods.js?v=20261021paydate"></script>
 <script src="assets/js/theme.js"></script>
 </body>
 </html>

@@ -15,15 +15,15 @@ function validPeriodDate(string $value): bool {
     return $dt !== false && $dt->format("Y-m-d") === $value;
 }
 
-// Pay date per Philippine practice: the 1-15 cut-off is paid on the 20th, and
-// the 16-end cut-off on the 5th of the following month. The business rule is
-// at least five calendar days after the period end; both defaults equal that.
-function minimumPayDate(string $endDate): string {
-    return (new DateTime($endDate))->modify("+5 days")->format("Y-m-d");
-}
-
-function defaultPayDate(string $endDate): string {
-    return minimumPayDate($endDate);
+// Pay date is fixed by policy:
+//   1st–15th period -> 20th of the same month
+//   16th–end period -> 5th of the following month
+function automaticPayDate(string $startDate): string {
+    $start = new DateTime($startDate);
+    if ((int) $start->format("j") <= 15) {
+        return $start->format("Y-m-20");
+    }
+    return $start->modify("first day of next month")->format("Y-m-05");
 }
 
 /**
@@ -43,16 +43,6 @@ function periodDatesFromSelection(string $month, string $half): ?array {
         return [$month . '-16', $month . '-' . $first->format('t')];
     }
     return null;
-}
-
-function assertValidPayDate(string $payDate, string $end, string $label = "Pay Date"): void {
-    if (!validPeriodDate($payDate)) {
-        respond(false, "$label must be a real date in YYYY-MM-DD form.", null, 422);
-    }
-    $minimum = minimumPayDate($end);
-    if ($payDate < $minimum) {
-        respond(false, "$label must be at least 5 days after the period end (minimum $minimum).", null, 422);
-    }
 }
 
 // ---- GET: list periods with their latest run info ----
@@ -77,7 +67,6 @@ if ($method === "POST") {
     $month = trim($in["period_month"] ?? "");
     $half  = trim($in["period_half"] ?? "");
     $type  = trim($in["period_type"] ?? "Semi-monthly");
-    $payDate = trim($in["pay_date"] ?? "");
 
     if ($month !== "" || $half !== "") {
         $dates = periodDatesFromSelection($month, $half);
@@ -104,8 +93,8 @@ if ($method === "POST") {
     if (!in_array($type, PERIOD_TYPES, true)) {
         respond(false, "Period type must be one of: " . implode(", ", PERIOD_TYPES) . ".", null, 422);
     }
-    if ($payDate === "") $payDate = defaultPayDate($end);
-    assertValidPayDate($payDate, $end);
+    // Pay date is never supplied by the client.
+    $payDate = automaticPayDate($start);
 
     $stmt = $pdo->prepare(
         "SELECT COUNT(*) FROM payroll_periods
@@ -137,7 +126,6 @@ if ($method === "PUT") {
     $month = trim($in["period_month"] ?? "");
     $half  = trim($in["period_half"] ?? "");
     $type  = trim($in["period_type"] ?? "Semi-monthly");
-    $payDate = trim($in["pay_date"] ?? "");
 
     if ($id === 0) {
         respond(false, "period_id is required.", null, 422);
@@ -167,8 +155,8 @@ if ($method === "PUT") {
     if (!in_array($type, PERIOD_TYPES, true)) {
         respond(false, "Period type must be one of: " . implode(", ", PERIOD_TYPES) . ".", null, 422);
     }
-    if ($payDate === "") $payDate = defaultPayDate($end);
-    assertValidPayDate($payDate, $end);
+    // Pay date is never supplied by the client.
+    $payDate = automaticPayDate($start);
 
     $stmt = $pdo->prepare("SELECT status FROM payroll_periods WHERE period_id = ?");
     $stmt->execute([$id]);
