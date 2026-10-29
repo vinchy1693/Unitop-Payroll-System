@@ -87,6 +87,7 @@ async function loadMe() {
     currentUser = data.data;
     processCard.classList.toggle("hidden", !isMaker());
     document.getElementById("periods-link")?.classList.toggle("hidden", isFinance());
+    document.getElementById("dimobank-link")?.classList.toggle("hidden", !isFinance());
 }
 
 // ---------------------------------------------------------------------
@@ -463,7 +464,19 @@ async function handleAction(action, runId, btn) {
         showToast(data.message, "success");
         await Promise.all([loadRows(), loadOpenPeriods()]);
     } catch (err) {
-        showToast(apiErrorMessage(err), "error");
+        if (action === "release" && err?.response?.status === 503) {
+            await Swal.fire({
+                title: "DimoBank is offline",
+                html: `<div style="text-align:left;font-size:14px;line-height:1.6;">
+                           ${escapeHtml(apiErrorMessage(err)).replace(/\n/g, "<br>")}
+                       </div>`,
+                icon: "error",
+                confirmButtonText: "Close",
+            });
+            await loadRows();
+        } else {
+            showToast(apiErrorMessage(err), "error");
+        }
     } finally {
         if (btn) btn.disabled = false;
     }

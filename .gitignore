@@ -38,3 +38,6 @@ _dashwork/
 dashboard-shots/
 _dash*.html
 kiosk_preview.html
+
+# DimoBank runtime state
+dimobank/bank_state.json

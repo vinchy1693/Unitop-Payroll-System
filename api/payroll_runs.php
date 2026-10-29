@@ -1,5 +1,6 @@
 <?php
 require __DIR__ . "/_bootstrap.php";
+require __DIR__ . "/../dimobank/state.php";
 
 requireRole(PAYROLL_ROLES);   // maker + checker may read; mutations are guarded per action
 require __DIR__ . "/_payroll_helpers.php";
@@ -188,6 +189,21 @@ if ($method === "PATCH") {
                 $pdo->rollBack();
                 respond(false, "Cannot release a run that is $status. Only Approved runs can be released.", null, 409);
             }
+
+            // Demo bank gate: a payout cannot be released while DimoBank is
+            // offline. The run deliberately stays Approved so Finance can retry.
+            if (!dimobank_is_online()) {
+                $pdo->rollBack();
+                respond(
+                    false,
+                    "Something went wrong at DimoBank: the bank is offline for now. "
+                    . "The payout was not released and this run remains Approved. "
+                    . "Please bring DimoBank online and try again later.",
+                    ["bank_status" => "offline", "run_status" => "Approved"],
+                    503
+                );
+            }
+
             $pdo->prepare(
                 "UPDATE payroll_runs
                  SET status = 'Released', release_approved_by = ?, release_approved_at = NOW()
