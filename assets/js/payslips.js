@@ -122,9 +122,6 @@ function renderPayslip(p) {
     const tax      = Number(p.withholding_tax || 0);
     const totalDed = Number(p.total_deductions || 0);
     const net      = Number(p.net_pay || 0);
-    const sssEr    = Number(p.sss_er || 0);
-    const phEr     = Number(p.philhealth_er || 0);
-    const piEr     = Number(p.pagibig_er || 0);
     const attendanceDed = Number(p.attendance_deductions || 0);
 
     const allowances = p.allowances || [];
@@ -270,13 +267,6 @@ function renderPayslip(p) {
             <div class="payslip-netpay">
                 <span>NET PAY</span>
                 <span>${formatMoney(net)}</span>
-            </div>
-
-            <div class="payslip-er-block">
-                <div class="label">Employer Contributions (for remittance, not deducted)</div>
-                <div class="er-line"><span>SSS (Employer)</span><span>${formatMoney(sssEr)}</span></div>
-                <div class="er-line"><span>PhilHealth (Employer)</span><span>${formatMoney(phEr)}</span></div>
-                <div class="er-line"><span>Pag-IBIG (Employer)</span><span>${formatMoney(piEr)}</span></div>
             </div>
         </div>
     `;
