@@ -738,8 +738,8 @@ td.col-center .btn { margin: 0 2px; }
 .payslip-employee .value { font-size: 13.5px; font-weight: 600; }
 .payslip-sections {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
     margin-bottom: 20px;
     align-items: stretch;
 }
@@ -749,6 +749,10 @@ td.col-center .btn { margin: 0 2px; }
 }
 .payslip-section .line.total {
     margin-top: auto;
+}
+.payslip-sections .payslip-section + .payslip-section {
+    border-top: 1px solid var(--border-mid);
+    padding-top: 16px;
 }
 .payslip-section h4 {
     display: flex;
@@ -775,7 +779,7 @@ td.col-center .btn { margin: 0 2px; }
     font-weight: 700;
 }
 .payslip-sections .payslip-section .line.total {
-    margin-top: auto;
+    margin-top: 10px;
 }
 .payslip-netpay {
     display: flex;
