@@ -466,7 +466,7 @@ async function handleAction(action, runId, btn) {
     } catch (err) {
         if (action === "release" && err?.response?.status === 503) {
             await Swal.fire({
-                title: "DimoBank is offline",
+                title: "Payout release failed",
                 html: `<div style="text-align:left;font-size:14px;line-height:1.6;">
                            ${escapeHtml(apiErrorMessage(err)).replace(/\n/g, "<br>")}
                        </div>`,

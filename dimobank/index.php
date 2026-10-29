@@ -275,7 +275,7 @@ $csrf = csrf_token();
             <div class="notice">
                 <strong>How this demo works:</strong> release is checked on the server.
                 If DimoBank is offline, the payroll run stays <strong>Approved</strong>
-                and Finance sees a bank-offline message. Bring the bank online, then
+                and Finance sees a bank-unavailable message. Bring the bank online, then
                 retry the release.
             </div>
 

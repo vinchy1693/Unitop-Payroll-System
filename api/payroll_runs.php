@@ -194,12 +194,18 @@ if ($method === "PATCH") {
             // offline. The run deliberately stays Approved so Finance can retry.
             if (!dimobank_is_online()) {
                 $pdo->rollBack();
+                $reference = "DB-" . date("Ymd-His") . "-" . strtoupper(bin2hex(random_bytes(2)));
                 respond(
                     false,
-                    "Something went wrong at DimoBank: the bank is offline for now. "
-                    . "The payout was not released and this run remains Approved. "
-                    . "Please bring DimoBank online and try again later.",
-                    ["bank_status" => "offline", "run_status" => "Approved"],
+                    "Payment release failed: DimoBank is currently unavailable. "
+                    . "No funds were transferred. The payroll run remains Approved and can be "
+                    . "released once the bank connection is restored. Reference: $reference. "
+                    . "If the problem continues, contact DimoBank support and quote this reference.",
+                    [
+                        "bank_status" => "offline",
+                        "run_status" => "Approved",
+                        "reference" => $reference,
+                    ],
                     503
                 );
             }
