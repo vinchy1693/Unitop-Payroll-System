@@ -279,7 +279,7 @@ function renderRows(rows) {
             <td>${fmtDate(r.run_date)}</td>
             <td class="col-center">${r.payslip_count}
                 <div style="font-size:10.5px;color:var(--muted);margin-top:3px;">
-                    Adj ${formatMoney(r.total_gross || 0)}<br>
+                    Gross ${formatMoney(r.total_gross || 0)}<br>
                     Ded ${formatMoney(r.total_deductions || 0)}<br>
                     Net ${formatMoney(r.total_net || 0)}
                 </div>
@@ -334,7 +334,7 @@ async function showRunExpenses(runId, btn) {
 
                     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;">
                         <div class="ledger-stat"><span>Employees</span><strong>${t.headcount}</strong></div>
-                        <div class="ledger-stat"><span>Adjusted Gross</span><strong>${formatMoney(t.adjusted_gross)}</strong></div>
+                        <div class="ledger-stat"><span>Gross</span><strong>${formatMoney(t.adjusted_gross)}</strong></div>
                         <div class="ledger-stat"><span>Net Pay</span><strong>${formatMoney(t.net_pay)}</strong></div>
                         <div class="ledger-stat"><span>Employer Contributions</span><strong>${formatMoney(t.statutory_employer)}</strong></div>
                         <div class="ledger-stat"><span>Total Employer Cost</span><strong>${formatMoney(t.employer_cost)}</strong></div>
@@ -351,7 +351,7 @@ async function showRunExpenses(runId, btn) {
                                 <tr><td>Overtime Pay</td><td style="text-align:right;">${formatMoney(t.overtime_pay)}</td></tr>
                                 <tr><td>Premium / Holiday Pay</td><td style="text-align:right;">${formatMoney(t.premium_pay)}</td></tr>
                                 <tr><td>Allowances</td><td style="text-align:right;">${formatMoney(t.allowances)}</td></tr>
-                                <tr><td><strong>Adjusted Gross Pay</strong></td><td style="text-align:right;"><strong>${formatMoney(t.adjusted_gross)}</strong></td></tr>
+                                <tr><td><strong>Gross Pay</strong></td><td style="text-align:right;"><strong>${formatMoney(t.adjusted_gross)}</strong></td></tr>
                                 <tr><td>Employee SSS / PhilHealth / Pag-IBIG / Tax</td><td style="text-align:right;">${formatMoney(t.statutory_employee)}</td></tr>
                                 <tr><td>Loan Deductions</td><td style="text-align:right;">${formatMoney(t.loans)}</td></tr>
                                 <tr><td><strong>Net Pay</strong></td><td style="text-align:right;"><strong>${formatMoney(t.net_pay)}</strong></td></tr>
@@ -368,7 +368,7 @@ async function showRunExpenses(runId, btn) {
                         <table class="report-table">
                             <thead><tr>
                                 <th>Department</th><th class="col-center">Employees</th>
-                                <th style="text-align:right;">Adjusted Gross</th>
+                                <th style="text-align:right;">Gross</th>
                                 <th style="text-align:right;">Employer Contributions</th>
                                 <th style="text-align:right;">Employer Cost</th>
                             </tr></thead>

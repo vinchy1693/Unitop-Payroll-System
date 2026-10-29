@@ -436,28 +436,23 @@ function recomputePayslipTotals(PDO $pdo, int $payslipId): array {
         }
     }
 
-    // ---- ADJUSTED GROSS -> TOTAL DEDUCTIONS -> NET ----
-    // Attendance is an adjustment to gross pay, not a deduction. The
-    // deductions table still stores the attendance lines for audit/breakdown,
-    // so split them out before computing the deduction total.
+    // ---- GROSS PAY -> TOTAL DEDUCTIONS -> NET ----
+    // Attendance is a deduction from gross pay. The deductions table stores
+    // those lines for audit/breakdown, so they are included in the total.
     $otherDed = round($extraDed - $attendanceDed, 2);
     if ($otherDed < 0) $otherDed = 0;
 
-    $adjustedGross = round($basic + $ot + $premium + $allowTotal - $attendanceDed, 2);
-    if ($adjustedGross < 0) $adjustedGross = 0;
+    $gross = round($basic + $ot + $premium + $allowTotal, 2);
+    if ($gross < 0) $gross = 0;
 
     $govtDed  = round($statutoryOnly + (float)$gc["withholding_tax"], 2);
-    $totalDed = round($govtDed + $otherDed, 2);
-    $net      = round($adjustedGross - $totalDed, 2);
+    $totalDed = round($govtDed + $extraDed, 2);
+    $net      = round($gross - $totalDed, 2);
 
-    // Take-home pay can never be negative. Deductions may legitimately exceed
-    // the adjusted gross (a full-period absence on top of statutory
-    // contributions, or a loan larger than the remaining pay). Cap the recorded
-    // deductions at the adjusted gross so the payslip stays internally
-    // consistent (gross_pay - total_deductions = net_pay) and report zero net.
-    // The unrecovered excess is not carried forward.
+    // Take-home pay can never be negative. Cap the recorded deductions at
+    // gross so the payslip stays internally consistent.
     if ($net < 0) {
-        $totalDed = $adjustedGross;
+        $totalDed = $gross;
         $net      = 0.0;
     }
 
@@ -465,11 +460,11 @@ function recomputePayslipTotals(PDO $pdo, int $payslipId): array {
         "UPDATE payslips
          SET gross_pay = ?, total_deductions = ?, net_pay = ?
          WHERE payslip_id = ?"
-    )->execute([$adjustedGross, $totalDed, $net, $payslipId]);
+    )->execute([$gross, $totalDed, $net, $payslipId]);
 
     return [
-        "gross_pay"             => $adjustedGross,
-        "adjusted_gross_pay"    => $adjustedGross,
+        "gross_pay"             => $gross,
+        "adjusted_gross_pay"    => $gross,
         "attendance_deductions" => round($attendanceDed, 2),
         "total_deductions"      => $totalDed,
         "other_deductions"      => $otherDed,

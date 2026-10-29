@@ -163,17 +163,16 @@ function renderPayslip(p) {
     const tax      = Number(p.withholding_tax || 0);
     const totalDed = Number(p.total_deductions || 0);
     const net      = Number(p.net_pay || 0);
-    const attendanceDed = Number(p.attendance_deductions || 0);
 
     const allowances = p.allowances || [];
     const deductions = p.deductions || [];
     const attendanceDeductions = deductions.filter((d) => d.is_attendance);
     const otherDeductions = deductions.filter((d) => !d.is_attendance);
 
-    // Preserve the accounting split: attendance reduces gross and is excluded
-    // from the stored total deductions, but both belong on the payslip.
-    const grossEarnings = Math.max(0, gross + attendanceDed);
-    const displayTotalDed = Math.max(0, totalDed + attendanceDed);
+    // gross_pay stores gross earnings, and total_deductions includes
+    // attendance, so the printed totals reconcile directly.
+    const grossEarnings = Math.max(0, gross);
+    const displayTotalDed = Math.max(0, totalDed);
 
     const earningsLines = [
         { label: "Basic Pay", amount: basic },

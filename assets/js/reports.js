@@ -101,7 +101,7 @@ function renderSummary(payload) {
 
             <div class="summary-grid">
                 <div class="summary-tile primary">
-                    <div class="summary-tile-label">Total Adjusted Gross Pay</div>
+                    <div class="summary-tile-label">Total Gross Pay</div>
                     <div class="summary-tile-value">${formatMoney(totals.total_gross)}</div>
                 </div>
                 <div class="summary-tile">
@@ -236,7 +236,7 @@ function renderRegister(payload) {
                             <th style="text-align:right;">Basic</th>
                             <th style="text-align:right;">OT</th>
                             <th style="text-align:right;">Allow.</th>
-                            <th style="text-align:right;">Adjusted Gross</th>
+                            <th style="text-align:right;">Gross</th>
                             <th style="text-align:right;">SSS</th>
                             <th style="text-align:right;">PH</th>
                             <th style="text-align:right;">PI</th>
@@ -398,7 +398,7 @@ function renderHistory(payload) {
             </div>
             <div class="table-scroll">
                 <table class="report-table">
-                    <thead><tr><th>Period</th><th>Type</th><th style="text-align:right;">Adjusted Gross Pay</th><th style="text-align:right;">Total Deductions</th><th style="text-align:right;">Net Pay</th></tr></thead>
+                    <thead><tr><th>Period</th><th>Type</th><th style="text-align:right;">Gross Pay</th><th style="text-align:right;">Total Deductions</th><th style="text-align:right;">Net Pay</th></tr></thead>
                     <tbody>${rows}</tbody>
                     <tfoot><tr class="totals-row"><td colspan="2" style="text-align:right;font-weight:700;">TOTALS (${payslips.length} payslip${payslips.length === 1 ? "" : "s"})</td><td style="text-align:right;font-weight:700;">${formatMoney(totals.gross_pay)}</td><td style="text-align:right;font-weight:700;">${formatMoney(totals.total_deductions)}</td><td style="text-align:right;font-weight:700;">${formatMoney(totals.net_pay)}</td></tr></tfoot>
                 </table>
@@ -476,14 +476,14 @@ function renderDeptCost(payload) {
             <div class="table-scroll">
                 <table class="report-table">
                     <thead>
-                        <tr><th rowspan="2">Department</th><th rowspan="2" style="text-align:center;">Headcount</th><th rowspan="2" style="text-align:right;">Total Adjusted Gross</th><th rowspan="2" style="text-align:right;">Total Net</th><th colspan="3" class="grp-ded">Employer Contributions</th><th rowspan="2" style="text-align:right;">Employer Cost</th></tr>
+                        <tr><th rowspan="2">Department</th><th rowspan="2" style="text-align:center;">Headcount</th><th rowspan="2" style="text-align:right;">Total Gross</th><th rowspan="2" style="text-align:right;">Total Net</th><th colspan="3" class="grp-ded">Employer Contributions</th><th rowspan="2" style="text-align:right;">Employer Cost</th></tr>
                         <tr><th style="text-align:right;">SSS</th><th style="text-align:right;">PH</th><th style="text-align:right;">PI</th></tr>
                     </thead>
                     <tbody>${bodyRows}</tbody>
                     <tfoot><tr class="totals-row"><td style="font-weight:700;">TOTALS</td><td style="text-align:center;">${totals.headcount}</td><td style="text-align:right;font-weight:700;">${formatMoney(totals.total_gross)}</td><td style="text-align:right;font-weight:700;">${formatMoney(totals.total_net)}</td><td style="text-align:right;">${formatMoney(totals.sss_er)}</td><td style="text-align:right;">${formatMoney(totals.philhealth_er)}</td><td style="text-align:right;">${formatMoney(totals.pagibig_er)}</td><td style="text-align:right;font-weight:700;">${formatMoney(totals.employer_cost)}</td></tr></tfoot>
                 </table>
             </div>
-            <p style="font-size:12px;color:#666;margin-top:14px;"><strong>Employer Cost</strong> = Total Adjusted Gross Pay + SSS ER + PhilHealth ER + Pag-IBIG ER.</p>
+            <p style="font-size:12px;color:#666;margin-top:14px;"><strong>Employer Cost</strong> = Total Gross Pay + SSS ER + PhilHealth ER + Pag-IBIG ER.</p>
             ${signatureBlock("Prepared by", "Payroll Officer", "Reviewed by", "Finance Manager")}
         </div>
     `;
