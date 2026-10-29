@@ -54,6 +54,7 @@ function computeTimeInStats(string $timeIn): array {
 
 // ---- GET ----
 if ($method === "GET") {
+    $showGross = (string) (currentUser()["role"] ?? "") === "Payroll Officer";
 
     // Employee detail — day-by-day breakdown
     if (isset($_GET["employee_detail"])) {
@@ -73,7 +74,7 @@ if ($method === "GET") {
         assertTeamReadScope($pdo, $empId, "read this employee's attendance");
 
         $stmt = $pdo->prepare(
-            "SELECT e.employee_id, e.employee_number,
+            "SELECT e.employee_id, e.employee_number, e.basic_salary,
                     CONCAT(e.last_name, ', ', e.first_name) AS employee_name,
                     d.department_name,
                     p.title AS position_title
@@ -171,6 +172,37 @@ if ($method === "GET") {
         $totals["hours"] = round($totals["hours"], 2);
         $totals["expected_days"] = countWorkingDays($from, $to);
 
+        if ($showGross) {
+            $monthStart = date("Y-m-01", strtotime($from));
+            $daysInMonth = (int) date("t", strtotime($from));
+            // The wage setup is 500/day for a standard 30-day month (26 paid
+            // days) and 500/day for a 31-day month (27 paid days). This is a
+            // contractual gross rate, before attendance deductions.
+            $standardPaidDays = $daysInMonth >= 31 ? 27 : 26;
+            $dailyRate = round((float) $employee["basic_salary"] / $standardPaidDays, 2);
+            $periodGross = round((float) $employee["basic_salary"] / 2, 2);
+
+            $gross = 0.0;
+            foreach ($days as &$day) {
+                if ($day["is_weekend"]) {
+                    $day["daily_gross"] = null;
+                } elseif ($day["has_record"]) {
+                    $day["daily_gross"] = $dailyRate;
+                    $gross += $dailyRate;
+                } else {
+                    $day["daily_gross"] = 0.0;
+                }
+            }
+            unset($day);
+
+            $employee["daily_rate"] = $dailyRate;
+            $employee["month_working_days"] = $standardPaidDays;
+            $employee["period_gross"] = $periodGross;
+            $totals["gross"] = $periodGross;
+        } else {
+            unset($employee["basic_salary"]);
+        }
+
         respond(true, "", [
             "employee" => $employee,
             "from"     => $from,
@@ -208,6 +240,7 @@ if ($method === "GET") {
         $sql = "SELECT
                     e.employee_id,
                     e.employee_number,
+                    e.basic_salary,
                     CONCAT(e.last_name, ', ', e.first_name) AS employee_name,
                     COALESCE(d.department_name, '—') AS department_name,
                     COUNT(a.attendance_id) AS days_present,
@@ -221,7 +254,7 @@ if ($method === "GET") {
                  AND " . workDaySql('a.work_date') . "
                 LEFT JOIN departments d ON d.department_id = e.department_id
                 WHERE e.is_active = 1" . $employeeScope . "
-                GROUP BY e.employee_id, e.employee_number, e.last_name, e.first_name, d.department_name
+                GROUP BY e.employee_id, e.employee_number, e.basic_salary, e.last_name, e.first_name, d.department_name
                 ORDER BY e.last_name, e.first_name";
 
         $stmt = $pdo->prepare($sql);
@@ -235,7 +268,12 @@ if ($method === "GET") {
             "total_late_minutes" => 0,
             "total_hours"        => 0,
             "absences"           => 0,
+            "period_gross"       => 0,
         ];
+
+        $monthStart = date("Y-m-01", strtotime($from));
+        $daysInMonth = (int) date("t", strtotime($from));
+        $standardPaidDays = $daysInMonth >= 31 ? 27 : 26;
 
         foreach ($rows as &$r) {
             $r["days_present"]       = (int) $r["days_present"];
@@ -244,15 +282,29 @@ if ($method === "GET") {
             $r["total_hours"]        = round((float) $r["total_hours"], 2);
             $r["absences"]           = max(0, $expectedDays - $r["days_present"]);
 
+            $dailyRate = round((float) $r["basic_salary"] / $standardPaidDays, 2);
+            $r["daily_rate"] = $dailyRate;
+            $r["period_gross"] = round((float) $r["basic_salary"] / 2, 2);
+
             $totals["days_present"]       += $r["days_present"];
             $totals["days_late"]          += $r["days_late"];
             $totals["total_late_minutes"] += $r["total_late_minutes"];
             $totals["total_hours"]        += $r["total_hours"];
             $totals["absences"]           += $r["absences"];
+            $totals["period_gross"]       += $r["period_gross"];
         }
         unset($r);
 
         $totals["total_hours"] = round($totals["total_hours"], 2);
+        $totals["period_gross"] = round($totals["period_gross"], 2);
+
+        if (!$showGross) {
+            foreach ($rows as &$r) {
+                unset($r["basic_salary"], $r["daily_rate"], $r["period_gross"]);
+            }
+            unset($r);
+            unset($totals["period_gross"]);
+        }
 
         respond(true, "", [
             "from"          => $from,

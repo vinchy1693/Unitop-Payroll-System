@@ -568,6 +568,13 @@ function updateSummaryRange() {
     return range;
 }
 
+function formatMoney(n) {
+    return "₱" + Number(n || 0).toLocaleString("en-PH", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    });
+}
+
 document.getElementById("summary_month").addEventListener("change", updateSummaryRange);
 document.getElementById("summary_period").addEventListener("change", updateSummaryRange);
 
@@ -593,6 +600,7 @@ summaryForm.addEventListener("submit", async (e) => {
 
 function renderSummary(payload) {
     const { from, to, expected_days, employees, totals } = payload;
+    const showGross = currentRole === "Payroll Officer";
 
     if (!employees.length) {
         summaryOut.innerHTML = `<div style="padding:20px;color:#888;">No active employees.</div>`;
@@ -607,6 +615,9 @@ function renderSummary(payload) {
             ? `<span style="color:#92400e;font-weight:600;">${e.days_late}</span>`
             : `<span style="color:#888;">0</span>`;
         const presentHtml = `<span style="color:#1e7d32;font-weight:600;">${e.days_present}</span>`;
+        const grossCell = showGross
+            ? `<td style="text-align:right;font-weight:700;">${formatMoney(e.period_gross)}</td>`
+            : "";
 
         return `
             <tr class="clickable-row" data-emp="${e.employee_id}" style="cursor:pointer;" title="Click to view daily detail">
@@ -617,6 +628,7 @@ function renderSummary(payload) {
                 <td class="col-center">${lateHtml}</td>
                 <td style="text-align:right;">${e.total_late_minutes}</td>
                 <td style="text-align:right;">${Number(e.total_hours).toFixed(2)}</td>
+                ${grossCell}
                 <td class="col-center"><span style="color:#2f5496;font-size:12px;">View →</span></td>
             </tr>
         `;
@@ -646,6 +658,7 @@ function renderSummary(payload) {
                             <th class="col-center">Days Late</th>
                             <th style="text-align:right;">Late Minutes</th>
                             <th style="text-align:right;">Hours Worked</th>
+                            ${showGross ? `<th style="text-align:right;">Period Gross</th>` : ""}
                             <th class="col-center"></th>
                         </tr>
                     </thead>
@@ -658,6 +671,7 @@ function renderSummary(payload) {
                             <td class="col-center" style="font-weight:700;">${totals.days_late}</td>
                             <td style="text-align:right;font-weight:700;">${totals.total_late_minutes}</td>
                             <td style="text-align:right;font-weight:700;">${Number(totals.total_hours).toFixed(2)}</td>
+                            ${showGross ? `<td style="text-align:right;font-weight:700;">${formatMoney(totals.period_gross)}</td>` : ""}
                             <td></td>
                         </tr>
                     </tfoot>
@@ -666,6 +680,9 @@ function renderSummary(payload) {
             <p style="font-size:12px;color:#666;margin-top:14px;">
                 <strong>Click any row</strong> to see the employee's day-by-day attendance.
             </p>
+            ${showGross ? `<p style="font-size:11.5px;color:#888;margin-top:-6px;">
+                Period Gross is the contractual basic gross for the period, before attendance and statutory deductions.
+            </p>` : ""}
         </div>
     `;
 
@@ -696,6 +713,7 @@ async function openEmployeeDetail(employeeId) {
 
 function renderDetail(payload) {
     const { employee, from, to, days, totals } = payload;
+    const showGross = currentRole === "Payroll Officer";
 
     const rows = days.map((d) => {
         let statusCell = "";
@@ -721,6 +739,7 @@ function renderDetail(payload) {
                 <td class="col-center">${d.time_out ? escapeHtml(d.time_out) : "—"}</td>
                 <td style="text-align:right;">${d.hours_worked !== null ? Number(d.hours_worked).toFixed(2) : "—"}</td>
                 <td style="text-align:right;">${d.minutes_late !== null ? d.minutes_late : "—"}</td>
+                ${showGross ? `<td style="text-align:right;font-weight:600;">${d.daily_gross !== null && d.daily_gross !== undefined ? formatMoney(d.daily_gross) : "—"}</td>` : ""}
                 <td class="col-center">${statusCell}</td>
             </tr>
         `;
@@ -748,6 +767,7 @@ function renderDetail(payload) {
                 <div class="ledger-stat"><span>Late Days</span><strong style="color:#92400e;">${totals.late}</strong></div>
                 <div class="ledger-stat"><span>Late Minutes</span><strong>${totals.late_minutes}</strong></div>
                 <div class="ledger-stat"><span>Total Hours</span><strong>${Number(totals.hours).toFixed(2)}</strong></div>
+                ${showGross ? `<div class="ledger-stat"><span>Period Gross</span><strong>${formatMoney(totals.gross || 0)}</strong></div>` : ""}
             </div>
             <div class="table-scroll">
                 <table class="report-table">
@@ -759,12 +779,16 @@ function renderDetail(payload) {
                             <th class="col-center">Time Out</th>
                             <th style="text-align:right;">Hours</th>
                             <th style="text-align:right;">Late</th>
+                            ${showGross ? `<th style="text-align:right;">Daily Gross</th>` : ""}
                             <th class="col-center">Status</th>
                         </tr>
                     </thead>
                     <tbody>${rows}</tbody>
                 </table>
             </div>
+            ${showGross ? `<p style="font-size:11.5px;color:#888;margin-top:10px;">
+                Daily Gross uses the contractual daily rate. Absences show ₱0.00; the period total is gross before deductions.
+            </p>` : ""}
         </div>
     `;
 }
