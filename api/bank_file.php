@@ -135,13 +135,13 @@ $method = strtoupper((string) ($_SERVER["REQUEST_METHOD"] ?? "GET"));
 $runId  = (int) ($_GET["run_id"] ?? 0);
 $format = strtolower(trim((string) ($_GET["format"] ?? "")));
 
-// ---- role guard: maker + checker only ----
+// ---- role guard: maker + checker + Administrator ----
 // Spelled out rather than requireRole() so that a refused attempt is itself
 // audited: an export attempt by the wrong role is exactly what the trail is
 // for.
 requireLogin();
 $user = currentUser();
-if (!in_array($user["role"], PAYROLL_ROLES, true)) {
+if (!in_array($user["role"], array_merge(PAYROLL_ROLES, ADMIN_ROLES), true)) {
     bank_file_audit(
         $format,
         $runId,

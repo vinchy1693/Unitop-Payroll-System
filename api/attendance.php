@@ -43,7 +43,7 @@ function computeTimeInStats(string $timeIn): array {
 
 // ---- GET ----
 if ($method === "GET") {
-    $showGross = in_array((string) (currentUser()["role"] ?? ""), ["Payroll Officer", FINANCE_ROLE], true);
+    $showGross = in_array((string) (currentUser()["role"] ?? ""), ["Payroll Officer", FINANCE_ROLE, "Administrator"], true);
 
     // Employee detail — day-by-day breakdown
     if (isset($_GET["employee_detail"])) {

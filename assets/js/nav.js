@@ -4,9 +4,8 @@
 // Role-aware navigation for every admin page (segregation of duties).
 //
 // The sidebar is static HTML, so without this a role sees links it cannot
-// open and every click answers 403: an Administrator sees Employees / Payroll
-// / Attendance but is denied on all of them, and a Payroll Officer sees Users
-// and Audit Log which they cannot open.
+// open and every click answers 403. Payroll can open operational pages but
+// not Users/Audit; Administrator can open every admin page.
 //
 // This script:
 //   1. resolves the current role ONCE per page load (auth.php?action=me),
@@ -23,7 +22,7 @@
 //
 // The roles are the ones api/_bootstrap.php defines:
 //   MAKER_ROLES      = Payroll Officer
-//   CHECKER_ROLES    = Payroll Officer
+//   CHECKER_ROLES    = Finance & Accounting
 //   SUPERVISOR_ROLE  = Supervisor
 //   ADMIN_ROLES      = Administrator
 // Every page whose API requires PAYROLL_ROLES is visible to maker + checker.
@@ -33,8 +32,8 @@
 // Reports, Users or Audit Log. Their API answers match - dashboard.php returns
 // a reduced team payload, and the payroll-only endpoints still require
 // PAYROLL_ROLES, which does not include Supervisor.
-// Users and Audit Log are Administrator only. The kiosk is staff-operated
-// (Payroll Officer, Manager, Supervisor); Employee accounts use the portal.
+// The Administrator can open every admin page. Users and Audit Log remain
+// available only to the Administrator; Employee accounts use the portal.
 //
 // data-page values are a FROZEN contract: assets/js/api.js highlightNav() and
 // the active-link styling depend on them, so entries below must match the
@@ -46,26 +45,26 @@
 
 // NAV_ACCESS_BEGIN
 const NAV_ACCESS = {
-    "index.html":                  ["Payroll Officer", "Manager", "Finance & Accounting"],
-    "departments.html":            ["Payroll Officer"],
-    "positions.html":              ["Payroll Officer"],
-    "employees.html":              ["Payroll Officer", "Manager", "Finance & Accounting"],
-    "attendance.html":             ["Payroll Officer", "Manager", "Finance & Accounting"],
-    "qr_codes.html":               ["Manager"],
-    "leave.html":                  ["Payroll Officer", "Manager"],
-    "leave_types.html":            ["Payroll Officer"],
-    "leave_balances.html":         ["Payroll Officer"],
-    "overtime.html":               ["Payroll Officer", "Manager"],
-    "attendance_corrections.html": ["Manager"],
-    "loans.html":                  ["Payroll Officer", "Manager", "Finance & Accounting"],
-    "payroll_periods.html":        ["Payroll Officer"],
-    "payroll_runs.html":           ["Payroll Officer", "Finance & Accounting"],
-    "payslips.html":               ["Payroll Officer", "Finance & Accounting"],
-    "ledger.html":                 ["Payroll Officer", "Finance & Accounting"],
-    "reports.html":                ["Payroll Officer", "Finance & Accounting"],
+    "index.html":                  ["Payroll Officer", "Manager", "Finance & Accounting", "Administrator"],
+    "departments.html":            ["Payroll Officer", "Administrator"],
+    "positions.html":              ["Payroll Officer", "Administrator"],
+    "employees.html":              ["Payroll Officer", "Manager", "Finance & Accounting", "Administrator"],
+    "attendance.html":             ["Payroll Officer", "Manager", "Finance & Accounting", "Administrator"],
+    "qr_codes.html":               ["Manager", "Administrator"],
+    "leave.html":                  ["Payroll Officer", "Manager", "Administrator"],
+    "leave_types.html":            ["Payroll Officer", "Administrator"],
+    "leave_balances.html":         ["Payroll Officer", "Administrator"],
+    "overtime.html":               ["Payroll Officer", "Manager", "Administrator"],
+    "attendance_corrections.html": ["Manager", "Administrator"],
+    "loans.html":                  ["Payroll Officer", "Manager", "Finance & Accounting", "Administrator"],
+    "payroll_periods.html":        ["Payroll Officer", "Administrator"],
+    "payroll_runs.html":           ["Payroll Officer", "Finance & Accounting", "Administrator"],
+    "payslips.html":               ["Payroll Officer", "Finance & Accounting", "Administrator"],
+    "ledger.html":                 ["Payroll Officer", "Finance & Accounting", "Administrator"],
+    "reports.html":                ["Payroll Officer", "Finance & Accounting", "Administrator"],
     "users.html":                  ["Administrator"],
     "audit.html":                  ["Administrator"],
-    "kiosk.html":                  ["Manager"]
+    "kiosk.html":                  ["Manager", "Administrator"]
 };
 // NAV_ACCESS_END
 

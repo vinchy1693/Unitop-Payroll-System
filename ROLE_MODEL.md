@@ -10,7 +10,7 @@ The **Approver** role is removed. Its work is split between Manager, Supervisor 
 | **Manager** | Team-scoped attendance, leave/correction approval, overtime requests, team QR codes |
 | **Supervisor** | Full attendance visibility, leave/correction approval, overtime approval |
 | **Payroll/HR** | Employee master data, loans, payroll processing/approval/release |
-| **Administrator** | Users, roles, audit and system configuration |
+| **Administrator** | Full access to every module, including payroll, attendance, leave/OT, loans, reports, users, audit and DimoBank |
 
 The existing `approver` account was converted to the `manager` login.
 

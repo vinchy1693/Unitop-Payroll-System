@@ -1,7 +1,7 @@
 <?php
 // =====================================================================
 // dimobank/index.php
-// Red/white demo bank console. Finance & Accounting only.
+// Red/white demo bank console. Finance & Accounting or Administrator.
 // =====================================================================
 define("AUTH_ENDPOINT", true);
 require __DIR__ . "/../api/_bootstrap.php";
@@ -15,7 +15,7 @@ if (!$user) {
     exit;
 }
 
-$isFinance = ((string) ($user["role"] ?? "")) === FINANCE_ROLE;
+$isFinance = in_array((string) ($user["role"] ?? ""), [FINANCE_ROLE, "Administrator"], true);
 if (!$isFinance) {
     http_response_code(403);
 }

@@ -109,7 +109,7 @@ $GLOBALS["AUDIT_ACTOR"] = [
 //   Finance & Accounting - labor-cost reporting, bank reconciliation and
 //                     payroll approval/release; no team approvals
 //   Payroll Officer - Payroll/HR: prepares master data and payroll runs
-//   Administrator   - technical only: users + audit trail
+//   Administrator   - full system access, including users + audit trail
 //
 // PAYROLL_ROLES opens salaries, payslips, payroll periods/runs, reports and
 // the dashboard. A Manager never sees company payroll figures.
@@ -497,6 +497,12 @@ function requireRole($roles): void {
     requireLogin();
     $allowed = is_array($roles) ? $roles : [$roles];
     $user    = currentUser();
+
+    // The Administrator is the system owner: full access to every module.
+    if ((string) $user["role"] === "Administrator") {
+        return;
+    }
+
     if (!in_array($user["role"], $allowed, true)) {
         respond(false, "You do not have permission to perform this action.", null, 403);
     }
