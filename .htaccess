@@ -18,3 +18,6 @@
 
 # Serve HTML/JS/CSS as UTF-8 even when Apache has no charset in the header.
 AddDefaultCharset UTF-8
+
+# Friendly 404 for unknown admin pages and assets.
+ErrorDocument 404 /master_file_module_api/404.html
