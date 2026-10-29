@@ -23,9 +23,8 @@ function formatMoney(n) {
     return "₱" + Number(n || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function isSupervisor() { return !!currentUser && currentUser.role === "Supervisor"; }
 function isMaker() { return !!currentUser && currentUser.role === "Payroll Officer"; }
-function isPayroll() { return !!currentUser && currentUser.role === "Payroll Officer"; }
+function isChecker() { return !!currentUser && currentUser.role === "Finance & Accounting"; }
 function isManager() { return !!currentUser && currentUser.role === "Manager"; }
 
 function getEmployeeLabel() {
@@ -88,10 +87,10 @@ function renderRows(rows) {
             actions = isMaker()
                 ? `<button class="btn btn-restore" data-restore="${r.loan_id}">Reactivate</button>`
                 : `<span style="color:#888;font-size:12px;">&mdash;</span>`;
-        } else if (r.status === "Pending" && isSupervisor()) {
-            // Advice only: Payroll/HR still decides.
+        } else if (r.status === "Pending" && isManager()) {
+            // Advice only: Finance still decides.
             actions = `<button class="btn btn-edit" data-recommend="${r.loan_id}">Recommend</button>`;
-        } else if (r.status === "Pending" && isPayroll()) {
+        } else if (r.status === "Pending" && isChecker()) {
             actions = `<button class="btn btn-restore" data-approve="${r.loan_id}">Approve</button>`;
         } else {
             actions = `<span style="color:#888;font-size:12px;">&mdash;</span>`;
@@ -99,7 +98,7 @@ function renderRows(rows) {
 
         const recommendation = r.has_recommendation
             ? `<div style="font-size:11px;color:var(--muted);margin-top:4px;">`
-              + `recommended by ${escapeHtml(r.recommended_by_name || "Supervisor")}</div>`
+              + `recommended by ${escapeHtml(r.recommended_by_name || "Manager")}</div>`
             : "";
 
         return `

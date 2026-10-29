@@ -49,7 +49,7 @@
 <div class="container">
 
     <h1>Overtime</h1>
-    <p class="subtitle">Managers file overtime requests for their team. The Supervisor reviews them; once approved, the employee clocks overtime in and out, and the hours are computed when they clock out.</p>
+    <p class="subtitle">Managers file overtime requests for their team. The Manager reviews them; once approved, the employee clocks overtime in and out, and the hours are computed when they clock out.</p>
 
     <div id="msg" class="msg hidden"></div>
 
@@ -89,7 +89,7 @@
             </div>
             <div class="form-actions">
                 <button class="btn btn-primary" type="submit" id="file-ot-submit">File request</button>
-                <p class="form-note">The day type and rate are derived from the date. The Supervisor must approve before the employee can clock OT in at the kiosk.</p>
+                <p class="form-note">The day type and rate are derived from the date. The Manager must approve before the employee can clock OT in at the kiosk.</p>
             </div>
         </form>
     </div>
@@ -101,7 +101,7 @@
             <span style="font-size:13px;color:var(--muted);">pending overtime request(s)</span>
         </div>
         <div style="max-width:520px;font-size:13px;color:var(--muted);line-height:1.55;">
-            Flow: a Manager files a request for a team member &rarr; the Supervisor decides it &rarr; the employee clocks overtime in and out &rarr; the hours become payable.
+            Flow: a Manager files a request for a team member &rarr; the Manager decides it &rarr; the employee clocks overtime in and out &rarr; the hours become payable.
             A Pending or Rejected request never reaches payroll. The day type and rate are derived from the date, not typed by the requester.
         </div>
     </div>
@@ -155,8 +155,8 @@
 <script src="assets/js/sweetalert2.min.js"></script>
 <script src="assets/js/dialogs.js"></script>
 <script src="assets/js/api.js?v=20261020logoutalert"></script>
-<script src="assets/js/nav.js?v=20261021periods" onerror="var nl=document.querySelectorAll('nav.sidebar');for(var i=0;i<nl.length;i++)nl[i].classList.remove('nav-locked');"></script>
-<script src="assets/js/overtime.js?v=20261021manager"></script>
+<script src="assets/js/nav.js?v=20261021finance" onerror="var nl=document.querySelectorAll('nav.sidebar');for(var i=0;i<nl.length;i++)nl[i].classList.remove('nav-locked');"></script>
+<script src="assets/js/overtime.js?v=20261021finance"></script>
 <script src="assets/js/theme.js"></script>
 </body>
 </html>

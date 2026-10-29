@@ -600,7 +600,7 @@ summaryForm.addEventListener("submit", async (e) => {
 
 function renderSummary(payload) {
     const { from, to, expected_days, employees, totals } = payload;
-    const showGross = currentRole === "Payroll Officer";
+    const showGross = ["Payroll Officer", "Finance & Accounting"].includes(currentRole);
 
     if (!employees.length) {
         summaryOut.innerHTML = `<div style="padding:20px;color:#888;">No active employees.</div>`;
@@ -713,7 +713,7 @@ async function openEmployeeDetail(employeeId) {
 
 function renderDetail(payload) {
     const { employee, from, to, days, totals } = payload;
-    const showGross = currentRole === "Payroll Officer";
+    const showGross = ["Payroll Officer", "Finance & Accounting"].includes(currentRole);
 
     const rows = days.map((d) => {
         let statusCell = "";
@@ -814,8 +814,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         currentRole = "";
     }
 
-    // Payroll/HR reviews attendance but never operates the scanner.
-    if (currentRole === "Payroll Officer") {
+    // Payroll/HR and Finance review attendance but never operate the scanner.
+    if (["Payroll Officer", "Finance & Accounting"].includes(currentRole)) {
         document.getElementById("scanner-card")?.classList.add("hidden");
         document.getElementById("demo-card")?.classList.add("hidden");
     }

@@ -43,7 +43,8 @@ function canFinalize(r) {
 // Helpers
 // ---------------------------------------------------------------------
 function isMaker()   { return !!currentUser && currentUser.role === "Payroll Officer"; }
-function isChecker() { return !!currentUser && currentUser.role === "Payroll Officer"; }
+function isChecker() { return !!currentUser && currentUser.role === "Finance & Accounting"; }
+function isFinance() { return !!currentUser && currentUser.role === "Finance & Accounting"; }
 
 // The maker prepares the files, the checker may review them. Employee and
 // Administrator cannot export at all; the API answers 403 for them, so hiding
@@ -85,6 +86,7 @@ async function loadMe() {
     const { data } = await api.get("auth.php?action=me");
     currentUser = data.data;
     processCard.classList.toggle("hidden", !isMaker());
+    document.getElementById("periods-link")?.classList.toggle("hidden", isFinance());
 }
 
 // ---------------------------------------------------------------------

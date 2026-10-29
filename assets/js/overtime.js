@@ -88,7 +88,7 @@ function renderRows(rows) {
 
     rowsEl.innerHTML = rows.map((r) => {
         const canDecide = r.status === "Pending"
-            && currentRole === "Supervisor"
+            && currentRole === "Manager"
             && r.requested_by_name !== currentUsername;
         const decidedBy = r.approved_by_name
             ? `<div style="font-size:11px;color:var(--muted);">by ${escapeHtml(r.approved_by_name)}</div>`

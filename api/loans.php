@@ -19,7 +19,7 @@
 // =====================================================================
 require __DIR__ . "/_bootstrap.php";
 
-requireRole(TEAM_QUEUE_ROLES);   // maker + checker + supervisor may read
+requireRole(array_merge(TEAM_QUEUE_ROLES, [FINANCE_ROLE]));   // maker + checker + manager may read
 require __DIR__ . "/_payroll_helpers.php";
 
 $method = $_SERVER["REQUEST_METHOD"];
@@ -88,7 +88,7 @@ $early       = json_input();
 $earlyAction = strtolower(trim((string) ($early["action"] ?? "")));
 
 if ($method === "PATCH" && $earlyAction === "recommend") {
-    requireRole([SUPERVISOR_ROLE]);   // maker and checker have no recommendation step
+    requireRole([MANAGER_ROLE]);   // maker and checker have no recommendation step
 
     $id = (int) ($early["loan_id"] ?? 0);
     if ($id === 0) respond(false, "loan_id is required.", null, 422);
@@ -104,8 +104,8 @@ if ($method === "PATCH" && $earlyAction === "recommend") {
     $loan = $stmt->fetch();
     if (!$loan) respond(false, "Loan not found.", null, 404);
 
-    // Own-request rule + team test, both inside assertSupervises().
-    assertSupervises($pdo, (int) $loan["employee_id"], "recommend this loan request");
+    // Own-request rule + team test, both inside assertManages().
+    assertManages($pdo, (int) $loan["employee_id"], "recommend this loan request");
 
     $user = currentUser();
     $pdo->prepare(

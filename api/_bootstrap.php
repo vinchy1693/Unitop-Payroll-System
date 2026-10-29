@@ -106,30 +106,30 @@ $GLOBALS["AUDIT_ACTOR"] = [
 //   Employee        - portal self-service only
 //   Manager         - team lead: manages team attendance, files overtime,
 //                     and gives the single approval on team leave/corrections
-//   Supervisor      - reviews attendance across teams and gives the single
-//                     approval on leave/corrections and overtime
-//   Payroll Officer - combined Payroll/HR: master data, loans and payroll
+//   Finance & Accounting - labor-cost reporting, bank reconciliation and
+//                     payroll approval/release; no team approvals
+//   Payroll Officer - Payroll/HR: prepares master data and payroll runs
 //   Administrator   - technical only: users + audit trail
 //
-// PAYROLL_ROLES is deliberately one combined Payroll/HR role. It opens
-// salaries, payslips, payroll periods/runs, reports and the dashboard.
-// A Manager or Supervisor never sees company payroll figures.
+// PAYROLL_ROLES opens salaries, payslips, payroll periods/runs, reports and
+// the dashboard. A Manager never sees company payroll figures.
 //
 // TEAM_QUEUE_ROLES is the roles that reach the team queues (attendance,
-// overtime, leave, loans). Payroll keeps the whole queue; a Manager or
-// Supervisor read is narrowed to their own team by teamScopeIds(), and a
-// write is checked by assertManages() / assertSupervises().
+// overtime, leave, loans). Payroll keeps the whole queue; a Manager read is
+// narrowed to their own team by teamScopeIds(), and a write is checked by
+// assertManages().
 // =====================================================================
 const MAKER_ROLES      = ["Payroll Officer"];
-const CHECKER_ROLES    = ["Payroll Officer"];  // combined Payroll/HR
+const CHECKER_ROLES    = ["Finance & Accounting"]; // approves payouts/releases
 const ADMIN_ROLES      = ["Administrator"];
 const MANAGER_ROLE     = "Manager";
-const SUPERVISOR_ROLE  = "Supervisor";
-const PAYROLL_ROLES    = ["Payroll Officer"];
-const TEAM_QUEUE_ROLES = ["Payroll Officer", "Manager", "Supervisor"];
+const SUPERVISOR_ROLE  = "Supervisor"; // legacy role, no longer assigned
+const FINANCE_ROLE     = "Finance & Accounting";
+const PAYROLL_ROLES    = ["Payroll Officer", FINANCE_ROLE];
+const TEAM_QUEUE_ROLES = ["Payroll Officer", "Manager"];
 
 // Every role the users screen may assign.
-const ALL_ROLES = ["Employee", "Payroll Officer", "Manager", "Supervisor", "Administrator"];
+const ALL_ROLES = ["Employee", "Payroll Officer", "Manager", FINANCE_ROLE, "Administrator"];
 
 // Demo scanning lets the caller supply a date and time, so it writes attendance
 // outside the real clock. It is a training aid, not a kiosk feature: the maker
@@ -536,6 +536,11 @@ function isSupervisor(): bool {
 function isManager(): bool {
     $user = currentUser();
     return $user !== null && (string) $user["role"] === MANAGER_ROLE;
+}
+
+function isFinance(): bool {
+    $user = currentUser();
+    return $user !== null && (string) $user["role"] === FINANCE_ROLE;
 }
 
 /**

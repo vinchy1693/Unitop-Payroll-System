@@ -1,7 +1,7 @@
 <?php
 require __DIR__ . "/_bootstrap.php";
 
-requireRole(array_merge(PAYROLL_ROLES, [MANAGER_ROLE]));   // Payroll/HR or a team Manager
+requireRole(["Payroll Officer", MANAGER_ROLE]);   // Payroll/HR or a team Manager
 
 $method = $_SERVER["REQUEST_METHOD"];
 

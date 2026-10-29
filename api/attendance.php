@@ -14,7 +14,7 @@ const LUNCH_DEDUCTION_MINUTES = 60;
 // Every mutation still hits requireRole(MAKER_ROLES) further down, so a
 // Supervisor can never write attendance. The kiosk does not call this endpoint
 // - it uses scan_attendance.php and auth.php, which stay open to every role.
-requireRole(TEAM_QUEUE_ROLES);
+requireRole(array_merge(TEAM_QUEUE_ROLES, [FINANCE_ROLE]));
 
 function computeAttendanceStats(string $timeIn, string $timeOut): array {
     $in  = new DateTime($timeIn);
@@ -54,7 +54,7 @@ function computeTimeInStats(string $timeIn): array {
 
 // ---- GET ----
 if ($method === "GET") {
-    $showGross = (string) (currentUser()["role"] ?? "") === "Payroll Officer";
+    $showGross = in_array((string) (currentUser()["role"] ?? ""), ["Payroll Officer", FINANCE_ROLE], true);
 
     // Employee detail — day-by-day breakdown
     if (isset($_GET["employee_detail"])) {

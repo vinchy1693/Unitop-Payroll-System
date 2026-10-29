@@ -46,26 +46,26 @@
 
 // NAV_ACCESS_BEGIN
 const NAV_ACCESS = {
-    "index.html":                  ["Payroll Officer", "Manager", "Supervisor"],
+    "index.html":                  ["Payroll Officer", "Manager", "Finance & Accounting"],
     "departments.html":            ["Payroll Officer"],
     "positions.html":              ["Payroll Officer"],
-    "employees.html":              ["Payroll Officer", "Manager"],
-    "attendance.html":             ["Payroll Officer", "Manager", "Supervisor"],
+    "employees.html":              ["Payroll Officer", "Manager", "Finance & Accounting"],
+    "attendance.html":             ["Payroll Officer", "Manager", "Finance & Accounting"],
     "qr_codes.html":               ["Manager"],
-    "leave.html":                  ["Payroll Officer", "Manager", "Supervisor"],
+    "leave.html":                  ["Payroll Officer", "Manager"],
     "leave_types.html":            ["Payroll Officer"],
     "leave_balances.html":         ["Payroll Officer"],
-    "overtime.html":               ["Payroll Officer", "Manager", "Supervisor"],
-    "attendance_corrections.html": ["Manager", "Supervisor"],
-    "loans.html":                  ["Payroll Officer", "Manager", "Supervisor"],
+    "overtime.html":               ["Payroll Officer", "Manager"],
+    "attendance_corrections.html": ["Manager"],
+    "loans.html":                  ["Payroll Officer", "Manager", "Finance & Accounting"],
     "payroll_periods.html":        ["Payroll Officer"],
-    "payroll_runs.html":           ["Payroll Officer"],
-    "payslips.html":               ["Payroll Officer"],
-    "ledger.html":                 ["Payroll Officer"],
-    "reports.html":                ["Payroll Officer"],
+    "payroll_runs.html":           ["Payroll Officer", "Finance & Accounting"],
+    "payslips.html":               ["Payroll Officer", "Finance & Accounting"],
+    "ledger.html":                 ["Payroll Officer", "Finance & Accounting"],
+    "reports.html":                ["Payroll Officer", "Finance & Accounting"],
     "users.html":                  ["Administrator"],
     "audit.html":                  ["Administrator"],
-    "kiosk.html":                  ["Manager", "Supervisor"]
+    "kiosk.html":                  ["Manager"]
 };
 // NAV_ACCESS_END
 

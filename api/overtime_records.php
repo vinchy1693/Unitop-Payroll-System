@@ -191,7 +191,7 @@ if ($method === "GET") {
 if ($method === "POST") {
     requireRole(MANAGER_ROLE);
 } elseif ($method === "PATCH") {
-    requireRole(SUPERVISOR_ROLE);
+    requireRole(MANAGER_ROLE);
 } else {
     requireRole(MAKER_ROLES);   // PUT / DELETE maintenance only
 }
@@ -380,14 +380,14 @@ if ($method === "PATCH") {
     assertNotOwnEmployee((int) $row["employee_id"], "approve or reject this overtime request");
     assertAttendanceDateUnlocked($pdo, (string) $row["ot_date"], "Overtime for this date");
 
-    if (isSupervisor()) {
-        assertSupervises($pdo, (int) $row["employee_id"], "approve or reject this overtime request");
+    if (isManager()) {
+        assertManages($pdo, (int) $row["employee_id"], "approve or reject this overtime request");
         $actor = currentUser();
         if ((int) ($row["requested_by"] ?? 0) === (int) ($actor["user_id"] ?? 0)) {
             respond(
                 false,
                 "You cannot approve or reject an overtime request you filed yourself. "
-                . "Another Supervisor must decide it.",
+                . "Another reviewer must decide it.",
                 null,
                 403
             );
