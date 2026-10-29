@@ -50,7 +50,7 @@
 <div class="container">
 
     <h1>Leave</h1>
-    <p class="subtitle">File leave requests, track balances, and configure leave types.</p>
+    <p class="subtitle">File leave requests and track balances against the fixed leave catalogue.</p>
 
     <div id="msg" class="msg hidden"></div>
 
@@ -58,7 +58,6 @@
     <div class="tabs">
         <button class="tab active" data-tab="requests">Requests</button>
         <button class="tab" data-tab="balances">Balances</button>
-        <button class="tab" data-tab="types">Types</button>
     </div>
 
     <!-- TAB: REQUESTS -->
@@ -145,51 +144,6 @@
         </div>
     </div>
 
-    <!-- TAB: TYPES -->
-    <div class="tab-panel hidden" id="tab-types">
-        <div class="card">
-            <h3 id="type_form_title">Add New Leave Type</h3>
-            <form id="type_form">
-                <input type="hidden" id="type_leave_type_id" value="">
-                <div class="form-grid">
-                    <div>
-                        <label>Name</label>
-                        <input type="text" id="type_name" required>
-                    </div>
-                    <div>
-                        <label>Days per Year</label>
-                        <input type="number" step="0.5" id="type_days_per_year" value="0">
-                    </div>
-                </div>
-                <button class="btn btn-primary" type="submit" id="type_submit_btn">Add Leave Type</button>
-                <button class="btn btn-plain hidden" type="button" id="type_cancel_btn">Cancel</button>
-            </form>
-        </div>
-
-        <div class="card">
-            <div class="toolbar">
-                <strong id="type_count">0 record(s)</strong>
-                <span class="filter-toggle">
-                    <a id="type_toggle_filter" href="#">Show all (incl. deactivated)</a>
-                </span>
-            </div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Name</th>
-                        <th>Days/Year</th>
-                        <th class="col-center">Status</th>
-                        <th class="col-center">Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="type_rows">
-                    <tr class="loading-row"><td colspan="5">Loading…</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
 </div>
 
 <script src="assets/js/axios.min.js"></script>
@@ -197,7 +151,7 @@
 <script src="assets/js/dialogs.js"></script>
 <script src="assets/js/api.js?v=20261020logoutalert"></script>
 <script src="assets/js/nav.js?v=20261021finance" onerror="var nl=document.querySelectorAll('nav.sidebar');for(var i=0;i<nl.length;i++)nl[i].classList.remove('nav-locked');"></script>
-<script src="assets/js/leave.js?v=20261021manager"></script>
+<script src="assets/js/leave.js?v=20261021fixedleave"></script>
 <script src="assets/js/theme.js"></script>
 </body>
 </html>
