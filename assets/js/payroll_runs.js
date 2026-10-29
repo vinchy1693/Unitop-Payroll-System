@@ -157,6 +157,12 @@ function actionsFor(r) {
         buttons.push(`<button class="btn btn-edit" data-action="resubmit" data-run="${r.run_id}">Resubmit</button>`);
     }
 
+    // Finance gets the cost-control view before approving/releasing. It is
+    // aggregate only: no employee payslip details.
+    if (isFinance()) {
+        buttons.push(`<button class="btn btn-plain" data-expenses="${r.run_id}">View Expenses</button>`);
+    }
+
     // Official payslips are available only after release. Before that,
     // Payroll/HR reviews run-level totals and approvals.
     if (r.status === "Released") {
@@ -295,6 +301,94 @@ function renderRows(rows) {
     rowsEl.querySelectorAll("[data-export]").forEach((btn) => {
         btn.addEventListener("click", () => exportRun(btn.dataset.run, btn.dataset.export, btn));
     });
+    rowsEl.querySelectorAll("[data-expenses]").forEach((btn) => {
+        btn.addEventListener("click", () => showRunExpenses(Number(btn.dataset.expenses), btn));
+    });
+}
+
+// ---------------------------------------------------------------------
+// Finance expense review (aggregate only)
+// ---------------------------------------------------------------------
+async function showRunExpenses(runId, btn) {
+    if (btn) btn.disabled = true;
+    try {
+        const { data } = await api.get("payroll_run_expenses.php", { params: { run_id: runId } });
+        const r = data.data;
+        const t = r.totals;
+        const deptRows = (r.departments || []).map((d) => `
+            <tr>
+                <td>${escapeHtml(d.department)}</td>
+                <td style="text-align:center;">${d.headcount}</td>
+                <td style="text-align:right;">${formatMoney(d.adjusted_gross)}</td>
+                <td style="text-align:right;">${formatMoney(d.employer_contributions)}</td>
+                <td style="text-align:right;font-weight:700;">${formatMoney(d.employer_cost)}</td>
+            </tr>`).join("");
+
+        await Swal.fire({
+            title: `Payroll Expenses — Run #${r.run.run_id}`,
+            width: 900,
+            html: `
+                <div style="text-align:left;font-size:13px;line-height:1.6;">
+                    <div style="color:#666;margin-bottom:12px;">
+                        ${escapeHtml(r.run.start_date)} → ${escapeHtml(r.run.end_date)}
+                        · Pay date ${escapeHtml(r.run.pay_date)}
+                        · <strong>${escapeHtml(r.run.status)}</strong>
+                    </div>
+
+                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;">
+                        <div class="ledger-stat"><span>Employees</span><strong>${t.headcount}</strong></div>
+                        <div class="ledger-stat"><span>Adjusted Gross</span><strong>${formatMoney(t.adjusted_gross)}</strong></div>
+                        <div class="ledger-stat"><span>Net Pay</span><strong>${formatMoney(t.net_pay)}</strong></div>
+                        <div class="ledger-stat"><span>Employer Contributions</span><strong>${formatMoney(t.statutory_employer)}</strong></div>
+                        <div class="ledger-stat"><span>Total Employer Cost</span><strong>${formatMoney(t.employer_cost)}</strong></div>
+                        <div class="ledger-stat"><span>Loan Deductions</span><strong>${formatMoney(t.loans)}</strong></div>
+                    </div>
+
+                    <div class="table-scroll" style="margin-bottom:16px;">
+                        <table class="report-table">
+                            <thead><tr>
+                                <th>Cost Component</th><th style="text-align:right;">Amount</th>
+                            </tr></thead>
+                            <tbody>
+                                <tr><td>Basic Pay</td><td style="text-align:right;">${formatMoney(t.basic_pay)}</td></tr>
+                                <tr><td>Overtime Pay</td><td style="text-align:right;">${formatMoney(t.overtime_pay)}</td></tr>
+                                <tr><td>Premium / Holiday Pay</td><td style="text-align:right;">${formatMoney(t.premium_pay)}</td></tr>
+                                <tr><td>Allowances</td><td style="text-align:right;">${formatMoney(t.allowances)}</td></tr>
+                                <tr><td><strong>Adjusted Gross Pay</strong></td><td style="text-align:right;"><strong>${formatMoney(t.adjusted_gross)}</strong></td></tr>
+                                <tr><td>Employee SSS / PhilHealth / Pag-IBIG / Tax</td><td style="text-align:right;">${formatMoney(t.statutory_employee)}</td></tr>
+                                <tr><td>Loan Deductions</td><td style="text-align:right;">${formatMoney(t.loans)}</td></tr>
+                                <tr><td><strong>Net Pay</strong></td><td style="text-align:right;"><strong>${formatMoney(t.net_pay)}</strong></td></tr>
+                                <tr><td>Employer SSS</td><td style="text-align:right;">${formatMoney(t.sss_er)}</td></tr>
+                                <tr><td>Employer PhilHealth</td><td style="text-align:right;">${formatMoney(t.philhealth_er)}</td></tr>
+                                <tr><td>Employer Pag-IBIG</td><td style="text-align:right;">${formatMoney(t.pagibig_er)}</td></tr>
+                                <tr><td><strong>Total Employer Cost</strong></td><td style="text-align:right;"><strong>${formatMoney(t.employer_cost)}</strong></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h4 style="margin:0 0 8px;">Cost by Department</h4>
+                    <div class="table-scroll">
+                        <table class="report-table">
+                            <thead><tr>
+                                <th>Department</th><th class="col-center">Employees</th>
+                                <th style="text-align:right;">Adjusted Gross</th>
+                                <th style="text-align:right;">Employer Contributions</th>
+                                <th style="text-align:right;">Employer Cost</th>
+                            </tr></thead>
+                            <tbody>${deptRows || '<tr><td colspan="5" style="text-align:center;color:#888;">No payslips in this run.</td></tr>'}</tbody>
+                        </table>
+                    </div>
+                    <p style="font-size:11.5px;color:#888;margin-top:12px;">
+                        Aggregate cost review only. Employee payslip details remain hidden until the run is Released.
+                    </p>
+                </div>`,
+            confirmButtonText: "Close",
+        });
+    } catch (err) {
+        showToast(apiErrorMessage(err), "error");
+    } finally {
+        if (btn) btn.disabled = false;
+    }
 }
 
 // ---------------------------------------------------------------------
