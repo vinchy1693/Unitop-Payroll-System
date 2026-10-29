@@ -383,6 +383,7 @@ if ($method === "POST") {
 
         $generated = 0;
         $skipped   = 0;
+        $skippedNoWork = 0;
 
         foreach ($employees as $emp) {
             $monthly = (float) $emp["basic_salary"];
@@ -407,6 +408,15 @@ if ($method === "POST") {
             $attendanceDeduction = round(
                 $att["absence_deduction"] + $att["late_deduction"] + $att["undertime_deduction"], 2
             );
+
+            // No work, no pay: with no attendance and no paid leave there is
+            // no gross pay to build a payslip from. Skipping here also stops
+            // statutory or loan deductions from being attached to a payslip
+            // that has no earnings behind it.
+            if ((int) $att["present_days"] + (int) $att["leave_days"] <= 0) {
+                $skippedNoWork++;
+                continue;
+            }
 
             // Premium pay for work recorded on rest days / holidays. The first
             // eight hours use the day-type rate and the excess the day-type OT
@@ -546,12 +556,23 @@ if ($method === "POST") {
             $generated++;
         }
 
+        // Do not leave an empty run behind when nobody has payable work.
+        if ($generated === 0) {
+            $pdo->rollBack();
+            respond(
+                false,
+                "No payslips were generated: no employee had attendance or paid leave in this period.",
+                ["skipped_no_work" => $skippedNoWork, "skipped_no_salary" => $skipped],
+                422
+            );
+        }
+
         $pdo->prepare("UPDATE payroll_periods SET status = 'For Approval' WHERE period_id = ?")
             ->execute([$periodId]);
 
         $pdo->commit();
-        respond(true, "Payroll run submitted for approval. $generated payslip(s) generated, $skipped employee(s) skipped (no basic salary).",
-            ["run_id" => $runId, "status" => "Submitted", "generated" => $generated, "skipped" => $skipped]);
+        respond(true, "Payroll run submitted for approval. $generated payslip(s) generated, $skippedNoWork employee(s) skipped (no work), $skipped employee(s) skipped (no basic salary).",
+            ["run_id" => $runId, "status" => "Submitted", "generated" => $generated, "skipped_no_work" => $skippedNoWork, "skipped_no_salary" => $skipped]);
 
     } catch (PDOException $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
