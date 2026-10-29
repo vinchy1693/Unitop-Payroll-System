@@ -1,126 +1,58 @@
 // =====================================================================
 // assets/js/leave_types.js
+//
+// Fixed leave catalogue: READ-ONLY. No add, edit, deactivate or restore.
 // =====================================================================
 
-let showAll = false;
-let editId  = null;
+const rowsEl  = document.getElementById("rows");
+const countEl = document.getElementById("record-count");
 
-const form       = document.getElementById("lt-form");
-const submitBtn  = document.getElementById("submit-btn");
-const cancelBtn  = document.getElementById("cancel-btn");
-const formTitle  = document.getElementById("form-title");
-const rowsEl     = document.getElementById("rows");
-const countEl    = document.getElementById("record-count");
-const toggleLink = document.getElementById("toggle-filter");
-
-async function loadRows() {
-    rowsEl.innerHTML = `<tr class="loading-row"><td colspan="5">Loading…</td></tr>`;
-    try {
-        const { data } = await api.get("leave_types.php", { params: showAll ? { all: 1 } : {} });
-        renderRows(data.data);
-    } catch (err) {
-        rowsEl.innerHTML = `<tr class="empty-row"><td colspan="5">Failed to load: ${escapeHtml(apiErrorMessage(err))}</td></tr>`;
-    }
+function serviceLabel(months) {
+    const n = Number(months || 0);
+    if (!n) return "None";
+    if (n % 12 === 0) return `${n / 12} year${n === 12 ? "" : "s"}`;
+    return `${n} month${n === 1 ? "" : "s"}`;
 }
 
 function renderRows(rows) {
-    countEl.textContent = `${rows.length} record(s)`;
+    countEl.textContent = `${rows.length} leave type(s)`;
 
-    if (rows.length === 0) {
-        rowsEl.innerHTML = `<tr class="empty-row"><td colspan="5">No records found.</td></tr>`;
+    if (!rows.length) {
+        rowsEl.innerHTML = `<tr class="empty-row"><td colspan="6">No leave types found.</td></tr>`;
         return;
     }
 
-    rowsEl.innerHTML = rows.map((r) => `
-        <tr class="${r.is_active ? "" : "inactive-row"}">
-            <td>#${r.leave_type_id}</td>
-            <td>${escapeHtml(r.name)}</td>
-            <td>${escapeHtml(r.days_per_year)}</td>
-            <td class="col-center"><span class="badge ${r.is_active ? "active" : "inactive"}">${r.is_active ? "Active" : "Inactive"}</span></td>
-            <td class="col-center">
-                <button class="btn btn-edit" data-edit="${r.leave_type_id}">Edit</button>
-                <button class="btn ${r.is_active ? "btn-delete" : "btn-restore"}" data-toggle="${r.leave_type_id}" data-active="${r.is_active ? 0 : 1}">
-                    ${r.is_active ? "Deactivate" : "Restore"}
-                </button>
-            </td>
-        </tr>
-    `).join("");
+    rowsEl.innerHTML = rows.map((r) => {
+        const days = Number(r.days_per_year || 0);
+        const daysLabel = Number.isInteger(days) ? String(days) : days.toFixed(2);
+        const cash = Number(r.is_cash_convertible) === 1
+            ? `<span class="badge active">Convertible</span>`
+            : `<span style="color:var(--muted);">No</span>`;
+        const status = Number(r.is_active) === 1
+            ? `<span class="badge active">Active</span>`
+            : `<span class="badge inactive">Retired</span>`;
 
-    rowsEl.querySelectorAll("[data-edit]").forEach((btn) => {
-        btn.addEventListener("click", () => startEdit(rows.find((r) => r.leave_type_id == btn.dataset.edit)));
-    });
-    rowsEl.querySelectorAll("[data-toggle]").forEach((btn) => {
-        btn.addEventListener("click", () => toggleStatus(btn.dataset.toggle, Number(btn.dataset.active)));
-    });
+        return `
+            <tr>
+                <td><strong>${escapeHtml(r.name)}</strong></td>
+                <td class="col-center">${escapeHtml(daysLabel)}</td>
+                <td class="col-center">${escapeHtml(serviceLabel(r.service_months))}</td>
+                <td class="col-center">${cash}</td>
+                <td style="min-width:280px;white-space:normal;line-height:1.55;">${escapeHtml(r.description || "—")}</td>
+                <td class="col-center">${status}</td>
+            </tr>
+        `;
+    }).join("");
 }
 
-function startEdit(row) {
-    if (!row) return;
-    editId = row.leave_type_id;
-    document.getElementById("leave_type_id").value = row.leave_type_id;
-    document.getElementById("name").value          = row.name;
-    document.getElementById("days_per_year").value = row.days_per_year;
-    formTitle.textContent = "Edit Leave Type";
-    submitBtn.textContent = "Save Changes";
-    cancelBtn.classList.remove("hidden");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-}
-
-function resetForm() {
-    editId = null;
-    form.reset();
-    document.getElementById("leave_type_id").value = "";
-    document.getElementById("days_per_year").value = "0";
-    formTitle.textContent = "Add New Leave Type";
-    submitBtn.textContent = "Add Leave Type";
-    cancelBtn.classList.add("hidden");
-}
-
-cancelBtn.addEventListener("click", resetForm);
-
-form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const payload = {
-        name:          document.getElementById("name").value.trim(),
-        days_per_year: document.getElementById("days_per_year").value,
-    };
-
-    submitBtn.disabled = true;
+async function loadRows() {
+    rowsEl.innerHTML = `<tr class="loading-row"><td colspan="6">Loading…</td></tr>`;
     try {
-        if (editId) {
-            payload.leave_type_id = editId;
-            const { data } = await api.put("leave_types.php", payload);
-            showMessage(data.message, "success");
-        } else {
-            const { data } = await api.post("leave_types.php", payload);
-            showMessage(data.message, "success");
-        }
-        resetForm();
-        await loadRows();
+        const { data } = await api.get("leave_types.php");
+        renderRows(data.data);
     } catch (err) {
-        showMessage(apiErrorMessage(err), "error");
-    } finally {
-        submitBtn.disabled = false;
-    }
-});
-
-async function toggleStatus(id, newStatus) {
-    const verb = newStatus ? "Restore" : "Deactivate";
-    if (!confirm(`${verb} this leave type?`)) return;
-    try {
-        const { data } = await api.patch("leave_types.php", { leave_type_id: Number(id), is_active: newStatus });
-        showMessage(data.message, "success");
-        await loadRows();
-    } catch (err) {
-        showMessage(apiErrorMessage(err), "error");
+        rowsEl.innerHTML = `<tr class="empty-row"><td colspan="6">Failed to load: ${escapeHtml(apiErrorMessage(err))}</td></tr>`;
     }
 }
-
-toggleLink.addEventListener("click", (e) => {
-    e.preventDefault();
-    showAll = !showAll;
-    toggleLink.textContent = showAll ? "Show active only" : "Show all (incl. deactivated)";
-    loadRows();
-});
 
 document.addEventListener("DOMContentLoaded", loadRows);

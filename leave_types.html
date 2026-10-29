@@ -52,52 +52,42 @@
 <div class="container">
 
     <h1>Leave Types</h1>
-    <p class="subtitle">All leave types are paid — approved requests draw down from the employee's balance.</p>
+    <p class="subtitle">
+        Fixed statutory and company leave catalogue. These records cannot be added,
+        renamed, deactivated, or restored from this screen.
+    </p>
 
     <div id="msg" class="msg hidden"></div>
 
     <div class="card">
-        <h3 id="form-title">Add New Leave Type</h3>
-        <form id="lt-form">
-            <input type="hidden" id="leave_type_id" value="">
-            <div class="form-grid">
-                <div>
-                    <label>Name</label>
-                    <input type="text" id="name" required>
-                </div>
-                <div>
-                    <label>Days per Year</label>
-                    <input type="number" step="0.5" id="days_per_year" value="0">
-                </div>
-            </div>
-            <button class="btn btn-primary" type="submit" id="submit-btn">Add Leave Type</button>
-            <button class="btn btn-plain hidden" type="button" id="cancel-btn">Cancel</button>
-        </form>
+        <p style="margin:0;font-size:13.5px;color:var(--muted);line-height:1.65;">
+            Eligibility, service requirements, cash conversion, and paid-day limits are
+            shown for each leave type. Existing approved leave requests remain valid.
+        </p>
     </div>
 
     <div class="card">
         <div class="toolbar">
             <strong id="record-count">0 record(s)</strong>
-            <span class="filter-toggle">
-                <a id="toggle-filter" href="#">Show all (incl. deactivated)</a>
-            </span>
         </div>
-        <table>
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Days/Year</th>
-                    <th class="col-center">Status</th>
-                    <th class="col-center">Actions</th>
-                </tr>
-            </thead>
-            <tbody id="rows">
-                <tr class="loading-row"><td colspan="5">Loading…</td></tr>
-            </tbody>
-        </table>
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Leave Type</th>
+                        <th class="col-center">Paid Days/Year</th>
+                        <th class="col-center">Service Requirement</th>
+                        <th class="col-center">Cash Conversion</th>
+                        <th>Notes</th>
+                        <th class="col-center">Status</th>
+                    </tr>
+                </thead>
+                <tbody id="rows">
+                    <tr class="loading-row"><td colspan="6">Loading…</td></tr>
+                </tbody>
+            </table>
+        </div>
     </div>
-
 </div>
 
 <script src="assets/js/axios.min.js"></script>
@@ -105,7 +95,7 @@
 <script src="assets/js/dialogs.js"></script>
 <script src="assets/js/api.js?v=20261020logoutalert"></script>
 <script src="assets/js/nav.js?v=20261021finance" onerror="var nl=document.querySelectorAll('nav.sidebar');for(var i=0;i<nl.length;i++)nl[i].classList.remove('nav-locked');"></script>
-<script src="assets/js/leave_types.js"></script>
+<script src="assets/js/leave_types.js?v=20261021fixed"></script>
 <script src="assets/js/theme.js"></script>
 </body>
 </html>
