@@ -188,7 +188,7 @@ function renderPayslip(p) {
     const earningsLines = [
         { label: "Basic Pay", amount: basic },
         { label: "Overtime Pay", amount: ot },
-        { label: "Premium Pay", amount: premium, labelHtml: premiumLabel },
+        ...(premium > 0 ? [{ label: "Premium Pay", amount: premium, labelHtml: premiumLabel }] : []),
         ...allowances.map((a) => ({
             label: a.allowance_type,
             amount: a.amount,
