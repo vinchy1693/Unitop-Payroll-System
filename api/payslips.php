@@ -162,6 +162,30 @@ if (isset($_GET["id"])) {
     $row["attendance_deductions"] = round($attendanceDed, 2);
     $row["other_deductions"] = round($otherDed, 2);
 
+    // Holiday premium details: only holidays where this employee actually
+    // clocked in and out during the paid period.
+    $holidayStmt = $pdo->prepare(
+        "SELECT a.work_date, h.name, h.holiday_type, a.hours_worked
+         FROM attendance a
+         JOIN holidays h ON h.holiday_date = a.work_date
+         WHERE a.employee_id = ?
+           AND a.work_date BETWEEN ? AND ?
+           AND a.time_in IS NOT NULL
+           AND a.time_out IS NOT NULL
+           AND a.status IN ('Present', 'Late')
+         ORDER BY a.work_date"
+    );
+    $holidayStmt->execute([(int) $row["employee_id"], $row["start_date"], $row["end_date"]]);
+    $row["holiday_premiums"] = array_map(function (array $h): array {
+        return [
+            "date"         => $h["work_date"],
+            "name"         => $h["name"],
+            "holiday_type" => $h["holiday_type"],
+            "percentage"   => $h["holiday_type"] === "Regular" ? 200 : 130,
+            "hours_worked"  => (float) $h["hours_worked"],
+        ];
+    }, $holidayStmt->fetchAll());
+
     respond(true, "", $row);
 }
 

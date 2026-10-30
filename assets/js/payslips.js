@@ -174,10 +174,21 @@ function renderPayslip(p) {
     const grossEarnings = Math.max(0, gross);
     const displayTotalDed = Math.max(0, totalDed);
 
+    const holidayPremiums = Array.isArray(p.holiday_premiums) ? p.holiday_premiums : [];
+    const holidayNote = holidayPremiums.map((h) => {
+        const type = h.holiday_type === "Regular"
+            ? "Regular Holiday"
+            : h.holiday_type === "Special"
+                ? "Special Holiday"
+                : "Holiday";
+        return `${escapeHtml(type)} (${Number(h.percentage || 0)}%)`;
+    }).join("<br>");
+    const premiumLabel = `Premium Pay${holidayNote ? `<span class="payslip-premium-note">${holidayNote}</span>` : ""}`;
+
     const earningsLines = [
         { label: "Basic Pay", amount: basic },
         { label: "Overtime Pay", amount: ot },
-        { label: "Premium Pay", amount: premium },
+        { label: "Premium Pay", amount: premium, labelHtml: premiumLabel },
         ...allowances.map((a) => ({
             label: a.allowance_type,
             amount: a.amount,
@@ -207,7 +218,7 @@ function renderPayslip(p) {
         const ded  = deductionLines[i];
         return `
             <tr>
-                <td>${earn ? escapeHtml(earn.label) + (earn.remove || "") : ""}</td>
+                <td>${earn ? (earn.labelHtml || escapeHtml(earn.label)) + (earn.remove || "") : ""}</td>
                 <td class="amount">${earn ? formatMoney(earn.amount) : ""}</td>
                 <td>${ded ? escapeHtml(ded.label) + (ded.remove || "") : ""}</td>
                 <td class="amount">${ded ? formatMoney(ded.amount) : ""}</td>
