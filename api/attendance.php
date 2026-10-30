@@ -236,6 +236,7 @@ if ($method === "GET") {
                     e.basic_salary,
                     CONCAT(e.last_name, ', ', e.first_name) AS employee_name,
                     COALESCE(d.department_name, '—') AS department_name,
+                    COUNT(a.attendance_id) AS attendance_rows,
                     COUNT(CASE
                         WHEN a.time_in IS NOT NULL
                          AND a.time_out IS NOT NULL
@@ -301,7 +302,13 @@ if ($method === "GET") {
             $r["days_late"]          = (int) $r["days_late"];
             $r["total_late_minutes"] = (int) $r["total_late_minutes"];
             $r["total_hours"]        = round((float) $r["total_hours"], 2);
-            $r["absences"]           = max(0, $expectedDays - $r["days_present"]);
+
+            // No attendance records at all means the period has not been
+            // recorded yet: do not auto-mark the employee absent. Once any
+            // record exists, the uncovered working days are absences.
+            $r["absences"] = ((int) $r["attendance_rows"] === 0)
+                ? 0
+                : max(0, $expectedDays - $r["days_present"]);
 
             $undertimeStmt->execute([(int) $r["employee_id"], $from, $to]);
             $undertime = 0;
