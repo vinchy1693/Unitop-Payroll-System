@@ -236,10 +236,31 @@ if ($method === "GET") {
                     e.basic_salary,
                     CONCAT(e.last_name, ', ', e.first_name) AS employee_name,
                     COALESCE(d.department_name, '—') AS department_name,
-                    COUNT(a.attendance_id) AS days_present,
-                    SUM(CASE WHEN a.minutes_late > 0 THEN 1 ELSE 0 END) AS days_late,
-                    COALESCE(SUM(a.minutes_late), 0) AS total_late_minutes,
-                    COALESCE(SUM(a.hours_worked), 0) AS total_hours
+                    COUNT(CASE
+                        WHEN a.time_in IS NOT NULL
+                         AND a.time_out IS NOT NULL
+                         AND a.status IN ('Present', 'Late')
+                        THEN 1
+                    END) AS days_present,
+                    SUM(CASE
+                        WHEN a.time_in IS NOT NULL
+                         AND a.time_out IS NOT NULL
+                         AND a.status IN ('Present', 'Late')
+                         AND a.minutes_late > 0
+                        THEN 1 ELSE 0
+                    END) AS days_late,
+                    COALESCE(SUM(CASE
+                        WHEN a.time_in IS NOT NULL
+                         AND a.time_out IS NOT NULL
+                         AND a.status IN ('Present', 'Late')
+                        THEN a.minutes_late ELSE 0
+                    END), 0) AS total_late_minutes,
+                    COALESCE(SUM(CASE
+                        WHEN a.time_in IS NOT NULL
+                         AND a.time_out IS NOT NULL
+                         AND a.status IN ('Present', 'Late')
+                        THEN a.hours_worked ELSE 0
+                    END), 0) AS total_hours
                 FROM employees e
                 LEFT JOIN attendance a
                   ON a.employee_id = e.employee_id
@@ -258,7 +279,10 @@ if ($method === "GET") {
             "SELECT time_out, minutes_late
              FROM attendance
              WHERE employee_id = ? AND work_date BETWEEN ? AND ?
-               AND " . workDaySql('work_date')
+               AND " . workDaySql('work_date') . "
+               AND time_in IS NOT NULL
+               AND time_out IS NOT NULL
+               AND status IN ('Present', 'Late')"
         );
 
         $totals = [
