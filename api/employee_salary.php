@@ -2,15 +2,15 @@
 // =====================================================================
 // api/employee_salary.php
 //
-// The maker prepares the employee record; the checker changes the basic
-// salary. Keeping the salary behind the Approver removes the maker's ability
-// to raise their own pay immediately before processing a run.
+// The maker prepares the employee record; Payroll/HR may also correct the
+// basic salary. Finance remains a valid checker caller. The self-change guard
+// below prevents an employee from approving their own salary.
 //
 // PUT { employee_id, basic_salary, reason }
 // =====================================================================
 require __DIR__ . "/_bootstrap.php";
 
-requireRole(CHECKER_ROLES);
+requireRole(array_merge(MAKER_ROLES, CHECKER_ROLES));
 
 if ($_SERVER["REQUEST_METHOD"] !== "PUT") {
     respond(false, "Method not allowed.", null, 405);
