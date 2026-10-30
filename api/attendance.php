@@ -230,6 +230,12 @@ if ($method === "GET") {
         // maker and the checker keep every active employee. A Supervisor with
         // an empty team matches nobody (`AND 1=0`) instead of erroring.
         $scope         = teamScopeIds($pdo);
+        if (isManager()) {
+            $self = currentEmployeeId();
+            if ($self !== null && $scope !== null && !in_array($self, $scope, true)) {
+                $scope[] = $self;
+            }
+        }
         $employeeScope = $scope === null
             ? ""
             : ($scope
@@ -387,6 +393,12 @@ if ($method === "GET") {
 
         // Team scope: a Supervisor's day view lists only their own team.
         $scope  = teamScopeIds($pdo);
+        if (isManager()) {
+            $self = currentEmployeeId();
+            if ($self !== null && $scope !== null && !in_array($self, $scope, true)) {
+                $scope[] = $self;
+            }
+        }
         $params = [$date];
         $sql    = "SELECT a.*, e.employee_number,
                           CONCAT(e.last_name, ', ', e.first_name) AS employee_name,

@@ -733,6 +733,7 @@ function assertTeamReadScope(PDO $pdo, int $employeeId, string $what): void {
 
     $self = currentEmployeeId();
     $team = $self !== null ? supervisorTeamIds($pdo, $self) : [];
+    if ($employeeId === $self) return;
     if (!in_array($employeeId, $team, true)) {
         respond(
             false,

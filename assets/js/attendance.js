@@ -6,6 +6,7 @@ let editId = null;
 let lastSummary = null;
 let scanner = null;
 let currentRole = "";
+let currentEmployeeId = 0;
 let scannerRunning = false;
 let lastScannedCode = null;
 let lastScannedAt = 0;
@@ -718,7 +719,8 @@ async function openEmployeeDetail(employeeId) {
 function renderDetail(payload) {
     const { employee, from, to, days, totals } = payload;
     const showGross = ["Payroll Officer", "Finance & Accounting"].includes(currentRole);
-    const canMarkAbsent = currentRole === "Manager";
+    const canMarkAbsent = currentRole === "Manager"
+        && Number(employee.employee_id) !== Number(currentEmployeeId);
 
     const rows = days.map((d) => {
         let statusCell = "";
@@ -818,7 +820,11 @@ function renderDetail(payload) {
 }
 
 async function markAbsent(employeeId, workDate, btn) {
-    if (!confirm(`Mark ${workDate} as Absent?`)) return;
+    const confirmed = await confirmDialog(
+        `Mark ${workDate} as Absent?`,
+        { title: "Mark Absent", icon: "question", confirmText: "Mark Absent" }
+    );
+    if (!confirmed) return;
     btn.disabled = true;
     try {
         const { data } = await api.post("attendance.php", {
@@ -852,6 +858,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
         const { data } = await api.get("auth.php?action=me");
         currentRole = data.data?.role || "";
+        currentEmployeeId = Number(data.data?.employee_id || 0);
     } catch (_) {
         currentRole = "";
     }
