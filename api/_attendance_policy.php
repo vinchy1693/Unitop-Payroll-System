@@ -3,12 +3,12 @@
 // api/_attendance_policy.php
 //
 // One shared shift-start/grace policy for manual attendance and QR kiosk
-// clock-ins. The grace is a threshold, not a deduction offset:
+// clock-ins. The grace is an offset:
 //
 //   raw late <= 15 minutes -> 0 late minutes
-//   raw late >  15 minutes -> full raw late minutes (trap rule)
+//   raw late >  15 minutes -> minutes beyond 08:15
 //
-// So 08:12 is on time, while 08:16 is 16 minutes late — not 1 minute.
+// So 08:12 is on time, 08:15 is on time, and 08:20 is 5 minutes late.
 // =====================================================================
 
 const ATTENDANCE_SHIFT_START = "08:00:00";
@@ -28,9 +28,9 @@ function attendanceLateMinutes(string $timeIn): int {
         return 0;
     }
 
-    // Once the window is exceeded, deduct from 08:00. Round a partial minute
-    // upward so 08:15:01 cannot be recorded as only 15 minutes.
-    return (int) ceil($rawSeconds / 60);
+    // Count only the time beyond the grace boundary. Round a partial minute
+    // upward so any time after 08:15 is recorded as at least 1 minute.
+    return (int) ceil(($rawSeconds - ATTENDANCE_GRACE_MINUTES * 60) / 60);
 }
 
 /**
