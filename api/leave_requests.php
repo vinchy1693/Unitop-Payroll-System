@@ -104,7 +104,7 @@ if ($method === "POST") {
     // need at least one working day.
     $isSingleDay = ($start === $end);
     if (!$isSingleDay && countBusinessDays($start, $end) === 0) {
-        respond(false, "The selected range has no working days (Mon–Fri).", null, 422);
+        respond(false, "The selected range has no working days (Mon–Sat).", null, 422);
     }
 
     // No overlapping pending/approved requests. Report WHICH leave conflicts, so

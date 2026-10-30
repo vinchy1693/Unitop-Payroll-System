@@ -34,11 +34,10 @@ function decorateOvertimeRow(array $row): array {
     $row["employee_id"]    = (int) $row["employee_id"];
     $row["hours"]          = $row["hours"] !== null ? (float) $row["hours"] : null;
 
-    // Old rows (before migration 013) have no day_type; derive it from the date.
-    if (empty($row["day_type"]) && !empty($row["ot_date"])) {
-        $row["day_type"] = dayTypeForDate($pdo, (string) $row["ot_date"]);
-    }
-    $statutory = overtimeMultiplierForDayType((string) ($row["day_type"] ?? "Ordinary Day"));
+    // Always derive the day type from the date/calendar. A stale imported
+    // day_type must never underpay rest-day or holiday overtime.
+    $row["day_type"] = dayTypeForDate($pdo, (string) $row["ot_date"]);
+    $statutory = overtimeMultiplierForDayType((string) $row["day_type"]);
     $row["statutory_multiplier"] = $statutory;
     $row["rate_multiplier"] = max((float) ($row["rate_multiplier"] ?? 0), $statutory);
 
