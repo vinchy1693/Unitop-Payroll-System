@@ -165,11 +165,8 @@ if ($method === "GET") {
                     "hours_worked" => null,
                     "minutes_late" => null,
                     "undertime_minutes" => 0,
-                    "status"       => $hasAnyRecords ? "Absent" : "No Record",
+                    "status"       => "No Record",
                 ];
-                if ($hasAnyRecords) {
-                    $totals["absent"]++;
-                }
             }
 
             $cursor->modify("+1 day");
@@ -275,7 +272,8 @@ if ($method === "GET") {
                          AND a.time_out IS NOT NULL
                          AND a.status IN ('Present', 'Late')
                         THEN a.hours_worked ELSE 0
-                    END), 0) AS total_hours
+                    END), 0) AS total_hours,
+                    COALESCE(SUM(CASE WHEN a.status = 'Absent' THEN 1 ELSE 0 END), 0) AS absences
                 FROM employees e
                 LEFT JOIN attendance a
                   ON a.employee_id = e.employee_id
@@ -316,13 +314,7 @@ if ($method === "GET") {
             $r["days_late"]          = (int) $r["days_late"];
             $r["total_late_minutes"] = (int) $r["total_late_minutes"];
             $r["total_hours"]        = round((float) $r["total_hours"], 2);
-
-            // No attendance records at all means the period has not been
-            // recorded yet: do not auto-mark the employee absent. Once any
-            // record exists, the uncovered working days are absences.
-            $r["absences"] = ((int) $r["attendance_rows"] === 0)
-                ? 0
-                : max(0, $expectedDays - $r["days_present"]);
+            $r["absences"]           = (int) $r["absences"];
 
             $undertimeStmt->execute([(int) $r["employee_id"], $from, $to]);
             $undertime = 0;

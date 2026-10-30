@@ -519,7 +519,7 @@ function computeAttendanceDeductions(
     // Only working-day attendance counts as "present" (Saturday counts,
     // Sunday does not), matching $expectedDays above.
     $stmt = $pdo->prepare(
-        "SELECT work_date, time_in, time_out, minutes_late, hours_worked
+        "SELECT work_date, time_in, time_out, minutes_late, hours_worked, status
          FROM attendance
          WHERE employee_id = ? AND work_date BETWEEN ? AND ?
            AND " . workDaySql('work_date') . "
@@ -527,9 +527,20 @@ function computeAttendanceDeductions(
     );
     $stmt->execute([$employeeId, $startDate, $endDate]);
     $attRows     = $stmt->fetchAll();
-    $presentDays = count($attRows);
+    $presentDays = 0;
+    $absentDays  = 0;
     $lateMinutes = 0;
-    foreach ($attRows as $row) $lateMinutes += (int) $row["minutes_late"];
+    foreach ($attRows as $row) {
+        if ($row["status"] === "Absent") {
+            $absentDays++;
+            continue;
+        }
+        if ($row["time_in"] !== null && $row["time_out"] !== null
+            && in_array($row["status"], ["Present", "Late"], true)) {
+            $presentDays++;
+            $lateMinutes += (int) $row["minutes_late"];
+        }
+    }
 
     // Undertime: leaving before 17:00. minutes_late already accounts for a late
     // arrival, so only the early-departure side is added here - otherwise a late
@@ -545,6 +556,7 @@ function computeAttendanceDeductions(
     $undertimeMinutes = 0;
     $shiftEnd = new DateTime("17:00:00");
     foreach ($attRows as $row) {
+        if ($row["status"] === "Absent") continue;
         if (isset($holidaySet[$row["work_date"]])) continue; // premium day, not an ordinary shift
         if ($row["time_out"] === null || $row["time_out"] === "") {
             $undertimeMinutes += max(0, 480 - (int) $row["minutes_late"]);
@@ -596,15 +608,8 @@ function computeAttendanceDeductions(
     }
     $leaveDays = count($leaveDates);
 
-    // No short-circuit here on purpose. An earlier version assumed "no attendance
-    // rows means HR has not finished logging" and returned zero deductions, which
-    // paid an employee in full for a period they never attended. Every working day
-    // not covered by attendance or approved leave is now an absence. The caller
-    // (payroll_runs.php) caps the resulting deduction at basic + overtime minus
-    // statutory contributions, so a fully absent employee nets 0.00 and never a
-    // negative amount.
-    // A day is present, excused (approved paid leave), or absent.
-    $absentDays = max(0, $expectedDays - $presentDays - $leaveDays);
+    // Explicit absences only: unrecorded working days are not auto-deducted.
+    // Managers record absences through the Mark Absent action.
     $perMinute  = $dailyRate / 480.0;
 
     return [
