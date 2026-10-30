@@ -7,7 +7,6 @@ $method = $_SERVER["REQUEST_METHOD"];
 
 const LUNCH_THRESHOLD_MINUTES = 300;
 const LUNCH_DEDUCTION_MINUTES = 60;
-const REGULAR_DAILY_GROSS = 500.00;
 
 // Payroll staff may VIEW attendance; only the maker (Payroll Officer) may
 // create, edit or delete records. A Supervisor may also view, but ONLY their
@@ -173,19 +172,24 @@ if ($method === "GET") {
         }
 
         $totals["hours"] = round($totals["hours"], 2);
-        $totals["expected_days"] = countWorkingDays($from, $to);
+        $expectedDays = max(
+            0,
+            countWorkingDays($from, $to) - countHolidaysInRange($pdo, $from, $to)
+        );
+        $totals["expected_days"] = $expectedDays;
 
         if ($showGross) {
-            // Flat contractual rate for the payroll attendance view. Gross is
-            // earned only on regular days with attendance; absences show zero.
-            $dailyRate = REGULAR_DAILY_GROSS;
+            // Salary-based daily rate, matching the payroll engine:
+            // (monthly basic / 2) / expected working days in this period.
+            $monthly   = (float) ($employee["basic_salary"] ?? 0);
+            $dailyRate = $expectedDays > 0 ? (($monthly / 2) / $expectedDays) : 0.0;
 
             $gross = 0.0;
             foreach ($days as &$day) {
                 if ($day["is_weekend"]) {
                     $day["daily_gross"] = null;
                 } elseif ($day["has_record"] && $day["status"] !== "Absent") {
-                    $day["daily_gross"] = $dailyRate;
+                    $day["daily_gross"] = round($dailyRate, 2);
                     $gross += $dailyRate;
                 } else {
                     $day["daily_gross"] = 0.0;
@@ -193,8 +197,8 @@ if ($method === "GET") {
             }
             unset($day);
 
-            $employee["daily_rate"] = $dailyRate;
-            $employee["month_working_days"] = null;
+            $employee["daily_rate"] = round($dailyRate, 2);
+            $employee["month_working_days"] = $expectedDays;
             $employee["period_gross"] = round($gross, 2);
             $totals["gross"] = round($gross, 2);
         } else {
@@ -221,7 +225,10 @@ if ($method === "GET") {
             respond(false, "The 'from' date must be on or before the 'to' date.", null, 422);
         }
 
-        $expectedDays = countWorkingDays($from, $to);
+        $expectedDays = max(
+            0,
+            countWorkingDays($from, $to) - countHolidaysInRange($pdo, $from, $to)
+        );
 
         // Team scope: a Supervisor's summary lists only their own team. The
         // maker and the checker keep every active employee. A Supervisor with
@@ -326,8 +333,10 @@ if ($method === "GET") {
             }
             $r["total_undertime_minutes"] = $undertime;
 
-            $dailyRate = REGULAR_DAILY_GROSS;
-            $r["daily_rate"] = $dailyRate;
+            $dailyRate = $expectedDays > 0
+                ? (((float) $r["basic_salary"] / 2) / $expectedDays)
+                : 0.0;
+            $r["daily_rate"] = round($dailyRate, 2);
             $r["period_gross"] = round($r["days_present"] * $dailyRate, 2);
 
             $totals["days_present"]            += $r["days_present"];
