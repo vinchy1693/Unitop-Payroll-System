@@ -126,7 +126,8 @@ if ($method === "GET") {
                 ];
             } elseif (isset($byDate[$dateStr])) {
                 $r = $byDate[$dateStr];
-                $dayUndertime = attendanceUndertimeMinutes(
+                $isAbsent = ($r["status"] === "Absent");
+                $dayUndertime = $isAbsent ? 0 : attendanceUndertimeMinutes(
                     $r["time_out"] !== null ? (string) $r["time_out"] : null,
                     (int) $r["minutes_late"]
                 );
@@ -142,13 +143,17 @@ if ($method === "GET") {
                     "undertime_minutes" => $dayUndertime,
                     "status"       => $r["status"],
                 ];
-                $totals["present"]++;
-                if ((int) $r["minutes_late"] > 0) {
-                    $totals["late"]++;
-                    $totals["late_minutes"] += (int) $r["minutes_late"];
+                if (!$isAbsent) {
+                    $totals["present"]++;
+                    if ((int) $r["minutes_late"] > 0) {
+                        $totals["late"]++;
+                        $totals["late_minutes"] += (int) $r["minutes_late"];
+                    }
+                    $totals["undertime_minutes"] += $dayUndertime;
+                    $totals["hours"] += (float) ($r["hours_worked"] ?? 0);
+                } else {
+                    $totals["absent"]++;
                 }
-                $totals["undertime_minutes"] += $dayUndertime;
-                $totals["hours"] += (float) ($r["hours_worked"] ?? 0);
             } else {
                 $days[] = [
                     "date"         => $dateStr,
@@ -182,7 +187,7 @@ if ($method === "GET") {
             foreach ($days as &$day) {
                 if ($day["is_weekend"]) {
                     $day["daily_gross"] = null;
-                } elseif ($day["has_record"]) {
+                } elseif ($day["has_record"] && $day["status"] !== "Absent") {
                     $day["daily_gross"] = $dailyRate;
                     $gross += $dailyRate;
                 } else {
@@ -427,8 +432,49 @@ requireRole(MANAGER_ROLE);   // team Managers maintain attendance; Payroll/HR re
 
 if ($method === "POST") {
     $in      = json_input();
+    $action  = trim($in["action"] ?? "");
     $empId   = (int)   ($in["employee_id"] ?? 0);
     $workDay = trim($in["work_date"]     ?? "");
+
+    // Explicit absence: store a zero-time record instead of silently deriving
+    // an absence from a missing row.
+    if ($action === "mark_absent") {
+        if (!isManager()) {
+            respond(false, "Only a Manager may mark attendance as absent.", null, 403);
+        }
+        if ($empId === 0 || $workDay === "") {
+            respond(false, "Employee and Date are required.", null, 422);
+        }
+        if (isManager()) {
+            assertManages($pdo, $empId, "manage attendance for this employee");
+        }
+
+        $dateCheck = DateTime::createFromFormat("!Y-m-d", $workDay);
+        if (!$dateCheck || $dateCheck->format("Y-m-d") !== $workDay) {
+            respond(false, "Work Date must be a real date in YYYY-MM-DD form.", null, 422);
+        }
+        if (!isWorkingDay($dateCheck)) {
+            respond(false, "Absence can only be marked on a working day.", null, 422);
+        }
+        assertAttendanceDateUnlocked($pdo, $workDay, "Attendance for this date");
+
+        $stmt = $pdo->prepare("SELECT attendance_id FROM attendance WHERE employee_id = ? AND work_date = ?");
+        $stmt->execute([$empId, $workDay]);
+        if ($stmt->fetchColumn()) {
+            respond(false, "This employee already has an attendance record for that date.", null, 409);
+        }
+
+        $stmt = $pdo->prepare(
+            "INSERT INTO attendance
+             (employee_id, qr_code_id, work_date, time_in, time_out,
+              scan_device_id, hours_worked, minutes_late, status)
+             VALUES (?, NULL, ?, NULL, NULL, 'Manual', 0, 0, 'Absent')"
+        );
+        $stmt->execute([$empId, $workDay]);
+
+        respond(true, "Absence recorded.", ["attendance_id" => (int) $pdo->lastInsertId()]);
+    }
+
     $timeIn  = trim($in["time_in"]       ?? "");
     $timeOut = trim($in["time_out"]      ?? "");
 

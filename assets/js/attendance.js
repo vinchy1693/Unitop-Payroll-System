@@ -718,13 +718,16 @@ async function openEmployeeDetail(employeeId) {
 function renderDetail(payload) {
     const { employee, from, to, days, totals } = payload;
     const showGross = ["Payroll Officer", "Finance & Accounting"].includes(currentRole);
+    const canMarkAbsent = currentRole === "Manager";
 
     const rows = days.map((d) => {
         let statusCell = "";
         if (d.is_weekend) {
             statusCell = `<span style="color:#9ca3af;font-style:italic;font-size:12px;">Weekend</span>`;
         } else if (d.has_record) {
-            if (d.status === "Clocked In") {
+            if (d.status === "Absent") {
+                statusCell = `<span class="badge inactive">Absent</span>`;
+            } else if (d.status === "Clocked In") {
                 statusCell = `<span class="badge" style="background:#e0f2fe;color:#0369a1;">Clocked In</span>`;
             } else if ((d.minutes_late || 0) > 0) {
                 statusCell = `<span class="badge" style="background:#fef3c7;color:#92400e;">Late ${d.minutes_late}m</span>`;
@@ -736,6 +739,11 @@ function renderDetail(payload) {
         } else {
             statusCell = `<span class="badge inactive">Absent</span>`;
         }
+        const actionCell = canMarkAbsent
+            ? `<td class="col-center">${!d.is_weekend && !d.has_record
+                ? `<button class="btn btn-delete" style="padding:4px 9px;font-size:11.5px;" data-mark-absent="${d.date}" data-emp="${employee.employee_id}">Mark Absent</button>`
+                : ""}</td>`
+            : "";
         const rowStyle = (d.is_weekend || d.status === "No Record") ? 'style="opacity:0.5;"' : "";
         return `
             <tr ${rowStyle}>
@@ -748,6 +756,7 @@ function renderDetail(payload) {
                 <td style="text-align:right;">${d.undertime_minutes !== null && d.undertime_minutes !== undefined ? d.undertime_minutes : "—"}</td>
                 ${showGross ? `<td style="text-align:right;font-weight:600;">${d.daily_gross !== null && d.daily_gross !== undefined ? formatMoney(d.daily_gross) : "—"}</td>` : ""}
                 <td class="col-center">${statusCell}</td>
+                ${actionCell}
             </tr>
         `;
     }).join("");
@@ -789,6 +798,7 @@ function renderDetail(payload) {
                             <th style="text-align:right;">Undertime</th>
                             ${showGross ? `<th style="text-align:right;">Daily Gross</th>` : ""}
                             <th class="col-center">Status</th>
+                            ${canMarkAbsent ? `<th class="col-center">Action</th>` : ""}
                         </tr>
                     </thead>
                     <tbody>${rows}</tbody>
@@ -799,6 +809,30 @@ function renderDetail(payload) {
             </p>` : ""}
         </div>
     `;
+
+    detailBody.querySelectorAll("[data-mark-absent]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            markAbsent(Number(btn.dataset.emp), btn.dataset.markAbsent, btn);
+        });
+    });
+}
+
+async function markAbsent(employeeId, workDate, btn) {
+    if (!confirm(`Mark ${workDate} as Absent?`)) return;
+    btn.disabled = true;
+    try {
+        const { data } = await api.post("attendance.php", {
+            action: "mark_absent",
+            employee_id: employeeId,
+            work_date: workDate,
+        });
+        showToast(data.message, "success");
+        await openEmployeeDetail(employeeId);
+        summaryForm.requestSubmit();
+    } catch (err) {
+        alert("Failed: " + apiErrorMessage(err));
+        btn.disabled = false;
+    }
 }
 
 document.getElementById("detail-close").addEventListener("click", () => detailModal.classList.add("hidden"));
