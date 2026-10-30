@@ -90,6 +90,7 @@ if ($method === "GET") {
         foreach ($records as $r) {
             $byDate[$r["work_date"]] = $r;
         }
+        $hasAnyRecords = count($records) > 0;
 
         $cursor = new DateTime($from);
         $endEx  = (new DateTime($to))->modify('+1 day');
@@ -159,9 +160,11 @@ if ($method === "GET") {
                     "hours_worked" => null,
                     "minutes_late" => null,
                     "undertime_minutes" => 0,
-                    "status"       => "Absent",
+                    "status"       => $hasAnyRecords ? "Absent" : "No Record",
                 ];
-                $totals["absent"]++;
+                if ($hasAnyRecords) {
+                    $totals["absent"]++;
+                }
             }
 
             $cursor->modify("+1 day");

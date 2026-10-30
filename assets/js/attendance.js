@@ -731,10 +731,12 @@ function renderDetail(payload) {
             } else {
                 statusCell = `<span class="badge active">Present</span>`;
             }
+        } else if (d.status === "No Record") {
+            statusCell = `<span style="color:#9ca3af;font-style:italic;font-size:12px;">No Record</span>`;
         } else {
             statusCell = `<span class="badge inactive">Absent</span>`;
         }
-        const rowStyle = d.is_weekend ? 'style="opacity:0.5;"' : "";
+        const rowStyle = (d.is_weekend || d.status === "No Record") ? 'style="opacity:0.5;"' : "";
         return `
             <tr ${rowStyle}>
                 <td>${escapeHtml(d.date)}</td>
