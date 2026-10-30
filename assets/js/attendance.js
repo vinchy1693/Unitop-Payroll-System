@@ -797,6 +797,7 @@ function renderDetail(payload) {
                             <th class="col-center">Time In</th>
                             <th class="col-center">Time Out</th>
                             <th style="text-align:right;">Late</th>
+                            <th style="text-align:right;">Hours</th>
                             <th style="text-align:right;">Undertime</th>
                             ${showGross ? `<th style="text-align:right;">Daily Gross</th>` : ""}
                             <th class="col-center">Status</th>
