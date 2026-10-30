@@ -260,30 +260,27 @@ function computePremiumPay(
     return ["total" => round($total, 2), "days" => $days];
 }
 
-// ---- SSS (2025): 15% total, 5% EE / 10% ER, MSC ₱5,000 – ₱35,000 ----
-// The MSC is a BRACKET, not the raw salary: the standard table uses ₱500
-// steps with each bracket starting ₱250 above the previous MSC. Using the raw
-// salary gave a non-existent MSC (e.g. ₱20,250 instead of ₱20,500).
-function sssMonthlySalaryCredit(float $monthlySalary): float {
-    $msc = floor(($monthlySalary + 250.0) / 500.0) * 500.0;
-    return max(5000.0, min(35000.0, $msc));
-}
-
+// ---- Demo contribution basis ----
+// Straight percentages of monthly basic salary, with no salary cap, so
+// withholding-tax demos show contributions scaling with salary. PhilHealth
+// retains its ₱10,000 floor; Pag-IBIG retains no maximum for this demo.
 function computeSSS(float $monthlySalary): array {
-    $msc = sssMonthlySalaryCredit($monthlySalary);
-    return ["ee" => round($msc * 0.05, 2), "er" => round($msc * 0.10, 2)];
+    return [
+        "ee" => round($monthlySalary * 0.05, 2),
+        "er" => round($monthlySalary * 0.10, 2),
+    ];
 }
 
-// ---- PhilHealth (2025): 2.5% EE / 2.5% ER, floor ₱10,000, cap ₱100,000 ----
 function computePhilHealth(float $monthlySalary): array {
-    $base = max(10000.0, min(100000.0, $monthlySalary));
+    $base = max(10000.0, $monthlySalary);
     return ["ee" => round($base * 0.025, 2), "er" => round($base * 0.025, 2)];
 }
 
-// ---- Pag-IBIG: 2% EE / 2% ER, Max Fund Salary ₱10,000 ----
 function computePagIbig(float $monthlySalary): array {
-    $base = min(10000.0, $monthlySalary);
-    return ["ee" => round($base * 0.02, 2), "er" => round($base * 0.02, 2)];
+    return [
+        "ee" => round($monthlySalary * 0.02, 2),
+        "er" => round($monthlySalary * 0.02, 2),
+    ];
 }
 
 // ---- BIR Withholding Tax: standard semi-monthly TRAIN table ----
