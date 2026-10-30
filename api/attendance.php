@@ -185,12 +185,17 @@ if ($method === "GET") {
             $dailyRate = $expectedDays > 0 ? (($monthly / 2) / $expectedDays) : 0.0;
 
             $gross = 0.0;
+            $perMinute = $dailyRate / 480.0;
             foreach ($days as &$day) {
                 if ($day["is_weekend"]) {
                     $day["daily_gross"] = null;
                 } elseif ($day["has_record"] && $day["status"] !== "Absent") {
-                    $day["daily_gross"] = round($dailyRate, 2);
-                    $gross += $dailyRate;
+                    $dayDeduction = (
+                        max(0, (int) ($day["minutes_late"] ?? 0))
+                        + max(0, (int) ($day["undertime_minutes"] ?? 0))
+                    ) * $perMinute;
+                    $day["daily_gross"] = round(max(0, $dailyRate - $dayDeduction), 2);
+                    $gross += max(0, $dailyRate - $dayDeduction);
                 } else {
                     $day["daily_gross"] = 0.0;
                 }
@@ -336,8 +341,13 @@ if ($method === "GET") {
             $dailyRate = $expectedDays > 0
                 ? (((float) $r["basic_salary"] / 2) / $expectedDays)
                 : 0.0;
+            $perMinute = $dailyRate / 480.0;
             $r["daily_rate"] = round($dailyRate, 2);
-            $r["period_gross"] = round($r["days_present"] * $dailyRate, 2);
+            $r["period_gross"] = round(max(
+                0,
+                ($r["days_present"] * $dailyRate)
+                - (($r["total_late_minutes"] + $undertime) * $perMinute)
+            ), 2);
 
             $totals["days_present"]            += $r["days_present"];
             $totals["days_late"]               += $r["days_late"];
