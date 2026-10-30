@@ -158,12 +158,6 @@ function actionsFor(r) {
         buttons.push(`<button class="btn btn-edit" data-action="resubmit" data-run="${r.run_id}">Resubmit</button>`);
     }
 
-    // Finance gets the cost-control view before approving/releasing. It is
-    // aggregate only: no employee payslip details.
-    if (isFinance()) {
-        buttons.push(`<button class="btn btn-plain" data-expenses="${r.run_id}">View Expenses</button>`);
-    }
-
     // Official payslips are available only after release. Before that,
     // Payroll/HR reviews run-level totals and approvals.
     if (r.status === "Released") {
@@ -271,7 +265,7 @@ function renderRows(rows) {
             : "";
 
         return `
-        <tr>
+        <tr class="run-row" data-run="${r.run_id}" style="cursor:pointer;" title="View payslip destinations">
             <td>#${r.run_id}</td>
             <td>${escapeHtml(r.start_date)}<br>
                 <span style="color:var(--muted);font-size:11px;">to ${escapeHtml(r.end_date)}</span></td>
@@ -297,9 +291,70 @@ function renderRows(rows) {
     rowsEl.querySelectorAll("[data-export]").forEach((btn) => {
         btn.addEventListener("click", () => exportRun(btn.dataset.run, btn.dataset.export, btn));
     });
-    rowsEl.querySelectorAll("[data-expenses]").forEach((btn) => {
-        btn.addEventListener("click", () => showRunExpenses(Number(btn.dataset.expenses), btn));
+    rowsEl.querySelectorAll(".run-row").forEach((row) => {
+        row.addEventListener("click", (e) => {
+            if (e.target.closest("button, a")) return;
+            showPayslipDestinations(Number(row.dataset.run));
+        });
     });
+}
+
+// ---------------------------------------------------------------------
+// Payslip destinations for Finance review
+// ---------------------------------------------------------------------
+async function showPayslipDestinations(runId) {
+    try {
+        const { data } = await api.get("payroll_run_destinations.php", { params: { run_id: runId } });
+        const r = data.data;
+        const employees = r.employees || [];
+        const tableRows = employees.map((e) => `
+            <tr>
+                <td>${escapeHtml(e.employee_name)}<br>
+                    <span style="font-size:11px;color:#888;">${escapeHtml(e.employee_number)}</span></td>
+                <td>${escapeHtml(e.email || "—")}</td>
+                <td>${escapeHtml(e.portal_username || "—")}</td>
+                <td>${escapeHtml(e.bank_name || "—")}</td>
+                <td>${escapeHtml(e.bank_account_name || "—")}</td>
+                <td>${escapeHtml(e.bank_account_number || "—")}</td>
+                <td style="text-align:right;font-weight:600;">${formatMoney(e.net_pay || 0)}</td>
+            </tr>
+        `).join("");
+
+        await Swal.fire({
+            title: `Payslip Destinations — Run #${r.run.run_id}`,
+            width: 1100,
+            customClass: { popup: "expense-popup" },
+            html: `
+                <div style="text-align:left;font-size:12.5px;">
+                    <p style="margin:0 0 12px;color:#6b7280;">
+                        Period ${escapeHtml(r.run.start_date)} → ${escapeHtml(r.run.end_date)}
+                        · Pay date ${escapeHtml(r.run.pay_date)}
+                        · ${employees.length} payslip destination(s)
+                    </p>
+                    ${employees.length ? `
+                    <div style="overflow-x:auto;">
+                        <table class="report-table" style="width:100%;">
+                            <thead>
+                                <tr>
+                                    <th>Employee</th>
+                                    <th>Email</th>
+                                    <th>Portal Account</th>
+                                    <th>Bank</th>
+                                    <th>Account Name</th>
+                                    <th>Account Number</th>
+                                    <th style="text-align:right;">Net Pay</th>
+                                </tr>
+                            </thead>
+                            <tbody>${tableRows}</tbody>
+                        </table>
+                    </div>` : `<p style="padding:20px;text-align:center;color:#888;">No payslips in this run.</p>`}
+                </div>
+            `,
+            confirmButtonText: "Close",
+        });
+    } catch (err) {
+        showToast(apiErrorMessage(err), "error");
+    }
 }
 
 // ---------------------------------------------------------------------
