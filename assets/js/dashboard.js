@@ -526,3 +526,30 @@ function render(data) {
 }
 
 document.addEventListener("DOMContentLoaded", loadDashboard);
+
+// ---------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------
+async function loadNotifications() {
+    const list = document.getElementById("notification-list");
+    const count = document.getElementById("notification-count");
+    if (!list) return;
+    try {
+        const { data } = await api.get("notifications.php");
+        const payload = data.data || { count: 0, items: [] };
+        count.textContent = String(payload.count || 0);
+        if (!payload.items.length) {
+            list.innerHTML = `<div class="notification-empty">You're all caught up.</div>`;
+            return;
+        }
+        list.innerHTML = payload.items.map((item) => `
+            <a class="notification-item" href="${escapeHtml(item.url)}">
+                <div><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.detail)}</span></div>
+                <span class="notification-badge">${Number(item.count || 0)}</span>
+            </a>
+        `).join("");
+    } catch (err) {
+        list.innerHTML = `<div class="notification-empty">Notifications unavailable.</div>`;
+    }
+}
+document.addEventListener("DOMContentLoaded", loadNotifications);

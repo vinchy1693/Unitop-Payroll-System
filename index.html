@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Dashboard — UNITOP Payroll System</title>
-<link rel="stylesheet" href="assets/css/style.css?v=20261021visibility8">
+<link rel="stylesheet" href="assets/css/style.css?v=20261031notifications">
 </head>
 <body class="page-dashboard">
 <nav class="sidebar nav-locked">
@@ -63,6 +63,17 @@
         <div class="kpi-tile kpi-neutral"><div class="kpi-label">Loading…</div></div>
     </div>
 
+    <!-- NOTIFICATIONS -->
+    <div class="card notification-card" id="notification-card">
+        <div class="card-head">
+            <h3>Notifications</h3>
+            <span id="notification-count" class="notification-count">0</span>
+        </div>
+        <div id="notification-list" class="notification-list">
+            <div class="notification-empty">Loading…</div>
+        </div>
+    </div>
+
     <!-- ROW 2 — Workflow cards -->
     <div id="workflow-grid" class="workflow-grid">
         <div class="workflow-card"><div class="workflow-title">Loading…</div></div>
@@ -95,7 +106,7 @@
 <script src="assets/js/dialogs.js"></script>
 <script src="assets/js/api.js?v=20261020logoutalert"></script>
 <script src="assets/js/nav.js?v=20261030admin" onerror="var nl=document.querySelectorAll('nav.sidebar');for(var i=0;i<nl.length;i++)nl[i].classList.remove('nav-locked');"></script>
-<script src="assets/js/dashboard.js?v=8finance2"></script>
+<script src="assets/js/dashboard.js?v=20261031notifications"></script>
 <script src="assets/js/theme.js"></script>
 </body>
 </html>

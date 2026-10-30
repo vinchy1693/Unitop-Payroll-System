@@ -2459,3 +2459,58 @@ th { font-size: 12.5px; letter-spacing: 0.45px; }
 }
 
 
+
+/* =====================================================================
+   NOTIFICATIONS
+   ===================================================================== */
+.notification-card { margin-bottom: 20px; }
+.notification-count {
+    display: inline-flex;
+    min-width: 24px;
+    height: 24px;
+    align-items: center;
+    justify-content: center;
+    padding: 0 7px;
+    border-radius: 999px;
+    background: var(--blue);
+    color: var(--on-accent);
+    font-size: 11px;
+    font-weight: 700;
+}
+.notification-list { display: grid; gap: 8px; }
+.notification-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 11px 13px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-2);
+    color: var(--text);
+    text-decoration: none;
+}
+.notification-item:hover { border-color: var(--blue); }
+.notification-item strong { display: block; font-size: 13px; }
+.notification-item span:not(.notification-badge) {
+    display: block;
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 11.5px;
+}
+.notification-badge {
+    min-width: 22px;
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: var(--red);
+    color: var(--on-accent);
+    font-size: 11px;
+    font-weight: 700;
+    text-align: center;
+}
+.notification-empty {
+    padding: 14px;
+    color: var(--muted);
+    font-size: 12.5px;
+    text-align: center;
+}
