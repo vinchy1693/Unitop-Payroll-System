@@ -277,6 +277,96 @@ if ($method === "GET") {
 // Everything below writes: the single Manager-or-Supervisor approval.
 requireRole([MANAGER_ROLE, SUPERVISOR_ROLE]);
 
+// ---- POST: Manager directly corrects a specific employee/date ----
+if ($method === "POST") {
+    if (!isManager()) {
+        respond(false, "Only a Manager may create a direct attendance correction.", null, 403);
+    }
+
+    $in       = json_input();
+    $empId    = (int) ($in["employee_id"] ?? 0);
+    $workDate = trim((string) ($in["work_date"] ?? ""));
+    $timeIn   = normalizeTime($in["time_in"] ?? null);
+    $timeOut  = normalizeTime($in["time_out"] ?? null);
+    $reason   = trim((string) ($in["reason"] ?? ""));
+
+    if ($empId === 0 || $workDate === "") {
+        respond(false, "Employee and work date are required.", null, 422);
+    }
+    if ($timeIn === null || $timeOut === null) {
+        respond(false, "Both a valid time in and time out are required.", null, 422);
+    }
+    if (strcmp($timeOut, $timeIn) <= 0) {
+        respond(false, "Time out must be after time in.", null, 422);
+    }
+    if (strlen($reason) < 10) {
+        respond(false, "A reason of at least 10 characters is required.", null, 422);
+    }
+
+    $dateCheck = DateTime::createFromFormat("!Y-m-d", $workDate);
+    if (!$dateCheck || $dateCheck->format("Y-m-d") !== $workDate) {
+        respond(false, "Work date must be a real date in YYYY-MM-DD form.", null, 422);
+    }
+
+    assertManages($pdo, $empId, "correct attendance for this employee");
+    assertAttendanceDateUnlocked($pdo, $workDate, "Attendance for this date");
+
+    $minutesLate = scanMinutesLate($timeIn);
+    $hoursWorked = scanHoursWorked($timeIn, $timeOut);
+    $status      = $minutesLate > 0 ? "Late" : "Present";
+    $user        = currentUser();
+
+    $pdo->beginTransaction();
+    try {
+        $stmt = $pdo->prepare(
+            "SELECT attendance_id FROM attendance
+             WHERE employee_id = ? AND work_date = ?
+             ORDER BY attendance_id DESC LIMIT 1 FOR UPDATE"
+        );
+        $stmt->execute([$empId, $workDate]);
+        $attendanceId = $stmt->fetchColumn();
+
+        if ($attendanceId !== false) {
+            $pdo->prepare(
+                "UPDATE attendance
+                 SET time_in = ?, time_out = ?, hours_worked = ?, minutes_late = ?, status = ?
+                 WHERE attendance_id = ?"
+            )->execute([$timeIn, $timeOut, $hoursWorked, $minutesLate, $status, $attendanceId]);
+            $attendanceId = (int) $attendanceId;
+        } else {
+            $pdo->prepare(
+                "INSERT INTO attendance
+                 (employee_id, qr_code_id, work_date, time_in, time_out,
+                  scan_device_id, hours_worked, minutes_late, status)
+                 VALUES (?, NULL, ?, ?, ?, 'Manager Correction', ?, ?, ?)"
+            )->execute([$empId, $workDate, $timeIn, $timeOut, $hoursWorked, $minutesLate, $status]);
+            $attendanceId = (int) $pdo->lastInsertId();
+        }
+
+        $pdo->prepare(
+            "INSERT INTO attendance_corrections
+             (employee_id, attendance_id, work_date, correction_type,
+              requested_time_in, requested_time_out, reason, status,
+              requested_at, reviewed_by, reviewed_at, review_remarks)
+             VALUES (?, ?, ?, 'both', ?, ?, ?, 'Approved', NOW(), ?, NOW(), 'Direct Manager correction')"
+        )->execute([$empId, $attendanceId, $workDate, $timeIn, $timeOut, $reason, $user["user_id"]]);
+
+        $correctionId = (int) $pdo->lastInsertId();
+        $pdo->commit();
+
+        respond(true, "Attendance corrected for $workDate.", [
+            "attendance_id" => $attendanceId,
+            "correction_id" => $correctionId,
+            "hours_worked"  => $hoursWorked,
+            "minutes_late"  => $minutesLate,
+            "status"        => $status,
+        ]);
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        respondServerError("The attendance correction could not be saved.", $e, "attendance_corrections POST");
+    }
+}
+
 if ($method !== "PATCH") {
     respond(false, "Method not allowed.", null, 405);
 }

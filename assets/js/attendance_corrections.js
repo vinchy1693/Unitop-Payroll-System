@@ -19,6 +19,14 @@ const filterMonth  = document.getElementById("filter_month");
 const filterPeriod = document.getElementById("filter_period");
 const filterRange  = document.getElementById("filter_range");
 const clearDates   = document.getElementById("clear-dates");
+const directCard   = document.getElementById("direct-card");
+const directForm   = document.getElementById("direct-form");
+const directEmp    = document.getElementById("direct-employee");
+const directDate   = document.getElementById("direct-date");
+const directIn     = document.getElementById("direct-time-in");
+const directOut    = document.getElementById("direct-time-out");
+const directReason = document.getElementById("direct-reason");
+const directSubmit = document.getElementById("direct-submit");
 
 const PAGE_SIZE = 200;
 
@@ -153,6 +161,10 @@ async function loadEmployees() {
         const list = data.data || [];
         filterEmp.innerHTML = `<option value="">All employees</option>` +
             list.map((e) => `<option value="${e.id}">${escapeHtml(e.label)}</option>`).join("");
+        if (directEmp) {
+            directEmp.innerHTML = `<option value="">-- Select employee --</option>` +
+                list.map((e) => `<option value="${e.id}">${escapeHtml(e.label)}</option>`).join("");
+        }
     } catch (err) {
         // The queue still works without the filter.
         filterEmp.innerHTML = `<option value="">All employees</option>`;
@@ -192,6 +204,50 @@ async function loadPendingCount() {
 
 function refresh() {
     return Promise.all([loadRows(), loadPendingCount()]);
+}
+
+if (directForm) {
+    directForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const employeeId = Number(directEmp.value);
+        const workDate   = directDate.value;
+        const timeIn     = directIn.value;
+        const timeOut    = directOut.value;
+        const reason     = directReason.value.trim();
+
+        if (!employeeId)   { showToast("Select an employee.", "error"); return; }
+        if (!workDate)     { showToast("Select a work date.", "error"); return; }
+        if (!timeIn || !timeOut) { showToast("Enter both time in and time out.", "error"); return; }
+        if (timeOut <= timeIn)   { showToast("Time out must be after time in.", "error"); return; }
+        if (reason.length < 10)  { showToast("Enter a reason of at least 10 characters.", "error"); return; }
+
+        const employeeLabel = directEmp.options[directEmp.selectedIndex]?.textContent || "employee";
+        if (!await confirmDialog(
+            `Correct ${employeeLabel} for ${workDate} to ${timeIn}–${timeOut}? This applies immediately.`,
+            { title: "Save Attendance Correction", icon: "question", confirmText: "Save Correction" }
+        )) return;
+
+        directSubmit.disabled = true;
+        try {
+            const { data } = await api.post("attendance_corrections.php", {
+                employee_id: employeeId,
+                work_date: workDate,
+                time_in: timeIn,
+                time_out: timeOut,
+                reason,
+            });
+            showToast(data.message, "success");
+            directIn.value = "";
+            directOut.value = "";
+            directReason.value = "";
+            directDate.value = new Date().toISOString().slice(0, 10);
+            await refresh();
+        } catch (err) {
+            showToast(apiErrorMessage(err), "error");
+        } finally {
+            directSubmit.disabled = false;
+        }
+    });
 }
 
 // ---------------------------------------------------------------------
@@ -327,6 +383,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     const now = new Date();
     filterMonth.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     filterPeriod.value = "first";
+    if (directDate) directDate.value = now.toISOString().slice(0, 10);
+    directCard?.classList.toggle("hidden", !isManager());
     syncDateClear();
 
     loadEmployees();

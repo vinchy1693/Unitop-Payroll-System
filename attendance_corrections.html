@@ -55,6 +55,42 @@
 
     <div id="msg" class="msg hidden"></div>
 
+    <div class="card" id="direct-card">
+        <h3>Correct Attendance for an Employee</h3>
+        <p style="margin:0 0 14px;font-size:13px;color:var(--muted);line-height:1.55;">
+            Select an employee and a specific work date, then enter the corrected time in and time out.
+            This applies immediately and is recorded in the correction history.
+        </p>
+        <form id="direct-form">
+            <div class="form-grid">
+                <div>
+                    <label for="direct-employee">Employee</label>
+                    <select id="direct-employee" required>
+                        <option value="">-- Select employee --</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="direct-date">Work Date</label>
+                    <input type="date" id="direct-date" required>
+                </div>
+                <div>
+                    <label for="direct-time-in">Time In</label>
+                    <input type="time" step="1" id="direct-time-in" required>
+                </div>
+                <div>
+                    <label for="direct-time-out">Time Out</label>
+                    <input type="time" step="1" id="direct-time-out" required>
+                </div>
+                <div style="grid-column:1 / -1;">
+                    <label for="direct-reason">Reason</label>
+                    <textarea id="direct-reason" rows="3" maxlength="500" required
+                              placeholder="Explain the correction (at least 10 characters)"></textarea>
+                </div>
+            </div>
+            <button class="btn btn-primary" type="submit" id="direct-submit">Save Correction</button>
+        </form>
+    </div>
+
     <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;">
         <div>
             <div style="font-size:12px;text-transform:uppercase;letter-spacing:0.7px;font-weight:700;color:var(--muted);">Awaiting your decision</div>
@@ -124,7 +160,7 @@
 <script src="assets/js/dialogs.js"></script>
 <script src="assets/js/api.js?v=20261020logoutalert"></script>
 <script src="assets/js/nav.js?v=20261030admin" onerror="var nl=document.querySelectorAll('nav.sidebar');for(var i=0;i<nl.length;i++)nl[i].classList.remove('nav-locked');"></script>
-<script src="assets/js/attendance_corrections.js?v=20261021periods"></script>
+<script src="assets/js/attendance_corrections.js?v=20261031direct"></script>
 <script src="assets/js/theme.js"></script>
 </body>
 </html>
