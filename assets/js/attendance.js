@@ -742,8 +742,8 @@ function renderDetail(payload) {
             statusCell = `<span class="badge inactive">Absent</span>`;
         }
         const actionCell = canMarkAbsent
-            ? `<td class="col-center">${!d.is_weekend && !d.has_record
-                ? `<button class="btn btn-delete" style="padding:4px 9px;font-size:11.5px;" data-mark-absent="${d.date}" data-emp="${employee.employee_id}">Mark Absent</button>`
+            ? `<td class="col-center action-cell">${!d.is_weekend && !d.has_record
+                ? `<button class="btn btn-delete" style="font-size:11px;" data-mark-absent="${d.date}" data-emp="${employee.employee_id}">Mark Absent</button>`
                 : ""}</td>`
             : "";
         const rowStyle = (d.is_weekend || d.status === "No Record") ? 'style="opacity:0.5;"' : "";
@@ -789,7 +789,7 @@ function renderDetail(payload) {
                 ${showGross ? `<div class="ledger-stat"><span>Period Gross</span><strong>${formatMoney(totals.gross || 0)}</strong></div>` : ""}
             </div>
             <div class="table-scroll">
-                <table class="report-table">
+                <table class="report-table attendance-detail-table">
                     <thead>
                         <tr>
                             <th>Date</th>
