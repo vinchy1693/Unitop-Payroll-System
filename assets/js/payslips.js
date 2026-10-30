@@ -175,19 +175,40 @@ function renderPayslip(p) {
     const displayTotalDed = Math.max(0, totalDed);
 
     const holidayPremiums = Array.isArray(p.holiday_premiums) ? p.holiday_premiums : [];
-    const holidayNote = holidayPremiums.map((h) => {
-        const type = h.holiday_type === "Regular"
-            ? "Regular Holiday"
-            : h.holiday_type === "Special"
-                ? "Special Holiday"
-                : "Holiday";
-        return `${escapeHtml(type)} (${Number(h.percentage || 0)}%)`;
+    const premiumDetails = Array.isArray(p.premium_breakdown) && p.premium_breakdown.length
+        ? p.premium_breakdown
+        : holidayPremiums.map((h) => ({
+            day_type: h.holiday_type === "Regular" ? "Regular Holiday" : "Special Holiday",
+            percentage: h.percentage,
+            hours_worked: h.hours_worked,
+        }));
+
+    function premiumTypeLabel(dayType) {
+        if (dayType === "Rest Day") return "Rest Day";
+        if (dayType === "Special Holiday") return "Special Holiday";
+        if (dayType === "Regular Holiday") return "Legal Holiday";
+        return dayType || "Premium";
+    }
+    const premiumNote = premiumDetails.map((h) => {
+        return `${escapeHtml(premiumTypeLabel(h.day_type))} (${Number(h.percentage || 0)}%)`;
     }).join("<br>");
-    const premiumLabel = `Premium Pay${holidayNote ? `<span class="payslip-premium-note">${holidayNote}</span>` : ""}`;
+    const premiumLabel = `Premium Pay${premiumNote ? `<span class="payslip-premium-note">${premiumNote}</span>` : ""}`;
+
+    function overtimeTypeLabel(dayType) {
+        if (dayType === "Rest Day") return "Rest Day OT";
+        if (dayType === "Special Holiday") return "Special Holiday OT";
+        if (dayType === "Regular Holiday") return "Legal Holiday OT";
+        return "Regular Overtime";
+    }
+    const overtimeDetails = Array.isArray(p.overtime_breakdown) ? p.overtime_breakdown : [];
+    const overtimeNote = overtimeDetails.map((o) => {
+        return `${escapeHtml(overtimeTypeLabel(o.day_type))} (${Number(o.percentage || 0)}%)`;
+    }).join("<br>");
+    const overtimeLabel = `Overtime Pay${overtimeNote ? `<span class="payslip-premium-note">${overtimeNote}</span>` : ""}`;
 
     const earningsLines = [
         { label: "Basic Pay", amount: basic },
-        { label: "Overtime Pay", amount: ot },
+        { label: "Overtime Pay", amount: ot, labelHtml: overtimeLabel },
         ...(premium > 0 ? [{ label: "Premium Pay", amount: premium, labelHtml: premiumLabel }] : []),
         ...allowances.map((a) => ({
             label: a.allowance_type,

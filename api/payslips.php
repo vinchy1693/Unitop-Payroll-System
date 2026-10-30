@@ -186,6 +186,56 @@ if (isset($_GET["id"])) {
         ];
     }, $holidayStmt->fetchAll());
 
+    // Premium breakdown includes rest-day duty as well as holidays.
+    $premiumStmt = $pdo->prepare(
+        "SELECT a.work_date, h.name, h.holiday_type, a.hours_worked
+         FROM attendance a
+         LEFT JOIN holidays h ON h.holiday_date = a.work_date
+         WHERE a.employee_id = ?
+           AND a.work_date BETWEEN ? AND ?
+           AND a.time_in IS NOT NULL
+           AND a.time_out IS NOT NULL
+           AND a.status IN ('Present', 'Late')
+         ORDER BY a.work_date"
+    );
+    $premiumStmt->execute([(int) $row["employee_id"], $row["start_date"], $row["end_date"]]);
+    $row["premium_breakdown"] = [];
+    foreach ($premiumStmt->fetchAll() as $p) {
+        $dayType = dayTypeForDate($pdo, (string) $p["work_date"]);
+        if ($dayType === "Ordinary Day") continue;
+        $row["premium_breakdown"][] = [
+            "date"         => $p["work_date"],
+            "name"         => $p["name"],
+            "day_type"     => $dayType,
+            "percentage"   => (int) round(firstEightMultiplierForDayType($dayType) * 100),
+            "hours_worked" => (float) $p["hours_worked"],
+        ];
+    }
+
+    // Overtime breakdown by day type, including rest days and holidays.
+    $otStmt = $pdo->prepare(
+        "SELECT ot_date, hours, rate_multiplier
+         FROM overtime_records
+         WHERE employee_id = ?
+           AND ot_date BETWEEN ? AND ?
+           AND status IN ('Approved', 'Completed')
+           AND hours > 0
+           AND time_in IS NOT NULL
+           AND time_out IS NOT NULL
+         ORDER BY ot_date"
+    );
+    $otStmt->execute([(int) $row["employee_id"], $row["start_date"], $row["end_date"]]);
+    $row["overtime_breakdown"] = [];
+    foreach ($otStmt->fetchAll() as $ot) {
+        $dayType = dayTypeForDate($pdo, (string) $ot["ot_date"]);
+        $row["overtime_breakdown"][] = [
+            "date"         => $ot["ot_date"],
+            "day_type"     => $dayType,
+            "percentage"   => (int) round(overtimeMultiplierForDayType($dayType) * 100),
+            "hours"        => (float) $ot["hours"],
+        ];
+    }
+
     respond(true, "", $row);
 }
 
